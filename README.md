@@ -25,7 +25,7 @@ un lien sécurisé, sur téléphone.
 pnpm install
 cp .env.example .env
 docker compose up -d db db-test
-pnpm db:deploy && pnpm db:seed
+pnpm db:fresh
 pnpm dev
 ```
 
@@ -52,29 +52,34 @@ complet (client Google, variables, Vercel) est dans `docs/auth.md`, les droits d
 
 ## Commandes
 
-| Commande                | Rôle                                                                     |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `pnpm dev`              | Serveur de développement                                                 |
-| `pnpm build`            | Build de production (sortie `standalone`)                                |
-| `pnpm start`            | Serveur de production                                                    |
-| `pnpm lint`             | ESLint (config Next + typescript-eslint strict), zéro avertissement      |
-| `pnpm format`           | Prettier (écriture)                                                      |
-| `pnpm format:check`     | Prettier (vérification)                                                  |
-| `pnpm typecheck`        | `tsc --noEmit`                                                           |
-| `pnpm test`             | Tests unitaires Vitest                                                   |
-| `pnpm test:watch`       | Vitest en mode interactif                                                |
-| `pnpm test:db`          | Tests d'intégration sur une vraie base PostgreSQL (`TEST_DATABASE_URL`)  |
-| `pnpm test:e2e`         | Playwright sur le build de production (`pnpm build && pnpm start`)       |
-| `pnpm verify`           | `format:check` + `lint` + `typecheck` + `test` — **avant chaque commit** |
-| `pnpm icons`            | Régénère `icon.svg` et `apple-icon.png` depuis le tracé du logo          |
-| `pnpm db:migrate`       | `prisma migrate dev` : crée et applique une migration (développement)    |
-| `pnpm db:deploy`        | `prisma migrate deploy` : applique les migrations (test, production)     |
-| `pnpm db:reset`         | Recrée la base de développement puis relance le seed                     |
-| `pnpm db:seed`          | Seed synthétique, déterministe et idempotent                             |
-| `pnpm db:studio`        | Prisma Studio, pour parcourir les tables                                 |
-| `pnpm admin:grant`      | Crée ou modifie un compte responsable (`<email> <PROFIL...>`)            |
-| `pnpm admin:revoke`     | Désactive un compte responsable (`<email>`)                              |
-| `pnpm docs:permissions` | Régénère `docs/permissions.md` depuis la matrice des droits              |
+| Commande                 | Rôle                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| `pnpm dev`               | Serveur de développement                                                          |
+| `pnpm build`             | Build de production (sortie `standalone`)                                         |
+| `pnpm start`             | Serveur de production                                                             |
+| `pnpm lint`              | ESLint (config Next + typescript-eslint strict), zéro avertissement               |
+| `pnpm format`            | Prettier (écriture)                                                               |
+| `pnpm format:check`      | Prettier (vérification)                                                           |
+| `pnpm typecheck`         | `tsc --noEmit`                                                                    |
+| `pnpm test`              | Tests unitaires Vitest                                                            |
+| `pnpm test:watch`        | Vitest en mode interactif                                                         |
+| `pnpm test:db`           | Tests d'intégration sur une vraie base PostgreSQL (`TEST_DATABASE_URL`)           |
+| `pnpm test:e2e`          | Playwright sur le build de production (`pnpm build && pnpm start`)                |
+| `pnpm verify`            | `format:check` + `lint` + `typecheck` + `test` — **avant chaque commit**          |
+| `pnpm icons`             | Régénère `icon.svg` et `apple-icon.png` depuis le tracé du logo                   |
+| `pnpm db:migrate`        | `prisma migrate dev` : crée et applique une migration (développement)             |
+| `pnpm db:deploy`         | `prisma migrate deploy` : applique les migrations (test, production)              |
+| `pnpm db:fresh`          | **Local seulement** : supprime et recrée la base, migrations et seed démo         |
+| `pnpm db:reset`          | Alias de `db:fresh`                                                               |
+| `pnpm db:seed:base`      | Référentiel, paramètres, règles de rappel : **seul seed de production**           |
+| `pnpm db:seed:demo`      | Seed de base + comptes démo et 60 personnes fictives (refuse de vraies données)   |
+| `pnpm db:seed`           | Alias de `db:seed:demo`                                                           |
+| `pnpm import:classeur`   | Import de l'ancien classeur (`<fichier.xlsx> [--dry-run]`), voir `docs/import.md` |
+| `pnpm fixtures:classeur` | Régénère les classeurs fictifs de `tests/fixtures/`                               |
+| `pnpm db:studio`         | Prisma Studio, pour parcourir les tables                                          |
+| `pnpm admin:grant`       | Crée ou modifie un compte responsable (`<email> <PROFIL...>`)                     |
+| `pnpm admin:revoke`      | Désactive un compte responsable (`<email>`)                                       |
+| `pnpm docs:permissions`  | Régénère `docs/permissions.md` depuis la matrice des droits                       |
 
 Avant le premier `pnpm test:e2e` en local : `pnpm exec playwright install chromium`.
 
@@ -113,8 +118,12 @@ Environnements :
 - **Tests d'intégration** : `docker compose up -d db-test`, puis `pnpm test:db`. La base visée
   par `TEST_DATABASE_URL` doit avoir « test » dans son nom ; elle est vidée et migrée à chaque
   exécution. `pnpm verify` ne lance pas ces tests, pour rester rapide.
-- **Supabase (phase de test)** : renseigner `DATABASE_URL` et `DIRECT_URL`, puis
-  `pnpm db:deploy` et, si besoin, `pnpm db:seed`. Aucun SDK ni extension Supabase n'est utilisé.
+- **Base neuve en local** : `pnpm db:fresh` supprime et recrée la base de `DATABASE_URL`, puis
+  applique les migrations et le seed de démonstration. Il refuse tout hôte non local et
+  `NODE_ENV=production`.
+- **Production (et Supabase de test)** : `pnpm db:deploy`, puis **`pnpm db:seed:base`
+  uniquement** (référentiel, paramètres, règles de rappel ; aucune personne). Les données réelles
+  arrivent par l'import du classeur (`docs/import.md`). Aucun SDK ni extension Supabase.
 
 Règles : pas de suppression physique (archivage ou annulation tracée), journaux `audit_logs` et
 `access_logs` en ajout seul (garanti par un déclencheur), jetons et codes stockés hachés. Si
@@ -125,10 +134,11 @@ Règles : pas de suppression physique (archivage ou annulation tracée), journau
 
 ```
 .github/workflows/ci.yml   CI : pnpm verify + Playwright
-docs/                      auth.md, data-model.md, decisions.md (ADR), design-system.md, permissions.md (généré)
+docs/                      auth.md, data-model.md, decisions.md (ADR), design-system.md, import.md, permissions.md (généré)
 e2e/                       tests Playwright (+ axe)
 prisma/                    schema.prisma, migrations/, seed.ts, seed/ (données fictives)
-scripts/                   generate-icons.ts
+scripts/                   generate-icons.ts, admin.ts, db-fresh.ts, import-classeur.ts, make-fixture-classeur.ts
+tests/fixtures/            classeurs .xlsx 100 % fictifs (les seuls .xlsx du dépôt)
 src/app/                   App Router
   (app)/                   coquille connectée : /, /benevoles, /candidats, /formations, /rappels, /design
   (public)/                parcours candidat sans connexion : /dossier/demo

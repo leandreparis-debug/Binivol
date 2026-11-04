@@ -254,6 +254,16 @@ d'après `reference_items.perimeters`.
 | `notifications`  | Notification d'un responsable          | `(user_id, dedupe_key)` unique, `read_at`                                  | N     |
 | `settings`       | Paramètres de l'outil                  | `key` unique, `value` JSONB                                                | N     |
 
+### Import
+
+| Table         | Rôle                                              | Champs clés                                                                                      | Sens.                         |
+| ------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------- |
+| `import_runs` | Historique des simulations et imports du classeur | auteur, `dry_run`, `status`, `file_name`, `file_size`, `file_sha256`, `counts`, `report` (JSONB) | N (le rapport cite des NIVOL) |
+
+Les ID de l'ancien classeur sont gardés dans `legacy_ref` (`candidacies`, `training_records`,
+`appointments`) et l'empreinte des lignes du Journal dans `audit_logs.legacy_hash` ; ils ne sont
+jamais réutilisés comme `ref`.
+
 ### Journaux
 
 | Table         | Rôle                                                                                                                            | Champs clés                                                                   | Sens.                |
@@ -308,142 +318,161 @@ Les notes « Interprétation à valider » portent le texte complet « Interpré
 - **Échéance au 31/12** : le 31 décembre de l'année d'obtention, même pour une obtention en
   décembre (confirmé par la note de FCCI : « à refaire tous les ans, échéance au 31/12 »).
 
-## Correspondance avec l'ancien classeur (pour l'étape 4)
+## Correspondance avec l'ancien classeur (import, étape 4)
 
-Intitulés exacts de la ligne 1 de chaque onglet. Seule la structure est décrite ici, jamais
-les données.
+Intitulés exacts de la ligne 1 de chaque onglet du classeur v03 ; seule la structure est
+décrite ici, jamais les données. L'import (`src/server/import/`, guide `docs/import.md`) compare
+les intitulés après suppression des espaces en trop : une colonne attendue absente est une
+erreur bloquante, une colonne inconnue un avertissement. Ordre : Referentiel, Parametres,
+Benevoles, Prospects, Sessions, Fonctions, Journal. Tout autre onglet est signalé « non repris ».
 
-### Valeurs observées et conversion
+**Sort d'une colonne** : _importée_ (vers le champ indiqué), _audit_ (gardée dans l'entrée
+`IMPORT` du journal d'audit, pas dans un champ), _non reprise_ (avec la raison).
 
-| Colonne             | Valeurs du classeur                                                                                                                                                                                           | Valeur Binivol                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Statut              | Candidat, Actif, Suspendu, Inactif, Parti(e)                                                                                                                                                                  | CANDIDATE, ACTIVE, SUSPENDED, INACTIVE, LEFT (PAUSED n'existe pas dans le classeur)        |
-| Aptitude (Pegass)   | Apte, Non apte, Retiré(e), À vérifier                                                                                                                                                                         | FIT, UNFIT, WITHDRAWN, TO_CHECK                                                            |
-| Résultat (Sessions) | Validé, Inscrit(e), À confirmer, Non validé, Absent                                                                                                                                                           | PASSED, REGISTERED, TO_CONFIRM, FAILED, ABSENT                                             |
-| Étape (Prospects)   | « Premier contact », « Dossier en cours »                                                                                                                                                                     | FIRST_CONTACT, FILE                                                                        |
-| Source (Prospects)  | texte libre, casse variable (« Site internet » / « Site Internet »)                                                                                                                                           | texte libre, casse normalisée à l'import                                                   |
-| Oui/Non             | « OUI », « NON » ou vide                                                                                                                                                                                      | `true`, `false`, et **vide = inconnu** (`null`), jamais `false`                            |
-| Annulée (Fonctions) | vide, ou `JJ/MM/AAAA par <email> : <motif>`                                                                                                                                                                   | `cancelled_at`, `cancelled_by_id` (compte retrouvé par e-mail) ou libellé, `cancel_reason` |
-| Action (Journal)    | Création de la base, Installation, Création, Modification, Modification directe, Modification directe (plage), Annulation, Paramètre, Dossier Drive, Sauvegarde, Envoi des alertes, Récapitulatif TCAU envoyé | `action = IMPORT`, libellé d'origine dans `legacy_action`                                  |
+### Valeurs communes
 
-Une colonne booléenne non nullable en base (`is_member`, `other_aasc`,
-`regular_minor_supervisor`, `parental_authorization`) recevra `false` quand la cellule est
-vide ; l'import le signalera dans son rapport. `is_trainer` est nullable pour garder « inconnu ».
+| Valeur              | Règle                                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Oui/Non             | « OUI » → vrai, « NON » → faux, **vide → `null`** (inconnu) ; autre texte → `null` + avertissement                                          |
+| Dates               | date Excel, nombre de série Excel ou texte `JJ/MM/AAAA` → jour calendaire ; illisible → `null` + avertissement, jamais un rejet de la ligne |
+| Horodatages         | date-heure Excel, série avec fraction ou `JJ/MM/AAAA HH:MM` → instant, heure de Paris                                                       |
+| NIVOL               | `normalizeNivol()` (espaces retirés, majuscules) ; invalide → **ligne rejetée**                                                             |
+| E-mails, téléphones | e-mails en minuscules ; téléphones gardés tels quels, espaces normalisés                                                                    |
+| Lignes vides        | ignorées sans bruit                                                                                                                         |
 
-### Onglet « Benevoles » → `persons` (+ `person_sensitive`)
+Listes : Statut (Candidat → CANDIDATE, Actif → ACTIVE, Suspendu → SUSPENDED, Inactif → INACTIVE,
+Parti(e) → LEFT ; autre → rejet). Aptitude (Apte → FIT, Non apte → UNFIT, Retiré(e) → WITHDRAWN,
+À vérifier → TO_CHECK ; autre → `null` + avertissement). Résultat (Validé → PASSED, Inscrit(e) →
+REGISTERED, À confirmer → TO_CONFIRM, Non validé → FAILED, Absent → ABSENT ; vide ou autre →
+TO_CONFIRM, avec avertissement si autre). Étape (Premier contact → FIRST_CONTACT, Dossier en cours
+→ FILE ; autre → FIRST_CONTACT + avertissement). Comparaisons sans accents ni casse.
 
-| Colonne                    | Table.champ                                    | Remarque                                                      |
-| -------------------------- | ---------------------------------------------- | ------------------------------------------------------------- |
-| NIVOL                      | `persons.nivol`                                | `normalizeNivol()` ; 46/46 au format 11 chiffres + 1 lettre   |
-| Prénom, Nom                | `persons.first_name`, `last_name`              |                                                               |
-| E-mail, Téléphone          | `persons.email`, `phone`                       |                                                               |
-| Date de naissance          | `person_sensitive.birth_date`                  | sensible                                                      |
-| Statut                     | `persons.status`                               | voir les valeurs ; `legacy_import = true` sur chaque ligne    |
-| Date d'entrée              | `persons.entry_date`                           |                                                               |
-| Date de départ             | `persons.left_at`                              | motif absent du classeur : `left_reason = OTHER` si Parti(e)  |
-| Adhérent                   | `persons.is_member`                            | Oui/Non                                                       |
-| Aptitude (Pegass)          | `persons.aptitude`                             | voir les valeurs                                              |
-| Date aptitude              | `persons.aptitude_date`                        |                                                               |
-| Autre AASC                 | `persons.other_aasc`                           | Oui/Non                                                       |
-| Formateur                  | `persons.is_trainer`                           | Oui/Non/vide → `true`/`false`/`null` ; vrai → FORMAT_GP       |
-| Encadrant régulier mineurs | `persons.regular_minor_supervisor`             | Oui/Non                                                       |
-| Date vérif. B3             | `person_sensitive.b3_checked_at`               | sensible ; `b3_status = CLEAR` si la date est renseignée      |
-| Autorisation parentale     | `person_sensitive.parental_authorization`      | sensible                                                      |
-| Date autorisation          | `person_sensitive.parental_authorization_date` | sensible                                                      |
-| Notes                      | `persons.notes`                                |                                                               |
-| Modifié le, Modifié par    | `persons.updated_at`, `updated_by_id`          | compte retrouvé par e-mail, sinon libellé dans l'audit IMPORT |
-| Dossier Drive              | `persons.legacy_drive_folder_id`               | identifiant de dossier, pour la reprise des fichiers          |
+### Onglet « Benevoles » → `persons` + `person_sensitive` (clé : NIVOL)
 
-### Onglet « Prospects » → `persons` (CANDIDATE) + `candidacies`
+| Colonne                    | Sort                                                      | Remarque                                                                                                |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| NIVOL                      | importée → `persons.nivol`                                | clé ; invalide ou en double dans l'onglet → ligne rejetée                                               |
+| Prénom, Nom                | importées → `first_name`, `last_name`                     | manquants → ligne rejetée                                                                               |
+| E-mail, Téléphone          | importées → `email`, `phone`                              |                                                                                                         |
+| Date de naissance          | importée → `person_sensitive.birth_date`                  | sensible, masquée dans l'audit                                                                          |
+| Statut                     | importée → `status`                                       | inconnu → ligne rejetée                                                                                 |
+| Date d'entrée              | importée → `entry_date`                                   |                                                                                                         |
+| Date de départ             | importée → `left_at`                                      | Parti(e) sans date → « Modifié le », sinon jour de l'import, + avertissement ; `left_reason` reste vide |
+| Adhérent                   | importée → `is_member`                                    | Oui/Non, vide = inconnu                                                                                 |
+| Aptitude (Pegass)          | importée → `aptitude`                                     |                                                                                                         |
+| Date aptitude              | importée → `aptitude_date`                                |                                                                                                         |
+| Autre AASC                 | importée → `other_aasc`                                   | Oui/Non, vide = inconnu                                                                                 |
+| Formateur                  | importée → `is_trainer`                                   | vrai → périmètre FORMAT_GP                                                                              |
+| Encadrant régulier mineurs | importée → `regular_minor_supervisor`                     | Oui/Non, vide = inconnu                                                                                 |
+| Date vérif. B3             | importée → `person_sensitive.b3_checked_at`               | sensible ; `b3_status` reste vide (le résultat n'est pas dans le classeur)                              |
+| Autorisation parentale     | importée → `person_sensitive.parental_authorization`      | sensible, vide = inconnu                                                                                |
+| Date autorisation          | importée → `person_sensitive.parental_authorization_date` | sensible                                                                                                |
+| Notes                      | importée → `notes`                                        |                                                                                                         |
+| Modifié le, Modifié par    | audit                                                     | dans l'entrée `IMPORT` (`legacy`), pas dans `updated_at`                                                |
+| Dossier Drive              | importée → `legacy_drive_folder_id`                       | pour la reprise des fichiers                                                                            |
 
-| Colonne                           | Table.champ                                         | Remarque                                 |
-| --------------------------------- | --------------------------------------------------- | ---------------------------------------- |
-| ID                                | rapport d'import et audit IMPORT                    | identifiant du classeur, sans équivalent |
-| Prénom, Nom, E-mail, Téléphone    | `persons.first_name`, `last_name`, `email`, `phone` | statut CANDIDATE                         |
-| Date de naissance                 | `person_sensitive.birth_date`                       | sensible                                 |
-| Source, Intérêt                   | `candidacies.source`, `interest`                    |                                          |
-| Date de premier contact           | `candidacies.first_contact_at`                      |                                          |
-| Étape                             | `candidacies.stage`                                 | voir les valeurs                         |
-| Prochaine action, Date de relance | `candidacies.next_action`, `follow_up_at`           |                                          |
-| Notes                             | `persons.notes`                                     |                                          |
-| NIVOL attribué                    | `persons.nivol`                                     | rapprochement avec l'onglet Benevoles    |
-| Saisi le, Saisi par               | `candidacies.created_at`, `created_by_id`           |                                          |
-| Modifié le, Modifié par           | `candidacies.updated_at`, `updated_by_id`           |                                          |
+Toute personne importée porte `legacy_import = true`.
 
-### Onglet « Sessions » → `training_records`
+### Onglet « Prospects » → `persons` (CANDIDATE) + `candidacies` (clé : ID → `candidacies.legacy_ref`)
 
-| Colonne             | Table.champ                                         | Remarque                                   |
-| ------------------- | --------------------------------------------------- | ------------------------------------------ |
-| ID                  | `training_records.ref` si au format S-, sinon audit | séquence recalée après import              |
-| NIVOL               | `training_records.person_id`                        | rapprochement par NIVOL                    |
-| Code                | `training_records.reference_id`                     | par `reference_items.code`                 |
-| Date                | `training_records.date`                             | **vide sur la grande majorité des lignes** |
-| Résultat            | `training_records.result`                           | voir les valeurs ; vide → TO_CONFIRM       |
-| Organisme / lieu    | `training_records.place`                            |                                            |
-| Lien Pegass         | `training_records.pegass_url`                       |                                            |
-| Commentaire         | `training_records.comment`                          |                                            |
-| Saisi le, Saisi par | `created_at`, `created_by_id`                       |                                            |
+| Colonne                            | Sort                                         | Remarque                                                                                                       |
+| ---------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| ID                                 | importée → `candidacies.legacy_ref`          | jamais réutilisé comme `ref` ; en double → ligne rejetée                                                       |
+| Prénom, Nom, E-mail, Téléphone     | importées → `persons.*`                      | personne créée en CANDIDATE, sauf prospect rattaché                                                            |
+| Date de naissance                  | importée → `person_sensitive.birth_date`     | sensible                                                                                                       |
+| Source, Intérêt                    | importées → `candidacies.source`, `interest` | texte gardé tel quel                                                                                           |
+| Date de premier contact            | importée → `candidacies.first_contact_at`    | minuit à Paris                                                                                                 |
+| Étape                              | importée → `candidacies.stage`               | rattaché → DONE et close                                                                                       |
+| Prochaine action, Date de relance  | importées → `next_action`, `follow_up_at`    |                                                                                                                |
+| Notes                              | importée → `persons.notes`                   |                                                                                                                |
+| NIVOL attribué                     | importée (rattachement)                      | si le NIVOL est dans Benevoles : candidature rattachée à ce bénévole, close en DONE, aucune personne en double |
+| Saisi le                           | importée → `candidacies.created_at`          |                                                                                                                |
+| Saisi par, Modifié le, Modifié par | audit                                        |                                                                                                                |
 
-### Onglet « Fonctions » → `appointments`
+### Onglet « Sessions » → `training_records` (clé : ID → `legacy_ref`)
 
-| Colonne                    | Table.champ                                        | Remarque                                      |
-| -------------------------- | -------------------------------------------------- | --------------------------------------------- |
-| ID                         | `appointments.ref` si au format F-, sinon audit    | séquence recalée après import                 |
-| NIVOL                      | `appointments.person_id`                           |                                               |
-| Fonction                   | `appointments.reference_id`                        | doit être de type FUNCTION                    |
-| Date de début, Date de fin | `start_date`, `end_date`                           |                                               |
-| Autorisée par              | `authorized_by`                                    |                                               |
-| Référence décision         | `decision_ref`                                     |                                               |
-| Commentaire                | `comment`                                          |                                               |
-| Saisi le, Saisi par        | `created_at`, `created_by_id`                      |                                               |
-| Annulée                    | `cancelled_at`, `cancelled_by_id`, `cancel_reason` | analyse de `JJ/MM/AAAA par <email> : <motif>` |
+| Colonne          | Sort                      | Remarque                                            |
+| ---------------- | ------------------------- | --------------------------------------------------- |
+| ID               | importée → `legacy_ref`   | `ref` S- attribué par Binivol                       |
+| NIVOL            | importée → `person_id`    | inconnu ou invalide → ligne rejetée                 |
+| Code             | importée → `reference_id` | inconnu, ou de type FUNCTION → ligne rejetée        |
+| Date             | importée → `date`         | vide sur la grande majorité des lignes              |
+| Résultat         | importée → `result`       | `expires_at` calculé (`computeExpiresAt`) si Validé |
+| Organisme / lieu | importée → `place`        |                                                     |
+| Lien Pegass      | importée → `pegass_url`   |                                                     |
+| Commentaire      | importée → `comment`      |                                                     |
+| Saisi le         | importée → `created_at`   |                                                     |
+| Saisi par        | audit                     |                                                     |
 
-### Onglet « Referentiel » → `reference_items`
+### Onglet « Fonctions » → `appointments` (clé : ID → `legacy_ref`)
 
-| Colonne               | Table.champ                    | Remarque                 |
-| --------------------- | ------------------------------ | ------------------------ |
-| Code, Libellé         | `code`, `label`                |                          |
-| Catégorie, Type       | `category`, `kind`             |                          |
-| Ordre                 | `sort_order`                   |                          |
-| Validité (mois)       | `validity_months`              | vide pour tous les codes |
-| Prérequis             | `reference_item_prerequisites` | vide pour tous les codes |
-| Interdite aux mineurs | `forbidden_for_minors`         |                          |
-| Actif                 | `active`                       |                          |
-| Source / commentaire  | `note`                         |                          |
-| Échéance au 31/12     | `expires_end_of_year`          |                          |
+| Colonne                    | Sort                                                          | Remarque                                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ID                         | importée → `legacy_ref`                                       | `ref` F- attribué par Binivol                                                                                                                                               |
+| NIVOL                      | importée → `person_id`                                        | inconnu ou invalide → ligne rejetée                                                                                                                                         |
+| Fonction                   | importée → `reference_id`                                     | doit être de type FUNCTION, sinon rejet                                                                                                                                     |
+| Date de début, Date de fin | importées → `start_date`, `end_date`                          |                                                                                                                                                                             |
+| Autorisée par              | importée → `authorized_by`                                    |                                                                                                                                                                             |
+| Référence décision         | importée → `decision_ref`                                     |                                                                                                                                                                             |
+| Commentaire                | importée → `comment`                                          |                                                                                                                                                                             |
+| Saisi le                   | importée → `created_at`                                       |                                                                                                                                                                             |
+| Saisi par                  | audit                                                         |                                                                                                                                                                             |
+| Annulée                    | importée → `cancelled_at`, `cancelled_by_id`, `cancel_reason` | `JJ/MM/AAAA par <email> : <motif>` ; e-mail sans compte → `cancelled_by_id` vide et e-mail en tête du motif ; format libre → jour de l'import, texte complet, avertissement |
+
+Pas de contrôle « interdite aux mineurs » : c'est l'historique. Un mineur nommé à une fonction
+interdite donne seulement un avertissement.
+
+### Onglet « Referentiel » → `reference_items` (clé : Code)
+
+Comparé, **jamais écrasé** : une différence de libellé, de catégorie, de type, d'échéance au 31/12
+ou d'interdiction aux mineurs est un avertissement. Un code absent de Binivol est créé **inactif**,
+avec un avertissement.
+
+| Colonne                                                                  | Sort                                                  |
+| ------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Code, Libellé, Catégorie, Type, Interdite aux mineurs, Échéance au 31/12 | comparées (créées pour un code nouveau)               |
+| Ordre, Source / commentaire                                              | utilisées pour un code nouveau (`sort_order`, `note`) |
+| Validité (mois), Prérequis                                               | non reprises : vides pour tous les codes du classeur  |
+| Actif                                                                    | non reprise : l'activité se gère dans Binivol         |
 
 ### Onglet « Parametres » (Clé, Valeur, Description) → `settings`
 
-| Clé                   | Binivol                         | Remarque                                                     |
-| --------------------- | ------------------------------- | ------------------------------------------------------------ |
-| DELAI_ALERTE_JOURS    | `ALERT_DAYS_BEFORE_EXPIRY`      |                                                              |
-| CONSERVATION_ANS      | `RETENTION_YEARS_AFTER_LEAVE`   |                                                              |
-| SAUVEGARDES_A_GARDER  | `BACKUPS_TO_KEEP`               |                                                              |
-| CLASSIFICATION        | `DATA_CLASSIFICATION`           |                                                              |
-| MAILS_VOEUX_ACTIFS    | `GREETING_EMAILS_ENABLED`       | e-mails de vœux                                              |
-| EMAILS_ALERTES        | non repris                      | remplacé par `reminder_rules.recipients` (profils), étape 12 |
-| EDITEURS              | non repris                      | remplacé par les comptes et profils (`users`), étape 3       |
-| DOSSIER_SAUVEGARDE_ID | non repris                      | dossier Google Drive : remplacé par `StorageService`         |
-| DOSSIER_BENEVOLES_ID  | non repris (présente deux fois) | dossier Google Drive : remplacé par `StorageService`         |
-| VERSION               | non repris                      | version de l'ancien outil, sans objet                        |
+| Clé                   | Sort                                     | Raison                                                                  |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
+| DELAI_ALERTE_JOURS    | importée → `ALERT_DAYS_BEFORE_EXPIRY`    |                                                                         |
+| CONSERVATION_ANS      | importée → `RETENTION_YEARS_AFTER_LEAVE` |                                                                         |
+| SAUVEGARDES_A_GARDER  | importée → `BACKUPS_TO_KEEP`             |                                                                         |
+| CLASSIFICATION        | importée → `DATA_CLASSIFICATION`         |                                                                         |
+| MAILS_VOEUX_ACTIFS    | importée → `GREETING_EMAILS_ENABLED`     |                                                                         |
+| EMAILS_ALERTES        | non reprise                              | destinataires définis par profil (`reminder_rules`)                     |
+| EDITEURS              | non reprise                              | « comptes à créer depuis l'administration » ; adresses jamais recopiées |
+| DOSSIER_SAUVEGARDE_ID | non reprise                              | dossier Google Drive, remplacé par `StorageService`                     |
+| DOSSIER_BENEVOLES_ID  | non reprise (présente deux fois)         | dossier Google Drive, remplacé par `StorageService`                     |
+| VERSION               | non reprise                              | version de l'ancien outil                                               |
 
-### Onglet « Journal » → `audit_logs`
+La colonne Description sert de description à un paramètre créé.
 
-| Colonne                          | Table.champ                        | Remarque                                               |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------ |
-| Horodatage                       | `at`                               |                                                        |
-| Utilisateur                      | `actor_id` ou `actor_label`        | compte retrouvé par e-mail, sinon l'adresse en libellé |
-| Action                           | `action = IMPORT`, `legacy_action` | libellé d'origine conservé                             |
-| Table                            | `entity`                           |                                                        |
-| Clé                              | `entity_id`                        |                                                        |
-| Champ                            | `field`                            |                                                        |
-| Ancienne valeur, Nouvelle valeur | `old_value`, `new_value`           | masquées si le champ est sensible                      |
+### Onglet « Journal » → `audit_logs` (clé : SHA-256 de la ligne → `legacy_hash`)
 
-### Colonnes non reprises
+| Colonne                          | Sort                                       | Remarque                                                                        |
+| -------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| Horodatage                       | importée → `at`                            | illisible → jour de l'import + avertissement                                    |
+| Utilisateur                      | importée → `actor_label`                   |                                                                                 |
+| Action                           | importée → `legacy_action`                 | `action = IMPORT`                                                               |
+| Table, Clé, Champ                | importées → `entity`, `entity_id`, `field` |                                                                                 |
+| Ancienne valeur, Nouvelle valeur | importées → `old_value`, `new_value`       | **masquées** `"[sensible]"` pour naissance, B3, autorisation parentale, adresse |
 
-| Onglet     | Colonne                                                 | Raison                                                           |
-| ---------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
-| Prospects  | ID                                                      | identifiant interne du classeur ; gardé dans le rapport d'import |
-| Parametres | EMAILS_ALERTES, EDITEURS                                | remplacés par les profils (droits, destinataires des rappels)    |
-| Parametres | DOSSIER_SAUVEGARDE_ID, DOSSIER_BENEVOLES_ID (deux fois) | spécifiques à Google Drive, remplacés par `StorageService`       |
-| Parametres | VERSION                                                 | version de l'ancien outil                                        |
+`legacy_hash` est l'empreinte de la ligne normalisée **masquée** : une ligne n'est jamais importée
+deux fois, et l'empreinte ne permet pas de retrouver une valeur sensible.
+
+### Règles de l'import
+
+- **Rejouable et idempotent** : même fichier → tout « inchangé », aucune écriture métier ; fichier
+  modifié → seules les lignes changées sont mises à jour ; rien n'est jamais supprimé.
+- **Conflit** : une ligne dont l'entité a une entrée d'audit autre que `IMPORT` depuis son dernier
+  import (modifiée dans Binivol) n'est pas écrasée : « ignorée pour conflit », avec les champs.
+- **Audit** : chaque création ou modification écrit une entrée `IMPORT` (`actor_label`
+  « Import »), valeurs sensibles masquées ; une entrée `ImportRun` résume chaque import réel.
+- **Une transaction** sous verrou consultatif : tout ou rien ; un second import simultané est
+  refusé. Le fichier n'est jamais stocké : `import_runs` garde le nom, la taille, l'empreinte
+  SHA-256, les compteurs et le rapport.

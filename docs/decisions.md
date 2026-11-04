@@ -242,3 +242,111 @@ build se fait sur leurs serveurs avec les variables du projet.
 
 **Conséquences.** Pas de déploiement manuel par copie de fichiers. À rappeler dans la
 procédure de l'étape 15.
+
+## ADR-017 — Page 403 avec l'option `authInterrupts` de Next 15
+
+**Contexte.** Une page refusée doit répondre un vrai statut HTTP 403, pas une page 200 avec un
+message. Next 15 le permet avec `forbidden()` et `app/forbidden.tsx`, mais seulement sous
+l'option expérimentale `experimental.authInterrupts`.
+
+**Décision.** L'option est activée (`next.config.ts`) et `requirePageAccess()` /
+`authorizePage()` appellent `forbidden()`. Les tests e2e vérifient le statut 403 et la page.
+
+**Repli si l'option change ou disparaît.** Le seul point d'appel est `src/server/auth/page.ts`.
+On remplacera `forbidden()` par un rendu explicite de la page 403 (composant partagé avec
+`app/forbidden.tsx`) et un `notFound()` personnalisé pour les ressources, ou par un statut fixé
+dans un Route Handler pour les téléchargements. Les tests e2e signaleront toute régression du
+statut.
+
+## ADR-018 — Seeds séparés et base neuve en local
+
+**Contexte.** Un seed relancé sur une base ancienne laissait des formations inventées par les
+versions précédentes ; et la production ne doit jamais recevoir de données fictives.
+
+**Décision.** `pnpm db:seed:base` (référentiel, paramètres, règles de rappel ; aucune personne,
+aucun compte) est **le seul seed autorisé en production**. `pnpm db:seed:demo` l'appelle puis
+ajoute les comptes de démonstration et les 60 personnes fictives ; il refuse une base qui
+contient une personne sans la note « Donnée fictive (seed) ». `pnpm db:seed` reste un alias de
+`db:seed:demo`. `pnpm db:fresh` supprime et recrée la base, applique les migrations et le seed
+de démonstration ; il refuse tout hôte autre que `localhost`, `127.0.0.1`, `::1` ou les
+services Docker `db` / `db-test`, et `NODE_ENV=production`. Les tests e2e partent d'un
+`db:fresh` à chaque exécution.
+
+**Conséquences.** `pnpm db:reset` devient un alias de `db:fresh`. Le garde-fou Prisma qui
+bloque `migrate reset` lancé par un agent n'est pas contourné : `db:fresh` est un outil
+explicite, borné aux bases locales.
+
+## ADR-019 — Lecture du `.xlsx` avec `exceljs`
+
+**Contexte.** Il faut lire le classeur côté serveur, en mémoire, et écrire des fixtures de test
+avec la même structure. Le paquet npm `xlsx` (SheetJS) n'est plus publié sur npm.
+
+**Décision.** `exceljs` 4.4.0 : il lit et écrit le format `.xlsx`, charge un `Buffer` sans
+fichier temporaire, expose les types de cellules (date, nombre, texte riche, formule) et est
+typé. Son rythme de publication est lent (dernière version fin 2023) : il n'est utilisé que
+derrière `src/server/import/workbook.ts`, pour pouvoir en changer sans toucher au reste.
+
+**Conséquences.** Une dépendance de plus (et ses dépendances de compression). Le contrôle de la
+signature du fichier (ZIP, `xl/workbook.xml`, fichier chiffré) est fait avant `exceljs`.
+
+## ADR-020 — Import en une transaction, sous verrou, après simulation
+
+**Contexte.** Un import partiel laisserait une base incohérente ; deux imports simultanés se
+marcheraient dessus ; un import réel doit avoir été vu en simulation.
+
+**Décision.** Le moteur (`importer.ts`) suit le même code en simulation (lecture seule) et en
+import réel, donc le rapport de simulation est exactement ce que fera l'import. L'import réel
+s'exécute dans **une seule transaction**, après `pg_try_advisory_xact_lock` : un second import
+est refusé. Il n'est accepté que si une simulation **du même fichier** (même SHA-256), **par le
+même compte**, a réussi **il y a moins de 30 minutes**, sans erreur bloquante. Chaque essai
+(simulation, succès, échec) est gardé dans `import_runs`.
+
+**Conséquences.** Une erreur au milieu annule tout et marque l'essai en échec. La simulation
+n'écrit que dans `import_runs` (l'historique), jamais dans les tables métier.
+
+## ADR-021 — Règle de conflit de l'import
+
+**Contexte.** L'import est rejouable ; une donnée corrigée dans Binivol ne doit pas être
+écrasée par un nouvel import du classeur.
+
+**Décision.** Avant d'écrire une ligne qui changerait une entité existante, l'import cherche
+une entrée d'audit autre que `IMPORT` sur cette entité depuis son dernier import. S'il en
+trouve une, la ligne est « ignorée pour conflit », avec la liste des champs concernés. Une
+ligne identique reste « inchangée » même après une modification dans Binivol.
+
+**Conséquences.** Toute écriture métier doit passer par `withAudit()` (règle déjà en place) :
+c'est ce qui rend la règle fiable.
+
+## ADR-022 — Le fichier importé n'est jamais stocké
+
+**Contexte.** Le classeur concentre toutes les données C3 de l'unité locale.
+
+**Décision.** Le fichier est lu en mémoire et oublié : ni disque, ni `StorageService`, ni base.
+Binivol garde le nom, la taille, l'empreinte SHA-256 et le rapport (compteurs, rejets et
+avertissements, avec numéros de ligne et clés). Taille maximale 5 Mo ; signature vérifiée. Les
+fichiers `*.xlsx` sont ignorés par Git, sauf les fixtures fictives de `tests/fixtures/`.
+
+**Conséquences.** L'import réel demande de redéposer le fichier ; l'empreinte garantit que c'est
+le même que celui de la simulation.
+
+## ADR-023 — Les ID de l'ancien classeur vont dans `legacyRef`
+
+**Contexte.** Les ID du classeur (`P-00001` pour un prospect, `S-…`, `F-…`) ressemblent aux
+numéros lisibles de Binivol sans désigner la même chose.
+
+**Décision.** Ils sont gardés dans `legacy_ref` (unique) de `candidacies`, `training_records` et
+`appointments`, et servent de clé à l'import. Les `ref` de Binivol restent attribués par ses
+séquences. Les personnes sont reconnues par leur NIVOL ; les lignes du Journal par
+`audit_logs.legacy_hash`.
+
+**Conséquences.** Un ID du classeur peut coïncider avec un `ref` de Binivol sans conséquence.
+
+## ADR-024 — Oui/Non vide = inconnu
+
+**Contexte.** Dans le classeur, une case Oui/Non vide signifie « on ne sait pas ».
+
+**Décision.** `is_member`, `other_aasc`, `regular_minor_supervisor` (`persons`) et
+`parental_authorization` (`person_sensitive`) deviennent nullables (défaut `false` pour une
+saisie dans Binivol), comme `is_trainer`. L'import y écrit `null` pour une case vide.
+
+**Conséquences.** Les écrans des étapes suivantes afficheront « Non renseigné » pour `null`.

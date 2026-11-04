@@ -79,6 +79,11 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   jamais les charger dans une liste ni les écrire dans un log.
 - NIVOL : toujours via `normalizeNivol()` (11 chiffres + 1 lettre).
 - `pnpm test:db` (base réelle) avant de pousser une modification du schéma ou de `src/server/`.
+- Production : `db:seed:base` **uniquement**. `db:seed:demo` et `db:fresh` sont réservés aux
+  bases locales (ils le vérifient).
+- **Jamais de vrai classeur ni de fichier `.xlsx` réel dans le dépôt** : seuls les classeurs
+  fictifs de `tests/fixtures/` (générés par `pnpm fixtures:classeur`) sont versionnés. Le fichier
+  importé n'est jamais stocké (`src/server/import/`).
 
 ## Connexion et droits
 
