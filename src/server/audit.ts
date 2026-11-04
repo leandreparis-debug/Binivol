@@ -111,16 +111,27 @@ export function snapshot(entity: string, row: Record<string, unknown>): Prisma.I
   return out;
 }
 
+/** Overrides the action of an entry (the import writes IMPORT instead of CREATE/UPDATE). */
+export interface EntryOptions {
+  action?: AuditAction;
+}
+
 /** Records audit entries for the current transaction. */
 export interface AuditRecorder {
-  /** A row was created: one entry with the masked snapshot. */
-  created(entity: string, entityId: string, row: Record<string, unknown>): void;
-  /** A row changed: one entry per changed field. Returns the number of entries. */
+  /** A row was created: one entry with the masked snapshot (action CREATE, or IMPORT). */
+  created(
+    entity: string,
+    entityId: string,
+    row: Record<string, unknown>,
+    options?: EntryOptions,
+  ): void;
+  /** A row changed: one entry per changed field (UPDATE, or IMPORT). Returns the number of entries. */
   updated(
     entity: string,
     entityId: string,
     before: Record<string, unknown>,
     after: Record<string, unknown>,
+    options?: EntryOptions,
   ): number;
   /** A traced cancellation. */
   cancelled(entity: string, entityId: string, reason?: string | null): void;
@@ -160,21 +171,21 @@ export async function withAudit<T>(
     const base = { at, actorId: actor.userId, actorLabel: actor.label ?? null };
 
     const recorder: AuditRecorder = {
-      created(entity, entityId, row) {
+      created(entity, entityId, row, options) {
         entries.push({
           ...base,
-          action: "CREATE",
+          action: options?.action ?? "CREATE",
           entity,
           entityId,
           newValue: snapshot(entity, row),
         });
       },
-      updated(entity, entityId, before, after) {
+      updated(entity, entityId, before, after, options) {
         const changes = diffRecords(entity, before, after);
         for (const change of changes) {
           entries.push({
             ...base,
-            action: "UPDATE",
+            action: options?.action ?? "UPDATE",
             entity,
             entityId,
             field: change.field,

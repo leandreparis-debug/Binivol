@@ -23,7 +23,8 @@ export type DomainErrorCode =
   | "NO_PROFILE"
   | "ACCOUNT_NOT_FOUND"
   | "DEMO_LOGIN_DISABLED"
-  | "SIGN_IN_DENIED";
+  | "SIGN_IN_DENIED"
+  | "IMPORT_BUSY";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {
