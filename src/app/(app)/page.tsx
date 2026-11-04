@@ -3,13 +3,15 @@ import { FakeDataBanner } from "@/components/layout/FakeDataBanner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatCard } from "@/components/ui/StatCard";
-import { devUser } from "@/lib/dev-user";
+import { requireActor } from "@/server/auth/actor";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const actor = await requireActor();
+  const firstName = actor.name.trim().split(/\s+/)[0] ?? actor.name;
   return (
     <>
       <PageHeader
-        title={`Bonjour ${devUser.firstName}`}
+        title={`Bonjour ${firstName}`}
         subtitle="Voici l'état de l'unité locale aujourd'hui."
         actions={<FakeDataBanner />}
       />
