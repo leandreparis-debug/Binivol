@@ -195,6 +195,8 @@ enum AuditAction {
   IMPORT
   PURGE
   LOGIN
+  LOGIN_DENIED
+  LOGOUT
   EXPORT
 }
 
@@ -222,6 +224,8 @@ model User {
   updatedById String?   @map("updated_by_id")
 
   profiles           UserProfile[]
+  accounts           Account[]
+  sessions           Session[]
   ownedCandidacies   Candidacy[]      @relation("CandidacyOwner")
   candidacyEvents    CandidacyEvent[]
   conductedFollowUps FollowUp[]
@@ -242,6 +246,41 @@ model UserProfile {
 
   @@unique([userId, profile])
   @@map("user_profiles")
+}
+
+/// External identity linked to a user (Google). Only the identifiers are kept:
+/// OAuth tokens are never stored (see src/server/auth/adapter.ts).
+model Account {
+  id                String   @id @default(cuid(2))
+  userId            String   @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Database session (Auth.js `database` strategy). Deleting a row signs the user out.
+/// Technical data, not business data: rows are deleted on sign-out and deactivation.
+model Session {
+  id           String   @id @default(cuid(2))
+  /// Opaque random token, also stored in the HttpOnly session cookie.
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+  @@map("sessions")
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +313,10 @@ model Person {
   aptitudeDate           DateTime?    @map("aptitude_date") @db.Date
   otherAasc              Boolean      @default(false) @map("other_aasc")
   regularMinorSupervisor Boolean      @default(false) @map("regular_minor_supervisor")
+  /// Legacy « Formateur » column. Null = unknown. True brings the FORMAT_GP perimeter.
+  isTrainer              Boolean?     @map("is_trainer")
+  /// Legacy « Dossier Drive » column (Google Drive folder id), kept for the migration of files.
+  legacyDriveFolderId    String?      @map("legacy_drive_folder_id")
   profession             String?
   sector                 String?
   company                String?
@@ -483,6 +526,8 @@ model ReferenceItem {
   forbiddenForMinors Boolean           @default(false) @map("forbidden_for_minors")
   /// Perimeters this qualification brings a person into (data-driven visibility).
   perimeters         Perimeter[]       @default([])
+  /// Profiles allowed to appoint to this function (empty for trainings).
+  managedBy          Profile[]         @default([]) @map("managed_by")
   active             Boolean           @default(true)
   note               String?
   createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -914,17 +959,19 @@ model Setting {
 // ---------------------------------------------------------------------------
 
 model AuditLog {
-  id         String      @id @default(cuid(2))
-  at         DateTime    @default(now()) @db.Timestamptz(3)
-  actorId    String?     @map("actor_id")
+  id           String      @id @default(cuid(2))
+  at           DateTime    @default(now()) @db.Timestamptz(3)
+  actorId      String?     @map("actor_id")
   /// « Import », « Système » when there is no user.
-  actorLabel String?     @map("actor_label")
-  action     AuditAction
-  entity     String
-  entityId   String?     @map("entity_id")
-  field      String?
-  oldValue   Json?       @map("old_value")
-  newValue   Json?       @map("new_value")
+  actorLabel   String?     @map("actor_label")
+  action       AuditAction
+  entity       String
+  entityId     String?     @map("entity_id")
+  field        String?
+  oldValue     Json?       @map("old_value")
+  newValue     Json?       @map("new_value")
+  /// Original label of the legacy « Journal » sheet (action is then IMPORT).
+  legacyAction String?     @map("legacy_action")
 
   @@index([entity, entityId])
   @@index([at])
