@@ -61,12 +61,30 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   `prefers-reduced-motion` respecté, champs à 16 px sur mobile.
 - Composants dans `src/components/ui/`, écrits à la main, typés, documentés en JSDoc, `className`
   fusionnable via `cn()`.
+- La taille `sm` du `Button` (36 px) est réservée aux tableaux denses sur ordinateur, jamais sur
+  un écran mobile ni dans le parcours candidat.
+
+## Base de données
+
+- Modèle documenté dans `docs/data-model.md` ; le schéma est `prisma/schema.prisma`.
+- Toute évolution passe par `pnpm db:migrate --create-only`, puis relecture du SQL avant
+  application. **Ne jamais modifier une migration déjà poussée** : en ajouter une nouvelle.
+- SQL brut uniquement dans les migrations (`CHECK`, déclencheurs, fonctions) ; un index partiel
+  s'écrit dans le schéma, sous la forme restituée par PostgreSQL.
+- **Pas de suppression physique** de données métier : `archivedAt` ou annulation tracée
+  (`cancelledAt`, `cancelledById`, `cancelReason`). Les journaux sont en ajout seul.
+- Toute écriture métier passe par `withAudit()` (`src/server/audit.ts`) ; les valeurs sensibles
+  sont masquées.
+- Les données sensibles sont dans `PersonSensitive`, `EmergencyContact` et `Document` : ne
+  jamais les charger dans une liste ni les écrire dans un log.
+- NIVOL : toujours via `normalizeNivol()` (11 chiffres + 1 lettre).
+- `pnpm test:db` (base réelle) avant de pousser une modification du schéma ou de `src/server/`.
 
 ## Workflow
 
 - Conventional Commits : `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `ci:`.
   Un ou plusieurs commits par point de spécification.
 - **`pnpm verify` avant chaque commit** (format, lint sans avertissement, typecheck, tests).
-  `pnpm test:e2e` avant de pousser une étape.
+  `pnpm test:db` et `pnpm test:e2e` avant de pousser une étape.
 - Aucun `console.log` laissé, aucun `any`, aucun secret en dur (`.env.example` documenté).
 - Journal des décisions : `docs/decisions.md`. Design system : `docs/design-system.md`.

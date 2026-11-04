@@ -1,26 +1,38 @@
 # `src/server/` — couche d'accès aux données
 
-Ce dossier est volontairement vide à l'étape 1. Il accueillera, à partir de l'étape 2 :
+Seul endroit du code qui parle à PostgreSQL. Les pages, Server Actions et Route Handlers
+appellent cette couche ; ils n'importent jamais `@/generated/prisma/client` directement.
 
-- `repositories/` : l'accès aux tables via Prisma (une classe ou un module par agrégat :
-  `volunteerRepository`, `candidateRepository`, `trainingRepository`…). Aucune logique métier,
-  uniquement des requêtes typées.
-- `services/` : la logique métier (intégration d'un candidat, calcul des échéances, moteur de
-  rappels…). Un service orchestre un ou plusieurs repositories et les interfaces techniques
-  (`StorageService`, `MailService`).
-- `interfaces/` : les contrats techniques portables (`StorageService` pour les fichiers,
-  `MailService` pour les mails SMTP), avec une implémentation locale et une implémentation
-  de production.
+## Contenu (étape 2)
 
-## Règle d'accès
+| Fichier                               | Rôle                                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `db.ts`                               | client Prisma partagé (`getDb()`, adaptateur `pg`), types `Db`, `Tx`, `DbOrTx`, `inTransaction()`       |
+| `audit.ts`                            | `withAudit(db, actor, fn)` : différentiel champ par champ, même transaction, valeurs sensibles masquées |
+| `errors.ts`                           | `DomainError` et `translateDbError()` : contraintes → message français                                  |
+| `sequences.ts`                        | numéros lisibles `P-`, `S-`, `F-` (`nextRef()`, `formatRef()`, `parseRef()`)                            |
+| `reference.ts`                        | `computeExpiresAt()` : échéance d'une formation (mois ou 31/12)                                         |
+| `perimeter.ts`                        | `computePerimeters()` (pur) et `perimetersOf()` (requête) : périmètres ACTION, LASER, FORMAT_GP         |
+| `repositories/personRepository.ts`    | `findByRef()`, `search()` (sans accents, pagination par curseur), écritures techniques                  |
+| `repositories/referenceRepository.ts` | `list({ kind, active })`, `findByCode()`                                                                |
 
-**Les composants et les pages n'accèdent jamais directement à la base.** Un Server Component,
-une Server Action ou un Route Handler appelle un service de `src/server/`, qui appelle un
-repository, qui appelle Prisma. C'est la seule chaîne autorisée.
+## À venir
 
-Conséquences :
+- `services/` : la logique métier (intégration d'un candidat, rappels…), qui orchestre les
+  repositories dans `withAudit()` et applique les droits par profil (étape 3).
+- `interfaces/` : `StorageService` (fichiers) et `MailService` (SMTP), avec une implémentation
+  locale et une de production.
 
-- aucun `import` de `@prisma/client` en dehors de `src/server/` ;
-- aucun SDK Supabase, aucune dépendance propre à Vercel dans ce dossier (PostgreSQL standard
-  uniquement, pour rester portable vers un VPS) ;
-- toute entrée est validée par Zod avant d'atteindre un service.
+## Règles
+
+- **Chaîne autorisée** : page / action / route → service → repository → Prisma.
+- Un repository accepte `DbOrTx` : il fonctionne seul ou dans une transaction.
+- Toute écriture métier passe par `withAudit()` ; les erreurs de base sont traduites par
+  `translateDbError()` (ne jamais renvoyer ni journaliser l'erreur brute, qui peut contenir la
+  ligne refusée).
+- Les données sensibles (`PersonSensitive`, `EmergencyContact`, `Document`) ne sont jamais
+  chargées par les listes.
+- Aucun SDK Supabase, aucune dépendance propre à Vercel : PostgreSQL standard uniquement.
+- Toute entrée est validée par Zod avant d'atteindre un service.
+- Tests : fonctions pures dans `*.test.ts` (`pnpm test`), requêtes dans `*.db.test.ts`
+  (`pnpm test:db`, vraie base).
