@@ -27,7 +27,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Gérer les sessions de formation (`trainingSession.manage`) | — | Oui | — | — | Oui | — | — |
 | Gérer les souhaits de formation (`trainingWish.manage`) | une personne | Oui | — | — | Oui, sauf candidat ou personne archivée | — | — |
 | Consulter les nominations (`appointment.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | — | Si la personne relève du profil | Si la personne relève du profil |
-| Nommer à une fonction ou annuler une nomination (`appointment.write`) | une personne et une fonction | Oui | Si la fonction lui est confiée et que la personne relève du profil | Si la fonction lui est confiée et que la personne relève du profil | Si la fonction lui est confiée et que la personne relève du profil | Si la fonction lui est confiée et que la personne relève du profil | Si la fonction lui est confiée et que la personne relève du profil |
+| Nommer à une fonction ou annuler une nomination (`appointment.write`) | une personne et une fonction | Oui | Si la fonction lui est confiée et que la personne relève du profil | Si la fonction lui est confiée et que la personne relève du profil | — | Si la fonction lui est confiée et que la personne relève du profil | — |
 | Gérer les candidatures (`candidacy.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Gérer les dossiers en ligne (`dossier.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Gérer les parrainages (`mentorship.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |

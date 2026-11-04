@@ -93,7 +93,11 @@ export const MATRIX = {
   "appointment.read": personRead,
   "appointment.write": {
     target: "personAndFunction",
-    grants: [TOPAZE, { profiles: ALL_PROFILES, when: "managedFunctionInScope" }],
+    // Only profiles with a perimeter can be given a function (managedBy).
+    grants: [
+      TOPAZE,
+      { profiles: ["ACTION", "LASER", "FORMAT_GP"], when: "managedFunctionInScope" },
+    ],
   },
   "candidacy.manage": diamantInScope("person"),
   "dossier.manage": diamantInScope("person"),

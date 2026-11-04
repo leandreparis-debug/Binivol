@@ -319,6 +319,9 @@ describe("canSome and authorize", () => {
     expect(canSome(actor("DIAMANT"), "candidacy.manage")).toBe(true);
     expect(canSome(actor("ACTION"), "candidacy.manage")).toBe(false);
     expect(canSome(actor("LASER"), "user.manage")).toBe(false);
+    expect(canSome(actor("FORMAT"), "appointment.write")).toBe(false);
+    expect(canSome(actor("DIAMANT"), "appointment.write")).toBe(false);
+    expect(canSome(actor("FORMAT_GP"), "appointment.write")).toBe(true);
   });
 
   it("authorize throws a ForbiddenError with the reason", () => {
