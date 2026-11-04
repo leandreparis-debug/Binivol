@@ -11,7 +11,7 @@ import type {
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
 import { computeExpiresAt } from "../../src/server/reference";
-import { REFERENCE_ITEMS, isForbiddenForMinors } from "./referenceData";
+import { REFERENCE_ITEMS } from "./referenceData";
 
 /**
  * Synthetic seed. 100 % invented people, marked « Donnée fictive (seed) ».
@@ -149,13 +149,13 @@ const STAGE_PATH: CandidacyStage[] = [
 ];
 
 export const USERS: { key: string; name: string; profiles: Profile[] }[] = [
-  { key: "topaze", name: "Démo TOPAZE", profiles: ["TOPAZE"] },
-  { key: "action", name: "Démo ACTION", profiles: ["ACTION"] },
-  { key: "laser", name: "Démo LASER", profiles: ["LASER"] },
-  { key: "format", name: "Démo FORMAT", profiles: ["FORMAT"] },
-  { key: "format-gp", name: "Démo FORMAT GP", profiles: ["FORMAT_GP"] },
-  { key: "diamant", name: "Démo DIAMANT", profiles: ["DIAMANT"] },
-  { key: "format-diamant", name: "Démo FORMAT et DIAMANT", profiles: ["FORMAT", "DIAMANT"] },
+  { key: "topaze", name: "Alex Démo", profiles: ["TOPAZE"] },
+  { key: "action", name: "Camille Démo", profiles: ["ACTION"] },
+  { key: "laser", name: "Sacha Démo", profiles: ["LASER"] },
+  { key: "format", name: "Noa Démo", profiles: ["FORMAT"] },
+  { key: "format-gp", name: "Lou Démo", profiles: ["FORMAT_GP"] },
+  { key: "diamant", name: "Maé Démo", profiles: ["DIAMANT"] },
+  { key: "format-diamant", name: "Eden Démo", profiles: ["FORMAT", "DIAMANT"] },
 ];
 const userId = (key: string) => `seed_user_${key}`;
 export const seedUserEmail = (key: string) => `demo.${key}@binivol.test`;
@@ -228,7 +228,7 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
     const item = byCode.get(code);
     return computeExpiresAt(
       {
-        validityMonths: item?.validityMonths ?? null,
+        validityMonths: null,
         expiresEndOfYear: item?.expiresEndOfYear ?? false,
       },
       date,
@@ -248,7 +248,12 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
         ],
         ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
         ["DATA_CLASSIFICATION", "C3 CONFIDENTIEL", "Classification des données de l'outil."],
-        ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de bienvenue."],
+        ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
+        [
+          "NEW_VOLUNTEER_MONTHS",
+          12,
+          "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
+        ],
       ].map(([key, value, description]) => ({
         id: `seed_setting_${String(key).toLowerCase()}`,
         key: String(key),
@@ -289,30 +294,22 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
           label: item.label,
           category: item.category,
           kind: item.kind,
-          sortOrder: (i + 1) * 10,
-          validityMonths: item.validityMonths ?? null,
-          expiresEndOfYear: item.expiresEndOfYear ?? false,
-          forbiddenForMinors: isForbiddenForMinors(item),
+          sortOrder: i + 1,
+          validityMonths: null,
+          expiresEndOfYear: item.expiresEndOfYear,
+          forbiddenForMinors: item.forbiddenForMinors,
           perimeters: item.perimeters ?? [],
+          managedBy: item.managedBy ?? [],
           active: true,
           note: item.note ?? null,
           ...audit,
         })),
       );
-      for (const item of REFERENCE_ITEMS) {
-        for (const prerequisite of item.prerequisites ?? []) {
-          await tx.referenceItemPrerequisite.upsert({
-            where: {
-              itemId_prerequisiteId: {
-                itemId: refId(item.code),
-                prerequisiteId: refId(prerequisite),
-              },
-            },
-            create: { itemId: refId(item.code), prerequisiteId: refId(prerequisite) },
-            update: {},
-          });
-        }
-      }
+      // The legacy workbook has no prerequisite: drop the links of earlier seeds
+      // (configuration rows, not business data).
+      await tx.referenceItemPrerequisite.deleteMany({
+        where: { itemId: { in: REFERENCE_ITEMS.map((item) => refId(item.code)) } },
+      });
 
       // -- Training sessions ------------------------------------------------------
       const sessions: WithId<Prisma.TrainingSessionUncheckedCreateInput>[] = [
@@ -463,6 +460,15 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
           aptitudeDate: isCandidate ? null : addDays(today, -(p.index * 11)),
           otherAasc: p.index % 9 === 0,
           regularMinorSupervisor: !p.minor && p.index % 8 === 0,
+          // Legacy « Formateur »: unknown (null) for most, true for three volunteers.
+          isTrainer: isCandidate
+            ? null
+            : [4, 23, 47].includes(p.index)
+              ? true
+              : p.index % 10 === 5
+                ? false
+                : null,
+          legacyDriveFolderId: null,
           profession: faker.person.jobTitle(),
           sector: faker.helpers.arrayElement([
             "Santé",
@@ -620,9 +626,7 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
                 : utc(year - 1, 1, 1 + (p.index % 25)),
             );
           if (p.index % 3 === 1) record(p, "FCPSE", utc(year - 1, 2, 1 + (p.index % 25)));
-          if (p.index % 4 === 0)
-            record(p, "OPR", addDays(addMonths(today, -36), 10 + (p.index % 40)));
-          if (p.index % 4 === 1 && !p.minor) record(p, "OPR", addMonths(today, -40));
+          if (p.index % 4 === 0) record(p, "OPR", addDays(addMonths(today, -30), p.index % 40));
           if (p.index % 5 === 1 || p.index % 5 === 2) record(p, "TCAU", addDays(old, 120));
           if (p.index % 11 === 0) record(p, "FPSE", addDays(old, 300));
           if (p.index % 13 === 0) record(p, "FPSC", addDays(old, 200));
@@ -1005,12 +1009,12 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
           records.some(
             (r) =>
               r.personId === p.id &&
-              r.referenceId === refId("OPR") &&
+              r.referenceId === refId("FCPSE") &&
               r.expiresAt &&
-              r.expiresAt > today,
+              r.expiresAt >= today,
           ),
         ),
-        "personne avec OPR valide",
+        "personne avec FCPSE valide",
       );
       await save<Prisma.NotificationUncheckedCreateInput>(
         tx.notification,
@@ -1021,9 +1025,9 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
             ruleId: "seed_rule_training_expiring",
             personId: someone.id,
             title: "Formation bientôt échue",
-            body: "Une qualification OPR arrive à échéance (fictif).",
+            body: "Une formation continue PSE arrive à échéance au 31/12 (fictif).",
             href: "/formations",
-            dedupeKey: `TRAINING_EXPIRING:${someone.id}:OPR`,
+            dedupeKey: `TRAINING_EXPIRING:${someone.id}:FCPSE`,
           },
           {
             id: "seed_notif_2",

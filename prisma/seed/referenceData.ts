@@ -1,174 +1,259 @@
-import type { Perimeter, ReferenceCategory, ReferenceKind } from "../../src/generated/prisma/enums";
+import type {
+  Perimeter,
+  Profile,
+  ReferenceCategory,
+  ReferenceKind,
+} from "../../src/generated/prisma/enums";
 
 /**
- * Reference list: the 21 codes of the legacy workbook, plus PSC, FPSC and
- * ASSIST_FORM. Codes are not personal data.
+ * Reference list: the 21 codes of the legacy workbook (« Referentiel » sheet,
+ * exact values — not personal data), plus PSC, FPSC and ASSIST_FORM, which are
+ * hypotheses absent from the workbook.
  *
- * The workbook itself is not in the repository: labels, categories,
- * validities and prerequisites below are a best reconstruction and must be
- * checked against it (see docs/data-model.md, « Référentiel »).
+ * No code has a validity in months and none has a prerequisite in the
+ * workbook. Perimeters (visibility) and `managedBy` (who may appoint) are
+ * Binivol additions, documented in docs/data-model.md.
  */
 export interface ReferenceSeed {
   code: string;
   label: string;
   category: ReferenceCategory;
   kind: ReferenceKind;
-  validityMonths?: number;
-  expiresEndOfYear?: boolean;
+  forbiddenForMinors: boolean;
+  expiresEndOfYear: boolean;
   perimeters?: Perimeter[];
-  prerequisites?: string[];
+  managedBy?: Profile[];
   note?: string;
 }
 
-const TO_CONFIRM = "Hypothèse à confirmer : code absent de l'ancien classeur.";
+const VALIDITY_TO_FILL = "Validité à renseigner";
+const DRIVER_NOTE =
+  "Interprétation à valider (équipage d'évacuation interdit aux mineurs, permis requis)";
+const HYPOTHESIS = "Hypothèse, absent de l'ancien classeur";
 
+/** In workbook order: `sortOrder` is the position (1 to 21, then 22 to 24). */
 export const REFERENCE_ITEMS: ReferenceSeed[] = [
-  // Tronc commun
-  {
-    code: "PSC",
-    label: "Prévention et secours civiques de niveau 1",
-    category: "TRONC_COMMUN",
-    kind: "TRAINING",
-    perimeters: ["ACTION"],
-    note: TO_CONFIRM,
-  },
-  {
-    code: "TCAU",
-    label: "Tronc commun acteur de l'urgence",
-    category: "TRONC_COMMUN",
-    kind: "TRAINING",
-    perimeters: ["LASER"],
-  },
-  {
-    code: "TCAS",
-    label: "Tronc commun action sociale",
-    category: "TRONC_COMMUN",
-    kind: "TRAINING",
-  },
-  {
-    code: "TCEO",
-    label: "Tronc commun encadrement opérationnel",
-    category: "TRONC_COMMUN",
-    kind: "TRAINING",
-  },
-  // Secours — trainings
   {
     code: "PSE",
     label: "Premiers secours en équipe",
-    category: "SECOURS",
+    category: "FORMATION_IS",
     kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
     perimeters: ["ACTION", "LASER"],
   },
   {
     code: "FCPSE",
     label: "Formation continue PSE",
-    category: "SECOURS",
+    category: "FORMATION_IS",
     kind: "TRAINING",
+    forbiddenForMinors: false,
     expiresEndOfYear: true,
-    prerequisites: ["PSE"],
+    note: VALIDITY_TO_FILL,
   },
-  {
-    code: "OPR",
-    label: "Opérateur radio",
-    category: "SECOURS",
-    kind: "TRAINING",
-    validityMonths: 36,
-  },
-  {
-    code: "ECG",
-    label: "Réalisation d'électrocardiogramme",
-    category: "SECOURS",
-    kind: "TRAINING",
-    prerequisites: ["PSE"],
-  },
-  // Secours — functions (forbidden for minors)
-  {
-    code: "CHEF_PAPS",
-    label: "Chef de point d'alerte et de premiers secours",
-    category: "SECOURS",
-    kind: "FUNCTION",
-    prerequisites: ["PSE"],
-  },
-  {
-    code: "CI",
-    label: "Chef d'intervention",
-    category: "SECOURS",
-    kind: "FUNCTION",
-    prerequisites: ["F_CI"],
-  },
-  {
-    code: "CDPE",
-    label: "Chef de dispositif",
-    category: "SECOURS",
-    kind: "FUNCTION",
-    prerequisites: ["CI"],
-  },
-  {
-    code: "CI_SDIS",
-    label: "Chef d'intervention conventionné SDIS",
-    category: "SECOURS",
-    kind: "FUNCTION",
-    prerequisites: ["CI"],
-  },
-  { code: "CH_TECH", label: "Chargé technique", category: "SECOURS", kind: "FUNCTION" },
-  { code: "CH_FIXE", label: "Chargé poste fixe", category: "SECOURS", kind: "FUNCTION" },
-  { code: "CH_MOBILE", label: "Chargé poste mobile", category: "SECOURS", kind: "FUNCTION" },
-  {
-    code: "CH_RESEAUX",
-    label: "Chargé réseaux",
-    category: "SECOURS",
-    kind: "FUNCTION",
-    prerequisites: ["OPR"],
-  },
-  // Formation interne secours
   {
     code: "F_CI",
     label: "Formation chef d'intervention",
     category: "FORMATION_IS",
     kind: "TRAINING",
-    prerequisites: ["PSE"],
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
   },
-  { code: "F_CH", label: "Formation chargé", category: "FORMATION_IS", kind: "TRAINING" },
   {
-    code: "FCCI",
-    label: "Formation continue chef d'intervention",
+    code: "F_CH",
+    label: "Formation chauffeur",
     category: "FORMATION_IS",
     kind: "TRAINING",
-    expiresEndOfYear: true,
-    prerequisites: ["F_CI"],
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+  },
+  {
+    code: "OPR",
+    label: "Opérateur radio",
+    category: "FORMATION_IS",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+  },
+  {
+    code: "ECG",
+    label: "Formation ECG (réseau de secours)",
+    category: "FORMATION_IS",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+  },
+  {
+    code: "GQS",
+    label: "Gestes qui sauvent",
+    category: "TRONC_COMMUN",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+  },
+  {
+    code: "CRB",
+    label: "Croix-Rouge Bienvenue (eCRB)",
+    category: "TRONC_COMMUN",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+  },
+  {
+    code: "TCAU",
+    label: "Tronc commun des acteurs de l'urgence (eTCAU)",
+    category: "TRONC_COMMUN",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+    perimeters: ["LASER"],
+  },
+  {
+    code: "TCAS",
+    label: "Tronc commun des acteurs de la solidarité (eTCAS)",
+    category: "TRONC_COMMUN",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+  },
+  {
+    code: "CHEF_PAPS",
+    label: "Chef de PAPS",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["ACTION"],
+  },
+  {
+    code: "CI",
+    label: "Chef d'intervention (fonction)",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["LASER"],
+  },
+  {
+    code: "CDPE",
+    label: "Chef de dispositif de petite envergure",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["ACTION"],
+  },
+  {
+    code: "CI_SDIS",
+    label: "CI réseau de secours SDIS",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["LASER"],
+  },
+  {
+    code: "CH_TECH",
+    label: "Chauffeur technique",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["ACTION", "LASER"],
+    note: DRIVER_NOTE,
+  },
+  {
+    code: "CH_FIXE",
+    label: "Chauffeur fixe",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["ACTION", "LASER"],
+    note: DRIVER_NOTE,
+  },
+  {
+    code: "CH_MOBILE",
+    label: "Chauffeur mobile",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["ACTION", "LASER"],
+    note: DRIVER_NOTE,
+  },
+  {
+    code: "CH_RESEAUX",
+    label: "Chauffeur réseaux",
+    category: "SECOURS",
+    kind: "FUNCTION",
+    forbiddenForMinors: true,
+    expiresEndOfYear: false,
+    managedBy: ["ACTION", "LASER"],
+    note: DRIVER_NOTE,
   },
   {
     code: "FPSE",
     label: "Formateur PSE",
     category: "FORMATION_IS",
     kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
     perimeters: ["FORMAT_GP"],
-    prerequisites: ["PSE"],
+    note: VALIDITY_TO_FILL,
   },
-  // Formation grand public
+  {
+    code: "FCCI",
+    label: "Formation continue chef d'intervention",
+    category: "FORMATION_IS",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: true,
+    note: "Libellé à confirmer",
+  },
+  {
+    code: "TCEO",
+    label: "Tronc commun des encadrants opérationnels",
+    category: "FORMATION_IS",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+  },
+  // Hypotheses (not in the workbook).
+  {
+    code: "PSC",
+    label: "Prévention et secours civiques de niveau 1",
+    category: "TRONC_COMMUN",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+    perimeters: ["ACTION"],
+    note: HYPOTHESIS,
+  },
   {
     code: "FPSC",
     label: "Formateur PSC",
     category: "FORMATION_GP",
     kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
     perimeters: ["FORMAT_GP"],
-    prerequisites: ["PSC"],
-    note: TO_CONFIRM,
+    note: HYPOTHESIS,
   },
   {
     code: "ASSIST_FORM",
     label: "Assistant de formation",
     category: "FORMATION_GP",
     kind: "FUNCTION",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
     perimeters: ["FORMAT_GP"],
-    note: TO_CONFIRM,
+    managedBy: ["FORMAT_GP"],
+    note: HYPOTHESIS,
   },
-  // Autre
-  { code: "GQS", label: "Gestes qui sauvent", category: "AUTRE", kind: "TRAINING" },
-  { code: "CRB", label: "CRB (libellé à confirmer)", category: "AUTRE", kind: "TRAINING" },
 ];
 
-/** The 21 codes of the legacy workbook (without the three additions). */
+/** The 21 codes of the legacy workbook, in its order. */
 export const LEGACY_CODES = [
   "PSE",
   "FCPSE",
@@ -193,7 +278,5 @@ export const LEGACY_CODES = [
   "TCEO",
 ] as const;
 
-/** Every SECOURS function is forbidden for minors. */
-export function isForbiddenForMinors(item: ReferenceSeed): boolean {
-  return item.category === "SECOURS" && item.kind === "FUNCTION";
-}
+/** Codes added by Binivol, to confirm. */
+export const HYPOTHESIS_CODES = ["PSC", "FPSC", "ASSIST_FORM"] as const;

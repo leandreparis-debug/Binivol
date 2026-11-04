@@ -3,7 +3,7 @@ import { NIVOL_PATTERN } from "@/lib/nivol";
 import { perimetersOf } from "@/server/perimeter";
 import { getTestDb } from "@/test/db/testDatabase";
 import { SEED_MARK, SEED_VOLUMES, countRows, seed, seedUserEmail, USERS } from "./index";
-import { LEGACY_CODES } from "./referenceData";
+import { HYPOTHESIS_CODES, LEGACY_CODES, REFERENCE_ITEMS } from "./referenceData";
 
 const db = getTestDb();
 const today = new Date("2026-11-04T00:00:00.000Z");
@@ -89,20 +89,74 @@ describe("seed", () => {
     expect(await db.candidacy.count({ where: { closedAt: null } })).toBe(5);
   });
 
-  it("loads the reference list: 21 legacy codes plus the 3 additions to confirm", async () => {
-    const items = await db.referenceItem.findMany();
+  it("loads the exact legacy reference list, in its order, plus the 3 hypotheses", async () => {
+    const items = await db.referenceItem.findMany({ orderBy: { sortOrder: "asc" } });
     expect(items).toHaveLength(SEED_VOLUMES.referenceItems);
-    expect(LEGACY_CODES.every((code) => items.some((i) => i.code === code))).toBe(true);
-    for (const code of ["PSC", "FPSC", "ASSIST_FORM"]) {
-      expect(items.find((i) => i.code === code)?.note).toMatch(/Hypothèse à confirmer/);
+    expect(items.slice(0, 21).map((i) => [i.sortOrder, i.code])).toEqual(
+      LEGACY_CODES.map((code, k) => [k + 1, code]),
+    );
+    expect(items.slice(21).map((i) => i.code)).toEqual([...HYPOTHESIS_CODES]);
+    for (const seedItem of REFERENCE_ITEMS) {
+      const item = items.find((i) => i.code === seedItem.code);
+      expect(item, seedItem.code).toMatchObject({
+        label: seedItem.label,
+        category: seedItem.category,
+        kind: seedItem.kind,
+        forbiddenForMinors: seedItem.forbiddenForMinors,
+        expiresEndOfYear: seedItem.expiresEndOfYear,
+        validityMonths: null,
+        active: true,
+      });
     }
+    expect(await db.referenceItemPrerequisite.count()).toBe(0);
+    expect(items.filter((i) => i.validityMonths !== null)).toEqual([]);
     expect(
       items
-        .filter((i) => i.category === "SECOURS" && i.kind === "FUNCTION")
-        .every((i) => i.forbiddenForMinors),
-    ).toBe(true);
-    expect(items.find((i) => i.code === "FCPSE")?.expiresEndOfYear).toBe(true);
-    expect(items.find((i) => i.code === "PSE")?.perimeters.sort()).toEqual(["ACTION", "LASER"]);
+        .filter((i) => i.expiresEndOfYear)
+        .map((i) => i.code)
+        .sort(),
+    ).toEqual(["FCCI", "FCPSE"]);
+    const byCode = Object.fromEntries(items.map((i) => [i.code, i]));
+    expect(byCode.PSE).toMatchObject({
+      label: "Premiers secours en équipe",
+      category: "FORMATION_IS",
+    });
+    expect(byCode.F_CH?.label).toBe("Formation chauffeur");
+    expect(byCode.CRB?.label).toBe("Croix-Rouge Bienvenue (eCRB)");
+    expect(byCode.OPR?.validityMonths).toBeNull();
+    for (const code of HYPOTHESIS_CODES)
+      expect(byCode[code]?.note).toBe("Hypothèse, absent de l'ancien classeur");
+    expect(byCode.FCPSE?.note).toBe("Validité à renseigner");
+    expect(byCode.FPSE?.note).toBe("Validité à renseigner");
+    expect(byCode.FCCI?.note).toBe("Libellé à confirmer");
+    expect(byCode.CH_TECH?.note).toMatch(/^Interprétation à valider/);
+    expect(byCode.PSE?.perimeters.sort()).toEqual(["ACTION", "LASER"]);
+    expect(byCode.PSC?.perimeters).toEqual(["ACTION"]);
+    expect(byCode.TCAU?.perimeters).toEqual(["LASER"]);
+  });
+
+  it("delegates appointments per function (managedBy)", async () => {
+    const items = await db.referenceItem.findMany();
+    const managedBy = Object.fromEntries(
+      items.filter((i) => i.managedBy.length > 0).map((i) => [i.code, [...i.managedBy].sort()]),
+    );
+    expect(managedBy).toEqual({
+      CHEF_PAPS: ["ACTION"],
+      CDPE: ["ACTION"],
+      CI: ["LASER"],
+      CI_SDIS: ["LASER"],
+      CH_TECH: ["ACTION", "LASER"],
+      CH_FIXE: ["ACTION", "LASER"],
+      CH_MOBILE: ["ACTION", "LASER"],
+      CH_RESEAUX: ["ACTION", "LASER"],
+      ASSIST_FORM: ["FORMAT_GP"],
+    });
+    expect(items.filter((i) => i.kind === "TRAINING" && i.managedBy.length > 0)).toEqual([]);
+  });
+
+  it("flags three trainers and leaves the column unknown for most people", async () => {
+    expect(await db.person.count({ where: { isTrainer: true } })).toBe(3);
+    expect(await db.person.count({ where: { isTrainer: null } })).toBeGreaterThan(40);
   });
 
   it("creates the seven demo accounts", async () => {
@@ -156,6 +210,7 @@ describe("seed", () => {
       BACKUPS_TO_KEEP: 12,
       DATA_CLASSIFICATION: "C3 CONFIDENTIEL",
       GREETING_EMAILS_ENABLED: true,
+      NEW_VOLUNTEER_MONTHS: 12,
     });
     expect(await db.reminderRule.count()).toBe(6);
   });
