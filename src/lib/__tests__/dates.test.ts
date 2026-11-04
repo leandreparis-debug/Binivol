@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { daysBetween, formatDate, formatDateTime, formatRelative } from "@/lib/dates";
+import { daysBetween, formatDate, formatDateTime, formatRelative, toParisDay } from "@/lib/dates";
+
+describe("toParisDay", () => {
+  it("returns the Paris calendar day at 00:00 UTC", () => {
+    expect(toParisDay(new Date("2026-03-14T10:00:00Z")).toISOString()).toBe(
+      "2026-03-14T00:00:00.000Z",
+    );
+  });
+  it("switches day at midnight Paris time, not UTC", () => {
+    expect(toParisDay(new Date("2026-03-14T23:30:00Z")).toISOString()).toBe(
+      "2026-03-15T00:00:00.000Z",
+    );
+  });
+});
 
 describe("formatDate", () => {
   it("formats in French, Paris time zone", () => {

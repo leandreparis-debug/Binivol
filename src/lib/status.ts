@@ -1,3 +1,6 @@
+import type { PersonStatus } from "@/generated/prisma/enums";
+import { PERSON_STATUS_LABELS } from "@/lib/labels";
+
 /**
  * Central registry of statuses: labels (French) and colour tones.
  * A status is never conveyed by colour alone; `StatusDot` always renders the label.
@@ -20,13 +23,18 @@ export interface StatusMeta {
 }
 
 export const VOLUNTEER_STATUSES: Record<VolunteerStatus, StatusMeta> = {
-  candidate: { label: "Candidat", tone: "accent" },
-  active: { label: "Actif", tone: "ok" },
-  paused: { label: "En pause", tone: "warn" },
-  suspended: { label: "Suspendu", tone: "danger" },
-  inactive: { label: "Inactif", tone: "neutral" },
-  left: { label: "Parti(e)", tone: "ink" },
+  candidate: { label: PERSON_STATUS_LABELS.CANDIDATE, tone: "accent" },
+  active: { label: PERSON_STATUS_LABELS.ACTIVE, tone: "ok" },
+  paused: { label: PERSON_STATUS_LABELS.PAUSED, tone: "warn" },
+  suspended: { label: PERSON_STATUS_LABELS.SUSPENDED, tone: "danger" },
+  inactive: { label: PERSON_STATUS_LABELS.INACTIVE, tone: "neutral" },
+  left: { label: PERSON_STATUS_LABELS.LEFT, tone: "ink" },
 };
+
+/** Maps the database status of a person to the UI status of `StatusDot`. */
+export function toVolunteerStatus(status: PersonStatus): VolunteerStatus {
+  return status.toLowerCase() as VolunteerStatus;
+}
 
 export const DEADLINE_STATUSES: Record<DeadlineStatus, StatusMeta> = {
   ok: { label: "À jour", tone: "ok" },

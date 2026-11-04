@@ -80,6 +80,14 @@ export function daysBetween(from: Date, to: Date): number {
   return Math.round((b - a) / 86_400_000);
 }
 
+/**
+ * The calendar day of `now` in Paris, as a `Date` at 00:00 UTC — the same
+ * shape Prisma uses for `@db.Date` columns, so the two compare directly.
+ */
+export function toParisDay(now: Date = new Date()): Date {
+  return new Date(Date.UTC(...splitKey(parisDayKey(now))));
+}
+
 function splitKey(key: string): [number, number, number] {
   const [y = 0, m = 1, d = 1] = key.split("-").map(Number);
   return [y, m - 1, d];

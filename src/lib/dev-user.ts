@@ -6,17 +6,10 @@
  * top bar has something to display.
  */
 
-/** The six responsibility profiles. They can be combined on one person. */
-export type Profile = "TOPAZE" | "ACTION" | "LASER" | "FORMAT" | "FORMAT_GP" | "DIAMANT";
+import type { Profile } from "@/generated/prisma/enums";
 
-export const PROFILE_LABELS: Record<Profile, string> = {
-  TOPAZE: "TOPAZE · DLUS",
-  ACTION: "ACTION · Missions de secours",
-  LASER: "LASER · Urgence",
-  FORMAT: "FORMAT · Formation interne",
-  FORMAT_GP: "FORMAT GP · Formation grand public",
-  DIAMANT: "DIAMANT · Animation des équipes",
-};
+export type { Profile };
+export { PROFILE_LABELS } from "@/lib/labels";
 
 export interface DevUser {
   firstName: string;
