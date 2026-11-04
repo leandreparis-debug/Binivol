@@ -39,13 +39,19 @@ export function isAppointmentActive(appointment: PerimeterAppointment, day: Date
 
 /**
  * Pure version: the set of perimeters brought by effective trainings and
- * active appointments on `day` (default: today in Paris, 00:00 UTC).
+ * active appointments on `day` (default: today in Paris, 00:00 UTC), plus
+ * FORMAT_GP when the person is flagged as a trainer (legacy « Formateur »).
  */
 export function computePerimeters(
-  input: { records: PerimeterTrainingRecord[]; appointments: PerimeterAppointment[] },
+  input: {
+    records: PerimeterTrainingRecord[];
+    appointments: PerimeterAppointment[];
+    isTrainer?: boolean | null;
+  },
   day: Date = toParisDay(),
 ): Set<Perimeter> {
   const result = new Set<Perimeter>();
+  if (input.isTrainer === true) result.add("FORMAT_GP");
   for (const record of input.records) {
     if (isRecordEffective(record, day)) record.perimeters.forEach((p) => result.add(p));
   }
@@ -56,8 +62,9 @@ export function computePerimeters(
 }
 
 /**
- * Query version: loads the person's trainings and appointments whose reference
- * carries at least one perimeter, then applies `computePerimeters`.
+ * Query version: loads the person's trainer flag, and the trainings and
+ * appointments whose reference carries at least one perimeter, then applies
+ * `computePerimeters`.
  */
 export async function perimetersOf(
   db: DbOrTx,
@@ -65,7 +72,8 @@ export async function perimetersOf(
   day: Date = toParisDay(),
 ): Promise<Set<Perimeter>> {
   const withPerimeters = { perimeters: { isEmpty: false } };
-  const [records, appointments] = await Promise.all([
+  const [person, records, appointments] = await Promise.all([
+    db.person.findUnique({ where: { id: personId }, select: { isTrainer: true } }),
     db.trainingRecord.findMany({
       where: { personId, result: "PASSED", cancelledAt: null, reference: withPerimeters },
       select: {
@@ -89,6 +97,7 @@ export async function perimetersOf(
     {
       records: records.map((r) => ({ ...r, perimeters: r.reference.perimeters })),
       appointments: appointments.map((a) => ({ ...a, perimeters: a.reference.perimeters })),
+      isTrainer: person?.isTrainer ?? null,
     },
     day,
   );

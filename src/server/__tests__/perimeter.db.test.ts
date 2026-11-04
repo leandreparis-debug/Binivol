@@ -56,4 +56,11 @@ describe("perimetersOf (query)", () => {
       "LASER",
     ]);
   });
+
+  it("gives FORMAT_GP to a person flagged as trainer, without any training", async () => {
+    const trainer = await makePerson(db, { status: "ACTIVE", nivol: testNivol(), isTrainer: true });
+    const unknown = await makePerson(db, { status: "ACTIVE", nivol: testNivol(), isTrainer: null });
+    expect([...(await perimetersOf(db, trainer.id, day))]).toEqual(["FORMAT_GP"]);
+    expect([...(await perimetersOf(db, unknown.id, day))]).toEqual([]);
+  });
 });

@@ -82,6 +82,16 @@ describe("computePerimeters", () => {
     }
   });
 
+  it("adds FORMAT_GP for a trainer, and only when the flag is true", () => {
+    expect(
+      sorted(computePerimeters({ records: [], appointments: [], isTrainer: true }, day)),
+    ).toEqual(["FORMAT_GP"]);
+    expect(computePerimeters({ records: [], appointments: [], isTrainer: false }, day).size).toBe(
+      0,
+    );
+    expect(computePerimeters({ records: [], appointments: [], isTrainer: null }, day).size).toBe(0);
+  });
+
   it("combines perimeters from trainings and appointments", () => {
     const result = computePerimeters(
       {
