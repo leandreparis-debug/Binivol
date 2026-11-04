@@ -30,6 +30,25 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ APP_URL: secret })).not.toThrow(new RegExp(secret));
   });
 
+  it("accepts PostgreSQL URLs for DATABASE_URL and DIRECT_URL", () => {
+    const env = parseEnv({
+      DATABASE_URL: "postgresql://u:p@pooler.example.org:6543/postgres?pgbouncer=true",
+      DIRECT_URL: "postgres://u:p@db.example.org:5432/postgres",
+    });
+    expect(env.DATABASE_URL).toContain(":6543/");
+    expect(env.DIRECT_URL).toContain(":5432/");
+  });
+
+  it("leaves DATABASE_URL undefined when absent (checked lazily by db.ts)", () => {
+    expect(parseEnv({}).DATABASE_URL).toBeUndefined();
+  });
+
+  it("rejects a non PostgreSQL DATABASE_URL without echoing it", () => {
+    const value = "mysql://secret-user:secret-pass@host/db";
+    expect(() => parseEnv({ DATABASE_URL: value })).toThrow(/DATABASE_URL/);
+    expect(() => parseEnv({ DATABASE_URL: value })).not.toThrow(/secret-pass/);
+  });
+
   it("rejects an unexpected ENABLE_DESIGN_PAGE value", () => {
     expect(() => parseEnv({ ENABLE_DESIGN_PAGE: "oui" })).toThrow(/ENABLE_DESIGN_PAGE/);
   });

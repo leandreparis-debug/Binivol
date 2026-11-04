@@ -1,0 +1,946 @@
+// Binivol data model.
+//
+// Conventions (see docs/data-model.md):
+// - models in English, singular, PascalCase; tables snake_case plural (@@map);
+// - ids are cuid2 text; business entities also get a readable `ref` (P-00001…)
+//   produced by a Postgres sequence through `binivol_next_ref()`;
+// - instants are timestamptz, dates without time are `@db.Date`;
+// - no physical deletion of business data: `archivedAt` or a traced
+//   cancellation (`cancelledAt`, `cancelledById`, `cancelReason`);
+// - actor columns (`createdById`, `updatedById`, `cancelledById`) hold a User id
+//   without a foreign key: they stay valid for imports and system jobs, and the
+//   audit log is the source of truth;
+// - CHECK constraints, triggers and SQL functions live in the migrations
+//   (Prisma cannot express them) and are listed in docs/data-model.md.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums (French labels in src/lib/labels.ts)
+// ---------------------------------------------------------------------------
+
+enum Profile {
+  TOPAZE
+  ACTION
+  LASER
+  FORMAT
+  FORMAT_GP
+  DIAMANT
+}
+
+/// Perimeters a qualification can bring a person into (visibility, step 3).
+enum Perimeter {
+  ACTION
+  LASER
+  FORMAT_GP
+}
+
+enum Civility {
+  MME
+  M
+}
+
+enum PersonStatus {
+  CANDIDATE
+  ACTIVE
+  PAUSED
+  SUSPENDED
+  INACTIVE
+  LEFT
+}
+
+enum LeftReason {
+  MOVED
+  AVAILABILITY
+  PERSONAL
+  TRANSFER
+  EXCLUDED
+  DECEASED
+  OTHER
+}
+
+enum Aptitude {
+  FIT
+  UNFIT
+  WITHDRAWN
+  TO_CHECK
+}
+
+enum B3Status {
+  NOT_REQUESTED
+  REQUESTED
+  CLEAR
+  FLAGGED
+}
+
+enum SkillLevel {
+  BEGINNER
+  CONFIRMED
+  EXPERT
+}
+
+enum LanguageLevel {
+  NOTIONS
+  FLUENT
+  BILINGUAL
+}
+
+enum ReferenceCategory {
+  TRONC_COMMUN
+  FORMATION_IS
+  SECOURS
+  FORMATION_GP
+  AUTRE
+}
+
+enum ReferenceKind {
+  TRAINING
+  FUNCTION
+}
+
+enum TrainingResult {
+  REGISTERED
+  PASSED
+  FAILED
+  ABSENT
+  TO_CONFIRM
+}
+
+enum TrainingWishStatus {
+  OPEN
+  WAITLISTED
+  SCHEDULED
+  DONE
+  CANCELLED
+}
+
+enum CandidacyStage {
+  FIRST_CONTACT
+  MEETING
+  CONFIRMED
+  FILE
+  GAIA
+  DONE
+  ABANDONED
+}
+
+enum FollowUpKind {
+  THREE_MONTHS
+  ANNUAL
+  OTHER
+}
+
+enum DossierLinkMode {
+  REMOTE
+  ON_SITE
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  SIGNED
+  VOID
+}
+
+enum SignerRole {
+  VOLUNTEER
+  PARENT
+  CRF_REPRESENTATIVE
+}
+
+enum DocumentKind {
+  DOSSIER
+  CHARTE
+  APTITUDE
+  DIPLOMA_COPY
+  PARENTAL_AUTH
+  B3_ATTESTATION
+  ADHESION
+  OTHER
+}
+
+enum DocumentCopy {
+  VOLUNTEER
+  UL
+  NONE
+}
+
+enum ReminderTrigger {
+  CANDIDACY_IDLE
+  DOSSIER_UNSIGNED
+  TRAINING_EXPIRING
+  FOLLOWUP_DUE
+  PERSON_INACTIVE
+  B3_ANNUAL
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL_DIGEST
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  CANCEL
+  ARCHIVE
+  IMPORT
+  PURGE
+  LOGIN
+  EXPORT
+}
+
+enum AccessScope {
+  SENSITIVE_VIEW
+  DOCUMENT_VIEW
+  EXPORT
+}
+
+// ---------------------------------------------------------------------------
+// Accounts
+// ---------------------------------------------------------------------------
+
+/// A responsible person who signs in (step 3). Volunteers have no account.
+model User {
+  id          String    @id @default(cuid(2))
+  /// Always stored lower-case (CHECK users_email_lowercase).
+  email       String    @unique
+  name        String
+  active      Boolean   @default(true)
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+
+  profiles           UserProfile[]
+  ownedCandidacies   Candidacy[]      @relation("CandidacyOwner")
+  candidacyEvents    CandidacyEvent[]
+  conductedFollowUps FollowUp[]
+  uploadedDocuments  Document[]
+  createdLinks       DossierLink[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id        String   @id @default(cuid(2))
+  userId    String   @map("user_id")
+  profile   Profile
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, profile])
+  @@map("user_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// People (candidates and volunteers share one model)
+// ---------------------------------------------------------------------------
+
+model Person {
+  id                     String       @id @default(cuid(2))
+  /// Readable number, P-00001, from sequence person_ref_seq.
+  ref                    String       @unique @default(dbgenerated("binivol_next_ref('P-'::text, 'person_ref_seq'::regclass)"))
+  /// National volunteer id: 11 digits + 1 upper-case letter (CHECK persons_nivol_format).
+  nivol                  String?      @unique
+  civility               Civility?
+  firstName              String       @map("first_name")
+  lastName               String       @map("last_name")
+  birthName              String?      @map("birth_name")
+  usageName              String?      @map("usage_name")
+  email                  String?
+  phone                  String?
+  proEmail               String?      @map("pro_email")
+  proPhone               String?      @map("pro_phone")
+  crfEmail               String?      @map("crf_email")
+  status                 PersonStatus @default(CANDIDATE)
+  entryDate              DateTime?    @map("entry_date") @db.Date
+  leftAt                 DateTime?    @map("left_at") @db.Date
+  leftReason             LeftReason?  @map("left_reason")
+  leftComment            String?      @map("left_comment")
+  isMember               Boolean      @default(false) @map("is_member")
+  aptitude               Aptitude?
+  aptitudeDate           DateTime?    @map("aptitude_date") @db.Date
+  otherAasc              Boolean      @default(false) @map("other_aasc")
+  regularMinorSupervisor Boolean      @default(false) @map("regular_minor_supervisor")
+  profession             String?
+  sector                 String?
+  company                String?
+  notes                  String?
+  /// Imported from the legacy workbook: relaxes the NIVOL requirement.
+  legacyImport           Boolean      @default(false) @map("legacy_import")
+  archivedAt             DateTime?    @map("archived_at") @db.Timestamptz(3)
+  /// Date after which the GDPR purge (step 14) may delete the person.
+  purgeEligibleAt        DateTime?    @map("purge_eligible_at") @db.Date
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById            String?      @map("created_by_id")
+  updatedById            String?      @map("updated_by_id")
+
+  sensitive         PersonSensitive?
+  emergencyContacts EmergencyContact[]
+  skills            PersonSkill[]
+  languages         PersonLanguage[]
+  licenses          PersonLicense[]
+  declaredDiplomas  PersonDeclaredDiploma[]
+  wishedActivities  PersonWishedActivity[]
+  annexes           PersonAnnex[]
+  trainingRecords   TrainingRecord[]
+  trainingWishes    TrainingWish[]
+  appointments      Appointment[]
+  candidacies       Candidacy[]
+  menteeships       Mentorship[]            @relation("Mentee")
+  mentorships       Mentorship[]            @relation("Mentor")
+  followUps         FollowUp[]
+  dossierLinks      DossierLink[]
+  submissions       DossierSubmission[]
+  documents         Document[]
+  notifications     Notification[]
+
+  @@index([lastName])
+  @@index([status])
+  @@index([nivol])
+  @@map("persons")
+}
+
+/// Sensitive personal data, split out so access can be filtered (step 3).
+model PersonSensitive {
+  id                        String    @id @default(cuid(2))
+  personId                  String    @unique @map("person_id")
+  birthDate                 DateTime? @map("birth_date") @db.Date
+  birthCity                 String?   @map("birth_city")
+  birthDepartment           String?   @map("birth_department")
+  birthCountry              String?   @map("birth_country")
+  street                    String?
+  addressComplement         String?   @map("address_complement")
+  postalCode                String?   @map("postal_code")
+  city                      String?
+  country                   String?
+  b3CheckedAt               DateTime? @map("b3_checked_at") @db.Date
+  b3Status                  B3Status? @map("b3_status")
+  parentalAuthorization     Boolean   @default(false) @map("parental_authorization")
+  parentalAuthorizationDate DateTime? @map("parental_authorization_date") @db.Date
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById               String?   @map("created_by_id")
+  updatedById               String?   @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@map("person_sensitive")
+}
+
+/// Person to notify in an emergency (sensitive). Ordered by `position`.
+model EmergencyContact {
+  id           String    @id @default(cuid(2))
+  personId     String    @map("person_id")
+  position     Int       @default(0)
+  civility     Civility?
+  lastName     String    @map("last_name")
+  firstName    String?   @map("first_name")
+  relationship String?
+  street       String?
+  postalCode   String?   @map("postal_code")
+  city         String?
+  country      String?
+  phone1       String?   @map("phone_1")
+  phone2       String?   @map("phone_2")
+  email        String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?   @map("created_by_id")
+  updatedById  String?   @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId, position])
+  @@map("emergency_contacts")
+}
+
+model PersonSkill {
+  id          String     @id @default(cuid(2))
+  personId    String     @map("person_id")
+  label       String
+  level       SkillLevel
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?    @map("created_by_id")
+  updatedById String?    @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@map("person_skills")
+}
+
+model PersonLanguage {
+  id          String        @id @default(cuid(2))
+  personId    String        @map("person_id")
+  label       String
+  level       LanguageLevel
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?       @map("created_by_id")
+  updatedById String?       @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@map("person_languages")
+}
+
+model PersonLicense {
+  id          String   @id @default(cuid(2))
+  personId    String   @map("person_id")
+  /// Driving licence category (B, C, D, BE…).
+  category    String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, category])
+  @@map("person_licenses")
+}
+
+model PersonDeclaredDiploma {
+  id          String   @id @default(cuid(2))
+  personId    String   @map("person_id")
+  label       String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@map("person_declared_diplomas")
+}
+
+model PersonWishedActivity {
+  id          String   @id @default(cuid(2))
+  personId    String   @map("person_id")
+  label       String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@map("person_wished_activities")
+}
+
+/// Annex competence (VPSP driver…), free code, optional validity.
+model PersonAnnex {
+  id          String    @id @default(cuid(2))
+  personId    String    @map("person_id")
+  code        String
+  label       String?
+  validUntil  DateTime? @map("valid_until") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@map("person_annexes")
+}
+
+// ---------------------------------------------------------------------------
+// Reference items, trainings and appointments
+// ---------------------------------------------------------------------------
+
+/// Training or function of the internal reference list (21 legacy codes + additions).
+model ReferenceItem {
+  id                 String            @id @default(cuid(2))
+  code               String            @unique
+  label              String
+  category           ReferenceCategory
+  kind               ReferenceKind
+  sortOrder          Int               @default(0) @map("sort_order")
+  /// Validity in months after obtention; null = no expiry by duration.
+  validityMonths     Int?              @map("validity_months")
+  /// Expiry falls on 31 December (of the obtention year, or of the year reached after validityMonths).
+  expiresEndOfYear   Boolean           @default(false) @map("expires_end_of_year")
+  forbiddenForMinors Boolean           @default(false) @map("forbidden_for_minors")
+  /// Perimeters this qualification brings a person into (data-driven visibility).
+  perimeters         Perimeter[]       @default([])
+  active             Boolean           @default(true)
+  note               String?
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById        String?           @map("created_by_id")
+  updatedById        String?           @map("updated_by_id")
+
+  prerequisites ReferenceItemPrerequisite[] @relation("RequiredBy")
+  requiredBy    ReferenceItemPrerequisite[] @relation("Prerequisite")
+  sessions      TrainingSession[]
+  records       TrainingRecord[]
+  wishes        TrainingWish[]
+  appointments  Appointment[]
+
+  @@index([kind, active, sortOrder])
+  @@map("reference_items")
+}
+
+/// Self n–n relation: `item` requires `prerequisite`.
+model ReferenceItemPrerequisite {
+  itemId         String   @map("item_id")
+  prerequisiteId String   @map("prerequisite_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  item         ReferenceItem @relation("RequiredBy", fields: [itemId], references: [id], onDelete: Cascade)
+  prerequisite ReferenceItem @relation("Prerequisite", fields: [prerequisiteId], references: [id], onDelete: Restrict)
+
+  @@id([itemId, prerequisiteId])
+  @@map("reference_item_prerequisites")
+}
+
+/// An organised session of a training.
+model TrainingSession {
+  id            String    @id @default(cuid(2))
+  referenceId   String    @map("reference_id")
+  startDate     DateTime  @map("start_date") @db.Date
+  endDate       DateTime? @map("end_date") @db.Date
+  place         String?
+  pegassUrl     String?   @map("pegass_url")
+  capacity      Int?
+  cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById String?   @map("cancelled_by_id")
+  cancelReason  String?   @map("cancel_reason")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String?   @map("created_by_id")
+  updatedById   String?   @map("updated_by_id")
+
+  reference ReferenceItem    @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+  records   TrainingRecord[]
+  wishes    TrainingWish[]
+
+  @@index([referenceId, startDate])
+  @@map("training_sessions")
+}
+
+/// A training followed by a person (legacy « Sessions » sheet).
+model TrainingRecord {
+  id            String         @id @default(cuid(2))
+  /// Readable number, S-00001.
+  ref           String         @unique @default(dbgenerated("binivol_next_ref('S-'::text, 'training_record_ref_seq'::regclass)"))
+  personId      String         @map("person_id")
+  referenceId   String         @map("reference_id")
+  sessionId     String?        @map("session_id")
+  /// Obtention date; often unknown in the legacy workbook.
+  date          DateTime?      @db.Date
+  result        TrainingResult @default(REGISTERED)
+  place         String?
+  pegassUrl     String?        @map("pegass_url")
+  comment       String?
+  /// Computed by the application (src/server/reference.ts), stored for deadline queries.
+  expiresAt     DateTime?      @map("expires_at") @db.Date
+  cancelledAt   DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById String?        @map("cancelled_by_id")
+  cancelReason  String?        @map("cancel_reason")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String?        @map("created_by_id")
+  updatedById   String?        @map("updated_by_id")
+
+  person    Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  reference ReferenceItem    @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+  session   TrainingSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([personId])
+  @@index([referenceId])
+  @@index([expiresAt])
+  @@map("training_records")
+}
+
+/// A training wish. At most one « open » wish (OPEN, WAITLISTED, SCHEDULED) per person and reference.
+model TrainingWish {
+  id          String             @id @default(cuid(2))
+  personId    String             @map("person_id")
+  referenceId String             @map("reference_id")
+  status      TrainingWishStatus @default(OPEN)
+  priority    Int                @default(0)
+  comment     String?
+  sessionId   String?            @map("session_id")
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?            @map("created_by_id")
+  updatedById String?            @map("updated_by_id")
+
+  person    Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  reference ReferenceItem    @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+  session   TrainingSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@unique([personId, referenceId], map: "training_wishes_one_open", where: raw("status = ANY (ARRAY['OPEN'::\"TrainingWishStatus\", 'WAITLISTED'::\"TrainingWishStatus\", 'SCHEDULED'::\"TrainingWishStatus\"])"))
+  @@index([referenceId, status])
+  @@map("training_wishes")
+}
+
+/// Appointment to a function (legacy « Fonctions » sheet).
+model Appointment {
+  id            String    @id @default(cuid(2))
+  /// Readable number, F-00001.
+  ref           String    @unique @default(dbgenerated("binivol_next_ref('F-'::text, 'appointment_ref_seq'::regclass)"))
+  personId      String    @map("person_id")
+  referenceId   String    @map("reference_id")
+  startDate     DateTime? @map("start_date") @db.Date
+  endDate       DateTime? @map("end_date") @db.Date
+  authorizedBy  String?   @map("authorized_by")
+  decisionRef   String?   @map("decision_ref")
+  comment       String?
+  cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById String?   @map("cancelled_by_id")
+  cancelReason  String?   @map("cancel_reason")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String?   @map("created_by_id")
+  updatedById   String?   @map("updated_by_id")
+
+  person    Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  reference ReferenceItem @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@index([personId])
+  @@index([referenceId])
+  @@map("appointments")
+}
+
+// ---------------------------------------------------------------------------
+// Candidacies, integration and follow-up
+// ---------------------------------------------------------------------------
+
+/// A candidacy. At most one open (closedAt null) per person.
+model Candidacy {
+  id              String         @id @default(cuid(2))
+  personId        String         @map("person_id")
+  stage           CandidacyStage @default(FIRST_CONTACT)
+  source          String?
+  interest        String?
+  firstContactAt  DateTime?      @map("first_contact_at") @db.Timestamptz(3)
+  nextAction      String?        @map("next_action")
+  followUpAt      DateTime?      @map("follow_up_at") @db.Date
+  ownerId         String?        @map("owner_id")
+  abandonedReason String?        @map("abandoned_reason")
+  /// Set when the stage is DONE or ABANDONED (CHECK candidacies_closed_matches_stage).
+  closedAt        DateTime?      @map("closed_at") @db.Timestamptz(3)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById     String?        @map("created_by_id")
+  updatedById     String?        @map("updated_by_id")
+
+  person Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  owner  User?            @relation("CandidacyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  events CandidacyEvent[]
+
+  @@unique([personId], map: "candidacies_one_open", where: raw("closed_at IS NULL"))
+  @@index([stage])
+  @@map("candidacies")
+}
+
+/// History of a candidacy's stage changes.
+model CandidacyEvent {
+  id          String          @id @default(cuid(2))
+  candidacyId String          @map("candidacy_id")
+  at          DateTime        @default(now()) @db.Timestamptz(3)
+  authorId    String?         @map("author_id")
+  fromStage   CandidacyStage? @map("from_stage")
+  toStage     CandidacyStage  @map("to_stage")
+  note        String?
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?         @map("created_by_id")
+  updatedById String?         @map("updated_by_id")
+
+  candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
+  author    User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([candidacyId, at])
+  @@map("candidacy_events")
+}
+
+/// Sponsorship: a mentor (existing volunteer) follows a mentee.
+model Mentorship {
+  id          String    @id @default(cuid(2))
+  menteeId    String    @map("mentee_id")
+  mentorId    String    @map("mentor_id")
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  note        String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+
+  mentee Person @relation("Mentee", fields: [menteeId], references: [id], onDelete: Cascade)
+  mentor Person @relation("Mentor", fields: [mentorId], references: [id], onDelete: Cascade)
+
+  @@index([menteeId])
+  @@index([mentorId])
+  @@map("mentorships")
+}
+
+/// Follow-up meeting (3 months, annual…).
+model FollowUp {
+  id            String       @id @default(cuid(2))
+  personId      String       @map("person_id")
+  kind          FollowUpKind
+  scheduledAt   DateTime?    @map("scheduled_at") @db.Date
+  doneAt        DateTime?    @map("done_at") @db.Date
+  conductedById String?      @map("conducted_by_id")
+  summary       String?
+  nextDate      DateTime?    @map("next_date") @db.Date
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String?      @map("created_by_id")
+  updatedById   String?      @map("updated_by_id")
+
+  person      Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conductedBy User?  @relation(fields: [conductedById], references: [id], onDelete: SetNull)
+
+  @@index([personId])
+  @@index([scheduledAt])
+  @@map("follow_ups")
+}
+
+// ---------------------------------------------------------------------------
+// Online file, documents and signature
+// ---------------------------------------------------------------------------
+
+/// Secure link sent to a candidate. Only the SHA-256 of the token is stored.
+model DossierLink {
+  id          String          @id @default(cuid(2))
+  personId    String          @map("person_id")
+  tokenHash   String          @unique @map("token_hash")
+  mode        DossierLinkMode @default(REMOTE)
+  expiresAt   DateTime        @map("expires_at") @db.Timestamptz(3)
+  usedAt      DateTime?       @map("used_at") @db.Timestamptz(3)
+  revokedAt   DateTime?       @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?         @map("created_by_id")
+  updatedById String?         @map("updated_by_id")
+
+  person      Person              @relation(fields: [personId], references: [id], onDelete: Cascade)
+  createdBy   User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  submissions DossierSubmission[]
+
+  @@index([personId])
+  @@map("dossier_links")
+}
+
+/// Content of the online file (JSONB validated by Zod at step 7).
+model DossierSubmission {
+  id            String           @id @default(cuid(2))
+  personId      String           @map("person_id")
+  linkId        String?          @map("link_id")
+  status        SubmissionStatus @default(DRAFT)
+  data          Json             @default("{}")
+  schemaVersion Int              @default(1) @map("schema_version")
+  submittedAt   DateTime?        @map("submitted_at") @db.Timestamptz(3)
+  signedAt      DateTime?        @map("signed_at") @db.Timestamptz(3)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById   String?          @map("created_by_id")
+  updatedById   String?          @map("updated_by_id")
+
+  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  link          DossierLink?   @relation(fields: [linkId], references: [id], onDelete: SetNull)
+  otpChallenges OtpChallenge[]
+  signatures    Signature[]
+
+  @@index([personId])
+  @@map("dossier_submissions")
+}
+
+/// One-time code sent by e-mail before signing. Only the hash of the code is stored.
+model OtpChallenge {
+  id           String    @id @default(cuid(2))
+  submissionId String    @map("submission_id")
+  codeHash     String    @map("code_hash")
+  email        String
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  attempts     Int       @default(0)
+  verifiedAt   DateTime? @map("verified_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?   @map("created_by_id")
+  updatedById  String?   @map("updated_by_id")
+
+  submission DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  signature  Signature?
+
+  @@index([submissionId])
+  @@map("otp_challenges")
+}
+
+model Signature {
+  id             String     @id @default(cuid(2))
+  submissionId   String     @map("submission_id")
+  signerRole     SignerRole @map("signer_role")
+  signerName     String     @map("signer_name")
+  signerQuality  String?    @map("signer_quality")
+  /// Storage key of the signature image (StorageService).
+  imageKey       String     @map("image_key")
+  signedAt       DateTime   @map("signed_at") @db.Timestamptz(3)
+  otpChallengeId String?    @unique @map("otp_challenge_id")
+  userAgent      String?    @map("user_agent")
+  /// HMAC/SHA-256 of the IP address, never the address itself.
+  ipHash         String?    @map("ip_hash")
+  /// File name → SHA-256 of each signed document.
+  documentHashes Json       @default("{}") @map("document_hashes")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById    String?    @map("created_by_id")
+  updatedById    String?    @map("updated_by_id")
+
+  submission   DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  otpChallenge OtpChallenge?     @relation(fields: [otpChallengeId], references: [id], onDelete: SetNull)
+
+  @@index([submissionId])
+  @@map("signatures")
+}
+
+/// A stored file (sensitive). The bytes live behind StorageService.
+model Document {
+  id           String       @id @default(cuid(2))
+  personId     String       @map("person_id")
+  kind         DocumentKind
+  copy         DocumentCopy @default(NONE)
+  storageKey   String       @unique @map("storage_key")
+  fileName     String       @map("file_name")
+  mimeType     String       @map("mime_type")
+  sizeBytes    Int          @map("size_bytes")
+  sha256       String
+  /// True when the row points to no stored file (seed, partial legacy import).
+  fileMissing  Boolean      @default(false) @map("file_missing")
+  expiresAt    DateTime?    @map("expires_at") @db.Date
+  uploadedById String?      @map("uploaded_by_id")
+  archivedAt   DateTime?    @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?      @map("created_by_id")
+  updatedById  String?      @map("updated_by_id")
+
+  person     Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  uploadedBy User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([personId, kind])
+  @@map("documents")
+}
+
+// ---------------------------------------------------------------------------
+// Reminders, notifications and settings
+// ---------------------------------------------------------------------------
+
+model ReminderRule {
+  id          String                @id @default(cuid(2))
+  key         String                @unique
+  label       String
+  trigger     ReminderTrigger
+  offsetDays  Int                   @map("offset_days")
+  recipients  Profile[]             @default([])
+  channels    NotificationChannel[] @default([IN_APP])
+  params      Json                  @default("{}")
+  active      Boolean               @default(true)
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?               @map("created_by_id")
+  updatedById String?               @map("updated_by_id")
+
+  notifications Notification[]
+
+  @@map("reminder_rules")
+}
+
+model Notification {
+  id          String    @id @default(cuid(2))
+  userId      String    @map("user_id")
+  ruleId      String?   @map("rule_id")
+  personId    String?   @map("person_id")
+  title       String
+  body        String?
+  href        String?
+  /// Prevents the reminder engine from notifying the same thing twice.
+  dedupeKey   String    @map("dedupe_key")
+  readAt      DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
+
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rule   ReminderRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  person Person?       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model Setting {
+  id          String   @id @default(cuid(2))
+  key         String   @unique
+  value       Json
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  @@map("settings")
+}
+
+// ---------------------------------------------------------------------------
+// Logs — append-only, enforced by a trigger (no FK: logs outlive entities)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String      @id @default(cuid(2))
+  at         DateTime    @default(now()) @db.Timestamptz(3)
+  actorId    String?     @map("actor_id")
+  /// « Import », « Système » when there is no user.
+  actorLabel String?     @map("actor_label")
+  action     AuditAction
+  entity     String
+  entityId   String?     @map("entity_id")
+  field      String?
+  oldValue   Json?       @map("old_value")
+  newValue   Json?       @map("new_value")
+
+  @@index([entity, entityId])
+  @@index([at])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model AccessLog {
+  id       String      @id @default(cuid(2))
+  at       DateTime    @default(now()) @db.Timestamptz(3)
+  userId   String?     @map("user_id")
+  personId String?     @map("person_id")
+  scope    AccessScope
+  context  String?
+
+  @@index([personId, at])
+  @@index([userId, at])
+  @@map("access_logs")
+}

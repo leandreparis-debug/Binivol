@@ -9,3 +9,5 @@ pnpm-lock.yaml
 next-env.d.ts
 *.png
 *.ico
+src/generated
+prisma/migrations/**/*.sql

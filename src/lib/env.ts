@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const postgresUrl = z
+  .string()
+  .trim()
+  .regex(/^postgres(ql)?:\/\/\S+$/, "doit être une URL PostgreSQL (postgresql://…)");
+
 /**
  * Schema of the environment variables the application reads.
  *
@@ -11,6 +16,15 @@ export const envSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().trim().min(1).default("Binivol"),
   /** Public URL of the application, without trailing slash. */
   APP_URL: z.url().optional(),
+  /**
+   * Connection used by the application at runtime. May go through a pooler
+   * (Supabase: port 6543 with `pgbouncer=true`). Optional so that pages that
+   * do not touch the database still build; `src/server/db.ts` raises a clear
+   * error on first use when it is missing.
+   */
+  DATABASE_URL: postgresUrl.optional(),
+  /** Direct connection used by migrations (Supabase: port 5432). */
+  DIRECT_URL: postgresUrl.optional(),
   /** Enables the `/design` page in production. Always enabled in development. */
   ENABLE_DESIGN_PAGE: z
     .enum(["true", "false"])
@@ -45,6 +59,11 @@ export function parseEnv(raw: Record<string, string | undefined>): Env {
 }
 
 let cached: Env | undefined;
+
+/** Clears the cached environment (tests only). */
+export function resetEnvCache(): void {
+  cached = undefined;
+}
 
 /**
  * Returns the validated environment. Parsed once, then cached for the process.
