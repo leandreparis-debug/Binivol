@@ -13,9 +13,25 @@ jobs:
     name: Vérification et tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: binivol
+          POSTGRES_PASSWORD: binivol
+          POSTGRES_DB: binivol_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U binivol -d binivol_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       CI: true
       NEXT_TELEMETRY_DISABLED: 1
+      # The e2e run migrates and seeds this database (synthetic data only).
+      E2E_DATABASE_URL: postgresql://binivol:binivol@localhost:5432/binivol_e2e
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +51,7 @@ jobs:
       - name: Installer Chromium pour Playwright
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Tests end-to-end (build de production)
+      - name: Tests end-to-end (build de production, connexion de démonstration)
         run: pnpm test:e2e
 
       - name: Rapport Playwright

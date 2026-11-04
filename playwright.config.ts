@@ -1,14 +1,20 @@
+import "dotenv/config";
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const baseURL = `http://127.0.0.1:${PORT}`;
 
+/** Database of the e2e run: E2E_DATABASE_URL when set (recommended locally), else DATABASE_URL. */
+export const E2E_DATABASE_URL = process.env.E2E_DATABASE_URL ?? process.env.DATABASE_URL;
+
 /**
- * End-to-end tests run against the production build (`pnpm build && pnpm start`),
- * so they exercise the same bundle that is deployed.
+ * End-to-end tests run against the production build (`pnpm build && pnpm start`)
+ * with the demo sign-in enabled, on a database migrated and seeded by
+ * `e2e/global-setup.ts`.
  */
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -45,6 +51,11 @@ export default defineConfig({
     env: {
       PORT: String(PORT),
       ENABLE_DESIGN_PAGE: "true",
+      AUTH_DEMO_LOGIN: "true",
+      AUTH_URL: baseURL,
+      // Test-only secret (the e2e database holds synthetic data only).
+      AUTH_SECRET: process.env.AUTH_SECRET ?? "e2e-only-secret-not-for-production-000000",
+      ...(E2E_DATABASE_URL ? { DATABASE_URL: E2E_DATABASE_URL } : {}),
     },
   },
 });

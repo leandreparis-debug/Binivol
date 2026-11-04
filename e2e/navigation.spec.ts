@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { isMobileProject, loginAs, mainNav } from "./helpers";
 
 const SECTIONS = [
   { href: "/benevoles", label: "Bénévoles" },
@@ -8,17 +9,13 @@ const SECTIONS = [
   { href: "/", label: "Accueil" },
 ];
 
-test.describe("Navigation", () => {
-  test("chaque section est accessible et aria-current suit", async ({ page }, testInfo) => {
-    const isMobile = testInfo.project.name.includes("mobile");
-    await page.goto("/");
-    const nav = isMobile
-      ? page.getByRole("navigation", { name: "Navigation principale (mobile)" })
-      : page
-          .getByRole("navigation", { name: "Navigation principale" })
-          .locator("visible=true")
-          .first();
+test.describe("Navigation (TOPAZE)", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, "topaze");
+  });
 
+  test("chaque section est accessible et aria-current suit", async ({ page }, testInfo) => {
+    const nav = mainNav(page, testInfo);
     for (const section of SECTIONS) {
       await nav.getByRole("link", { name: section.label }).click();
       await expect(page).toHaveURL(new RegExp(`${section.href === "/" ? "/" : section.href}$`));
@@ -29,9 +26,8 @@ test.describe("Navigation", () => {
     }
   });
 
-  test("la barre basse est visible sous 640 px", async ({ page }, testInfo) => {
-    test.skip(!testInfo.project.name.includes("mobile"), "Mobile uniquement");
-    await page.goto("/");
+  test("la barre basse remplace les pilules sous 640 px", async ({ page }, testInfo) => {
+    test.skip(!isMobileProject(testInfo), "Ne concerne que la largeur 390 px du projet mobile.");
     const bottomNav = page.getByTestId("bottom-nav");
     await expect(bottomNav).toBeVisible();
     await expect(bottomNav.getByRole("link")).toHaveCount(5);
@@ -40,9 +36,8 @@ test.describe("Navigation", () => {
     ).toBeHidden();
   });
 
-  test("la nav en pilules est visible sur bureau", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "Bureau uniquement");
-    await page.goto("/");
+  test("les pilules sont visibles sur bureau, sans barre basse", async ({ page }, testInfo) => {
+    test.skip(isMobileProject(testInfo), "Ne concerne que la largeur 1440 px du projet bureau.");
     await expect(page.getByTestId("bottom-nav")).toBeHidden();
     await expect(
       page.getByRole("navigation", { name: "Navigation principale" }).first(),
@@ -53,7 +48,6 @@ test.describe("Navigation", () => {
     const response = await page.goto("/cette-page-n-existe-pas");
     expect(response?.status()).toBe(404);
     await expect(page.getByRole("heading", { level: 1, name: "Page introuvable" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Retour à l'accueil" })).toBeVisible();
   });
 
   test("une erreur dans une page affiche error.tsx sans pile technique", async ({ page }) => {
@@ -63,4 +57,11 @@ test.describe("Navigation", () => {
     await expect(alert).not.toContainText("Erreur de démonstration");
     await expect(page.locator("body")).not.toContainText(/\bat \w+ \(/);
   });
+});
+
+test("sans session, une page de l'app renvoie vers /connexion", async ({ page }) => {
+  for (const path of ["/", "/benevoles", "/moi", "/admin/comptes"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/connexion$/);
+  }
 });

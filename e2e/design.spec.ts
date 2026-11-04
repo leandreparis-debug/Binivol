@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { loginAs } from "./helpers";
 
 test("/design présente le design system avec le bandeau « Données fictives »", async ({ page }) => {
+  await loginAs(page, "topaze");
   await page.goto("/design");
   await expect(page.getByRole("heading", { level: 1, name: "Design system" })).toBeVisible();
   await expect(page.getByTestId("fake-data")).toHaveText("Données fictives");
