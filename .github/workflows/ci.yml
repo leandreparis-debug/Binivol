@@ -26,7 +26,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Installer les dépendances
+      - name: Installer les dépendances (génère le client Prisma)
         run: pnpm install --frozen-lockfile
 
       - name: Format, lint, typecheck, tests unitaires
@@ -45,3 +45,63 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  db:
+    name: Base de données (migrations, seed, intégration)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: binivol
+          POSTGRES_PASSWORD: binivol
+          POSTGRES_DB: binivol
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U binivol -d binivol"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: true
+      DATABASE_URL: postgresql://binivol:binivol@localhost:5432/binivol
+      DIRECT_URL: postgresql://binivol:binivol@localhost:5432/binivol
+      TEST_DATABASE_URL: postgresql://binivol:binivol@localhost:5432/binivol_test
+      PGPASSWORD: binivol
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Installer les dépendances (génère le client Prisma)
+        run: pnpm install --frozen-lockfile
+
+      - name: Créer la base de test
+        run: psql -h localhost -U binivol -d binivol -c "CREATE DATABASE binivol_test"
+
+      - name: Appliquer les migrations
+        run: pnpm db:deploy
+
+      - name: Seed synthétique (deux passages, idempotence)
+        run: |
+          pnpm db:seed | tee seed-1.txt
+          pnpm db:seed | tee seed-2.txt
+          diff <(grep -E '^\s+[a-z_]+\s+[0-9]+$' seed-1.txt) <(grep -E '^\s+[a-z_]+\s+[0-9]+$' seed-2.txt)
+
+      - name: Refus de suppression dans le journal d'audit
+        run: |
+          if psql -h localhost -U binivol -d binivol -c "DELETE FROM audit_logs;" 2> delete.txt; then
+            echo "DELETE FROM audit_logs aurait dû être refusé"; exit 1
+          fi
+          cat delete.txt
+          grep -q "ajout seul" delete.txt
+
+      - name: Tests d'intégration
+        run: pnpm test:db

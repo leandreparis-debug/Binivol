@@ -9,7 +9,9 @@ RUN corepack enable && apk add --no-cache libc6-compat
 # --- Dependencies --------------------------------------------------------------
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc prisma.config.ts ./
+# `postinstall` runs `prisma generate`, which needs the schema (not a database).
+COPY prisma/schema.prisma ./prisma/schema.prisma
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # --- Build ---------------------------------------------------------------------
@@ -18,7 +20,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm build
+RUN pnpm exec prisma generate && pnpm build
 
 # --- Runtime -------------------------------------------------------------------
 FROM node:22-alpine AS runner
