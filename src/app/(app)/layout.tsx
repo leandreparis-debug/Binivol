@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: Readonly<{ children: React
         email: actor.email,
         profiles: PROFILE_ORDER.filter((p) => actor.profiles.has(p)),
         canManageAccounts: canSome(actor, "user.manage"),
+        canImport: canSome(actor, "import.run"),
       }}
       allowedHrefs={allowedHrefs}
       unreadNotifications={unreadNotifications}

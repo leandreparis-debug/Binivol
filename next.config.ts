@@ -19,7 +19,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   // Enables `forbidden()` and `forbidden.tsx`: refused pages answer with a real 403.
-  experimental: { authInterrupts: true },
+  experimental: {
+    authInterrupts: true,
+    // The legacy workbook (5 MB max) is sent to a Server Action.
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   headers() {
     return Promise.resolve([{ source: "/(.*)", headers: securityHeaders }]);
   },

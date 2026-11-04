@@ -15,3 +15,4 @@ export * from "./Spinner";
 export * from "./StatCard";
 export * from "./StatusDot";
 export * from "./Checkbox";
+export * from "./Dialog";

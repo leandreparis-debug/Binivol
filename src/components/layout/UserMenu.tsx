@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { ChevronDown, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { ChevronDown, FileSpreadsheet, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import {
@@ -75,6 +75,14 @@ export function UserMenu({ user }: UserMenuProps) {
             <Link href="/admin/comptes">
               <ShieldCheck />
               Gérer les comptes
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.canImport && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin/import">
+              <FileSpreadsheet />
+              Importer le classeur
             </Link>
           </DropdownMenuItem>
         )}

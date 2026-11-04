@@ -7,6 +7,7 @@ export interface ShellUser {
   email: string;
   profiles: Profile[];
   canManageAccounts: boolean;
+  canImport: boolean;
 }
 
 export interface ShellProps {
