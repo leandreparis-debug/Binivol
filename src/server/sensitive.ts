@@ -28,7 +28,8 @@ export interface SensitiveView {
   country: string | null;
   b3CheckedAt: Date | null;
   b3Status: string | null;
-  parentalAuthorization: boolean;
+  /** Null when unknown (empty legacy cell). */
+  parentalAuthorization: boolean | null;
   parentalAuthorizationDate: Date | null;
   emergencyContacts: {
     id: string;
@@ -87,7 +88,7 @@ export async function readPersonSensitive(
       country: sensitive?.country ?? null,
       b3CheckedAt: sensitive?.b3CheckedAt ?? null,
       b3Status: sensitive?.b3Status ?? null,
-      parentalAuthorization: sensitive?.parentalAuthorization ?? false,
+      parentalAuthorization: sensitive?.parentalAuthorization ?? null,
       parentalAuthorizationDate: sensitive?.parentalAuthorizationDate ?? null,
       emergencyContacts: contacts.map((c) => ({
         id: c.id,
@@ -160,3 +161,81 @@ export async function readDocument(
 }
 
 export { ForbiddenError };
+
+// ---------------------------------------------------------------------------
+// Import of the legacy workbook (step 4). The import is authorised by
+// `import.run` (TOPAZE) before it starts; it compares and writes sensitive
+// values here, so this module stays the only one touching these tables. Every
+// change is audited with masked values (no access log: no one views them).
+// ---------------------------------------------------------------------------
+
+/** Sensitive fields carried by the workbook (Benevoles and Prospects). */
+// A type alias (not an interface) so it is assignable to Record<string, unknown>.
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+export type ImportedSensitive = {
+  birthDate: Date | null;
+  b3CheckedAt?: Date | null;
+  parentalAuthorization?: boolean | null;
+  parentalAuthorizationDate?: Date | null;
+};
+
+/** Current sensitive values of people, for the import's comparison. */
+export async function loadSensitiveForImport(
+  tx: DbOrTx,
+  personIds: string[],
+): Promise<Map<string, ImportedSensitive & { id: string }>> {
+  if (personIds.length === 0) return new Map();
+  const rows = await tx.personSensitive.findMany({
+    where: { personId: { in: personIds } },
+    select: {
+      id: true,
+      personId: true,
+      birthDate: true,
+      b3CheckedAt: true,
+      parentalAuthorization: true,
+      parentalAuthorizationDate: true,
+    },
+  });
+  return new Map(rows.map(({ personId, ...rest }) => [personId, rest]));
+}
+
+/**
+ * Creates or updates the sensitive values of a person from the import, and
+ * records IMPORT audit entries with masked values. Returns the row id.
+ */
+export async function writeSensitiveForImport(
+  tx: DbOrTx,
+  audit: { created: AuditCreated; updated: AuditUpdated },
+  actorUserId: string | null,
+  personId: string,
+  data: ImportedSensitive,
+  existing: (ImportedSensitive & { id: string }) | undefined,
+): Promise<string> {
+  if (!existing) {
+    const created = await tx.personSensitive.create({
+      data: { personId, ...data, createdById: actorUserId, updatedById: actorUserId },
+    });
+    audit.created("PersonSensitive", created.id, created, { action: "IMPORT" });
+    return created.id;
+  }
+  const updated = await tx.personSensitive.update({
+    where: { id: existing.id },
+    data: { ...data, updatedById: actorUserId },
+  });
+  audit.updated("PersonSensitive", existing.id, { ...existing }, { ...data }, { action: "IMPORT" });
+  return updated.id;
+}
+
+type AuditCreated = (
+  entity: string,
+  entityId: string,
+  row: Record<string, unknown>,
+  options?: { action?: "IMPORT" },
+) => void;
+type AuditUpdated = (
+  entity: string,
+  entityId: string,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  options?: { action?: "IMPORT" },
+) => number;

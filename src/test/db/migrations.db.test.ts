@@ -18,12 +18,12 @@ describe("migrations", () => {
     expect(rows.every((r) => r.finished_at !== null && r.rolled_back_at === null)).toBe(true);
   });
 
-  it("create the 33 tables (31 domain + accounts and sessions), the SQL helpers and the triggers", async () => {
+  it("create the 34 tables (31 domain + accounts, sessions, import_runs), the SQL helpers and the triggers", async () => {
     const db = getTestDb();
     const [tables] = await db.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
     `;
-    expect(Number(tables?.n)).toBe(33);
+    expect(Number(tables?.n)).toBe(34);
     const functions = await db.$queryRaw<{ proname: string }[]>`
       SELECT proname FROM pg_proc WHERE proname LIKE 'binivol_%' ORDER BY proname
     `;

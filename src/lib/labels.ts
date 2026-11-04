@@ -15,6 +15,7 @@ import type {
   DocumentKind,
   DossierLinkMode,
   FollowUpKind,
+  ImportStatus,
   LanguageLevel,
   LeftReason,
   NotificationChannel,
@@ -210,6 +211,12 @@ export const ACCESS_SCOPE_LABELS: Record<AccessScope, string> = {
   EXPORT: "Export",
 };
 
+export const IMPORT_STATUS_LABELS: Record<ImportStatus, string> = {
+  RUNNING: "En cours",
+  SUCCEEDED: "Terminé",
+  FAILED: "Échec",
+};
+
 /** Every label table, keyed by the enum name in `prisma/schema.prisma`. */
 export const ENUM_LABELS = {
   Profile: PROFILE_LABELS,
@@ -236,6 +243,7 @@ export const ENUM_LABELS = {
   NotificationChannel: NOTIFICATION_CHANNEL_LABELS,
   AuditAction: AUDIT_ACTION_LABELS,
   AccessScope: ACCESS_SCOPE_LABELS,
+  ImportStatus: IMPORT_STATUS_LABELS,
 } as const;
 
 export type EnumName = keyof typeof ENUM_LABELS;
@@ -267,5 +275,6 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
   "audit.read": "Consulter le journal d'audit",
   "accessLog.read": "Consulter le journal des consultations sensibles",
   "person.export": "Exporter les données des personnes",
+  "import.run": "Importer l'ancien classeur",
   "notification.readOwn": "Consulter ses notifications",
 };
