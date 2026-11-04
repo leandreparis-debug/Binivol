@@ -112,6 +112,7 @@ export const MATRIX = {
   "audit.read": topazeOnly("none"),
   "accessLog.read": topazeOnly("none"),
   "person.export": topazeOnly("none"),
+  "import.run": topazeOnly("none"),
   "notification.readOwn": { target: "none", grants: [{ profiles: ALL_PROFILES, when: "always" }] },
 } as const satisfies Record<PolicyAction, ActionRule>;
 

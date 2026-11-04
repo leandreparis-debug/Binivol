@@ -28,6 +28,7 @@ export const POLICY_ACTIONS = [
   "audit.read",
   "accessLog.read",
   "person.export",
+  "import.run",
   "notification.readOwn",
 ] as const;
 
