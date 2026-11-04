@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------------- */
+/* Binivol design tokens                                                      */
+/*                                                                            */
+/* Raw values live on `:root` (light theme). A dark theme can later override  */
+/* them under `[data-theme="dark"]` without touching any component, because   */
+/* the Tailwind theme below only references these variables.                  */
+/* ------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  --canvas: #ececea;
+  --surface: #ffffff;
+  --veil: #f5f5f3;
+  --ink: #121212;
+  --ink-2: #2b2b2b;
+  /* Spec value #717170 gives 4.13:1 on canvas; darkened to reach 4.5:1 (see docs/design-system.md). */
+  --muted: #6a6a69;
+  --line: #e5e5e2;
+
+  --accent: #1f6bff;
+  --accent-2: #5b93ff;
+  --accent-soft: #e2ebff;
+  --accent-ink: #1748b8;
+
+  --ok: #22a06b;
+  --ok-soft: #dff5ea;
+  --ok-ink: #176b48;
+
+  --warn: #e5a100;
+  --warn-soft: #fff3d1;
+  --warn-ink: #8a6200;
+
+  --danger: #d92d3a;
+  --danger-soft: #fde3e5;
+  --danger-ink: #a81e29;
+
+  --hatch-ink-2: #3a3a3a;
+
+  --shadow-pop: 0 12px 32px -8px rgb(18 18 18 / 0.18), 0 2px 6px rgb(18 18 18 / 0.06);
+}
+
+@theme inline {
+  /* Reset the default palette: Binivol only uses its own tokens. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-veil: var(--veil);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-ink: var(--ok-ink);
+
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-ink: var(--warn-ink);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
+
+  /* Fonts (Geist, embedded through the `geist` package, see layout.tsx). */
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --shadow-pop: var(--shadow-pop);
+}
+
+@theme {
+  /* Radii */
+  --radius-card: 24px;
+  --radius-inner: 16px;
+  --radius-field: 16px;
+  --radius-pill: 9999px;
+
+  /* Type scale: size / line-height / weight / tracking */
+  --text-display: 44px;
+  --text-display--line-height: 48px;
+  --text-display--font-weight: 500;
+  --text-display--letter-spacing: -0.035em;
+
+  --text-figure: 34px;
+  --text-figure--line-height: 36px;
+  --text-figure--font-weight: 500;
+  --text-figure--letter-spacing: -0.02em;
+
+  --text-title: 24px;
+  --text-title--line-height: 30px;
+  --text-title--font-weight: 500;
+  --text-title--letter-spacing: -0.02em;
+
+  --text-section: 19px;
+  --text-section--line-height: 26px;
+  --text-section--font-weight: 600;
+  --text-section--letter-spacing: -0.01em;
+
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-body--font-weight: 400;
+
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+
+  --text-mono: 12.5px;
+  --text-mono--line-height: 18px;
+
+  /* Spacing: 4 px grid (Tailwind default). Layout constants. */
+  --spacing-gutter: 16px;
+  --container-app: 1440px;
+
+  --animate-spin-slow: spin 1.2s linear infinite;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Patterns — reserved for data visualisations (bars, tracks), never decor.  */
+/* ------------------------------------------------------------------------- */
+
+@utility bg-hatch-accent {
+  background-color: var(--accent);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--accent) 0 6px,
+    var(--accent-2) 6px 12px
+  );
+}
+
+@utility bg-hatch-ink {
+  background-color: var(--ink);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--ink) 0 6px,
+    var(--hatch-ink-2) 6px 12px
+  );
+}
+
+@utility bg-hatch-track {
+  background-color: var(--veil);
+  background-image: repeating-linear-gradient(135deg, var(--line) 0 6px, var(--veil) 6px 12px);
+}
+
+@utility bg-accent-gradient {
+  background-image: linear-gradient(180deg, var(--accent-2) 0%, var(--accent) 100%);
+}
+
+/* Visible, consistent focus ring for keyboard users. */
+@utility focus-ring {
+  @apply outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Base                                                                       */
+/* ------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-canvas text-body text-ink;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  /* Form controls at 16 px on touch devices prevent the iOS auto-zoom. */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
