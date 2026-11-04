@@ -1,0 +1,4 @@
+# Dependencies allowed to run their install scripts (pnpm 10 blocks them by default).
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
