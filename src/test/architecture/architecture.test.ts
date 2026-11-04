@@ -23,6 +23,22 @@ describe("architecture: server actions", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("the public actions (no session required) are exactly the expected closed list", () => {
+    const publicActions = actionFiles
+      .flatMap(({ file, content }) =>
+        [...content.matchAll(/^export\s+const\s+(\w+)\s*=\s*definePublicAction\(/gm)].map(
+          (m) => `${file}#${m[1] ?? ""}`,
+        ),
+      )
+      .sort();
+    // Adding a public action must be a deliberate change of this list.
+    expect(publicActions).toEqual([
+      "src/app/(app)/actions.ts#signOutAction",
+      "src/app/(auth)/connexion/actions.ts#demoSignInAction",
+      "src/app/(auth)/connexion/actions.ts#googleSignInAction",
+    ]);
+  });
+
   it("no server action is defined inline in a component", () => {
     const inline = files.filter(
       ({ file, content }) =>

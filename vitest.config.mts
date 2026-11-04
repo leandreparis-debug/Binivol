@@ -32,6 +32,8 @@ export default defineConfig({
         test: {
           name: "db",
           environment: "node",
+          // next-auth imports "next/server" without extension: let Vite resolve it.
+          server: { deps: { inline: ["next-auth", "@auth/core"] } },
           globals: true,
           include: ["src/**/*.db.test.ts", "prisma/**/*.db.test.ts"],
           globalSetup: ["./src/test/db/globalSetup.ts"],
