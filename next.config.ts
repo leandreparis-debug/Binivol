@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  // Enables `forbidden()` and `forbidden.tsx`: refused pages answer with a real 403.
+  experimental: { authInterrupts: true },
   headers() {
     return Promise.resolve([{ source: "/(.*)", headers: securityHeaders }]);
   },

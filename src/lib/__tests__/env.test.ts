@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "@/lib/env";
+import { isDemoLoginEnabled, isGoogleConfigured, parseEnv } from "@/lib/env";
 
 describe("parseEnv", () => {
   it("applies defaults when variables are absent", () => {
@@ -47,6 +47,48 @@ describe("parseEnv", () => {
     const value = "mysql://secret-user:secret-pass@host/db";
     expect(() => parseEnv({ DATABASE_URL: value })).toThrow(/DATABASE_URL/);
     expect(() => parseEnv({ DATABASE_URL: value })).not.toThrow(/secret-pass/);
+  });
+
+  it("defaults the authentication settings", () => {
+    const env = parseEnv({});
+    expect(env.AUTH_ALLOWED_DOMAIN).toBe("croix-rouge.fr");
+    expect(env.AUTH_DEMO_LOGIN).toBe(false);
+    expect(isDemoLoginEnabled(env)).toBe(false);
+    expect(isGoogleConfigured(env)).toBe(false);
+  });
+
+  it("enables the demo sign-in outside Vercel", () => {
+    const env = parseEnv({ AUTH_DEMO_LOGIN: "true" });
+    expect(isDemoLoginEnabled(env)).toBe(true);
+  });
+
+  it.each(["production", "preview", "development"])(
+    "refuses the demo sign-in when VERCEL_ENV=%s",
+    (vercelEnv) => {
+      expect(() => parseEnv({ AUTH_DEMO_LOGIN: "true", VERCEL_ENV: vercelEnv })).toThrow(
+        /AUTH_DEMO_LOGIN.*interdite sur Vercel/,
+      );
+      expect(
+        isDemoLoginEnabled(parseEnv({ AUTH_DEMO_LOGIN: "false", VERCEL_ENV: vercelEnv })),
+      ).toBe(false);
+    },
+  );
+
+  it("requires the Google id and secret together, and a long enough secret", () => {
+    expect(() => parseEnv({ AUTH_GOOGLE_ID: "id" })).toThrow(/AUTH_GOOGLE_SECRET/);
+    expect(isGoogleConfigured(parseEnv({ AUTH_GOOGLE_ID: "id", AUTH_GOOGLE_SECRET: "s" }))).toBe(
+      true,
+    );
+    expect(() => parseEnv({ AUTH_SECRET: "court" })).toThrow(/AUTH_SECRET/);
+  });
+
+  it("normalises the allowed domain and rejects a malformed one", () => {
+    expect(parseEnv({ AUTH_ALLOWED_DOMAIN: "Croix-Rouge.FR" }).AUTH_ALLOWED_DOMAIN).toBe(
+      "croix-rouge.fr",
+    );
+    expect(() => parseEnv({ AUTH_ALLOWED_DOMAIN: "@croix-rouge.fr" })).toThrow(
+      /AUTH_ALLOWED_DOMAIN/,
+    );
   });
 
   it("rejects an unexpected ENABLE_DESIGN_PAGE value", () => {

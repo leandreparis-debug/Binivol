@@ -27,7 +27,10 @@
     "db:reset": "prisma migrate reset --force && pnpm db:seed",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "icons": "tsx scripts/generate-icons.ts"
+    "icons": "tsx scripts/generate-icons.ts",
+    "docs:permissions": "tsx scripts/generate-permissions-doc.ts",
+    "admin:grant": "tsx scripts/admin.ts grant",
+    "admin:revoke": "tsx scripts/admin.ts revoke"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
@@ -39,6 +42,7 @@
     "geist": "^1.9.0",
     "lucide-react": "^1.68.0",
     "next": "15.5.29",
+    "next-auth": "5.0.0-beta.32",
     "pg": "^8.23.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

@@ -1,6 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { getEnv } from "@/lib/env";
+import { MISSING_DATABASE_URL_MESSAGE } from "./messages";
 
 /** A full client (can open transactions). */
 export type Db = PrismaClient;
@@ -17,9 +18,7 @@ export class DatabaseConfigError extends Error {
   }
 }
 
-export const MISSING_DATABASE_URL_MESSAGE =
-  "DATABASE_URL est absente : l'application ne peut pas joindre PostgreSQL. " +
-  "Renseigne-la dans .env (voir .env.example et la section « Base de données » du README).";
+export { MISSING_DATABASE_URL_MESSAGE };
 
 export interface CreateDbOptions {
   /** Logs every SQL query (development only). */

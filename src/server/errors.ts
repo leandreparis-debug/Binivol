@@ -15,7 +15,15 @@ export type DomainErrorCode =
   | "SELF_MENTORSHIP"
   | "APPOINTMENT_NOT_A_FUNCTION"
   | "EMAIL_TAKEN"
-  | "INVALID_DATA";
+  | "INVALID_DATA"
+  | "LAST_TOPAZE"
+  | "SELF_TOPAZE_REMOVAL"
+  | "SELF_DEACTIVATION"
+  | "EMAIL_DOMAIN"
+  | "NO_PROFILE"
+  | "ACCOUNT_NOT_FOUND"
+  | "DEMO_LOGIN_DISABLED"
+  | "SIGN_IN_DENIED";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {

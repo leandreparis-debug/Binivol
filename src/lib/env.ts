@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const booleanFlag = z
+  .enum(["true", "false"])
+  .default("false")
+  .transform((value) => value === "true");
+
 const postgresUrl = z
   .string()
   .trim()
@@ -11,7 +16,7 @@ const postgresUrl = z
  * Every variable is optional at this step. A variable that is present but
  * invalid raises an explicit error naming the variable (never its value).
  */
-export const envSchema = z.object({
+export const envObject = z.object({
   /** Display name of the application. Defaults to « Binivol ». */
   NEXT_PUBLIC_APP_NAME: z.string().trim().min(1).default("Binivol"),
   /** Public URL of the application, without trailing slash. */
@@ -26,13 +31,62 @@ export const envSchema = z.object({
   /** Direct connection used by migrations (Supabase: port 5432). */
   DIRECT_URL: postgresUrl.optional(),
   /** Enables the `/design` page in production. Always enabled in development. */
-  ENABLE_DESIGN_PAGE: z
-    .enum(["true", "false"])
-    .default("false")
-    .transform((value) => value === "true"),
+  ENABLE_DESIGN_PAGE: booleanFlag,
+
+  // --- Authentication (Auth.js) -------------------------------------------
+  /** Secret that signs Auth.js cookies and tokens (`openssl rand -base64 32`). */
+  AUTH_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
+  /** Public URL of the app for Auth.js callbacks; deduced from the request when absent. */
+  AUTH_URL: z.url().optional(),
+  /** Google OAuth client (Google Cloud console). Google sign-in is off when absent. */
+  AUTH_GOOGLE_ID: z.string().trim().min(1).optional(),
+  AUTH_GOOGLE_SECRET: z.string().trim().min(1).optional(),
+  /** Only addresses of this domain may sign in with Google. */
+  AUTH_ALLOWED_DOMAIN: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, "doit être un nom de domaine (ex. croix-rouge.fr)")
+    .default("croix-rouge.fr"),
+  /** Demo sign-in with the `@binivol.test` seed accounts. Never on Vercel. */
+  AUTH_DEMO_LOGIN: booleanFlag,
+  /** Set by Vercel on every deployment (production, preview, development). */
+  VERCEL_ENV: z.string().optional(),
+});
+
+/**
+ * Full schema. Refuses the demo sign-in on Vercel: if both are set, parsing
+ * fails, so the server (and the Vercel build) refuses to start.
+ */
+export const envSchema = envObject.superRefine((env, ctx) => {
+  if (env.AUTH_DEMO_LOGIN && env.VERCEL_ENV !== undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["AUTH_DEMO_LOGIN"],
+      message:
+        "la connexion de démonstration est interdite sur Vercel (VERCEL_ENV est défini) : retire AUTH_DEMO_LOGIN",
+    });
+  }
+  if ((env.AUTH_GOOGLE_ID === undefined) !== (env.AUTH_GOOGLE_SECRET === undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["AUTH_GOOGLE_SECRET"],
+      message: "AUTH_GOOGLE_ID et AUTH_GOOGLE_SECRET vont ensemble",
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;
+
+/** True when the demo sign-in is enabled (and therefore allowed: see `envSchema`). */
+export function isDemoLoginEnabled(env: Env = getEnv()): boolean {
+  return env.AUTH_DEMO_LOGIN && env.VERCEL_ENV === undefined;
+}
+
+/** True when the Google provider is configured. */
+export function isGoogleConfigured(env: Env = getEnv()): boolean {
+  return env.AUTH_GOOGLE_ID !== undefined && env.AUTH_GOOGLE_SECRET !== undefined;
+}
 
 /**
  * Parses a raw environment map. Empty strings are treated as absent so that a
