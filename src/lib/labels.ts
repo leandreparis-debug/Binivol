@@ -30,6 +30,7 @@ import type {
   TrainingResult,
   TrainingWishStatus,
 } from "@/generated/prisma/enums";
+import type { PolicyAction } from "@/lib/actions";
 
 export const PROFILE_LABELS: Record<Profile, string> = {
   TOPAZE: "TOPAZE · DLUS",
@@ -198,6 +199,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   IMPORT: "Import",
   PURGE: "Purge",
   LOGIN: "Connexion",
+  LOGIN_DENIED: "Connexion refusée",
+  LOGOUT: "Déconnexion",
   EXPORT: "Export",
 };
 
@@ -236,3 +239,33 @@ export const ENUM_LABELS = {
 } as const;
 
 export type EnumName = keyof typeof ENUM_LABELS;
+
+/** French label of every action of the access policy (`src/lib/actions.ts`). */
+export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
+  "person.directory.read": "Consulter l'annuaire (nom, NIVOL, statut, e-mail, téléphone)",
+  "person.full.read": "Consulter la fiche complète (hors données sensibles)",
+  "person.sensitive.read":
+    "Consulter les données sensibles (naissance, adresse, personnes à prévenir, B3, autorisation parentale)",
+  "person.update": "Modifier l'identité et les coordonnées",
+  "person.status.change": "Changer le statut d'une personne",
+  "training.read": "Consulter les formations suivies et les souhaits",
+  "training.write": "Saisir et modifier les formations suivies",
+  "trainingSession.manage": "Gérer les sessions de formation",
+  "trainingWish.manage": "Gérer les souhaits de formation",
+  "appointment.read": "Consulter les nominations",
+  "appointment.write": "Nommer à une fonction ou annuler une nomination",
+  "candidacy.manage": "Gérer les candidatures",
+  "dossier.manage": "Gérer les dossiers en ligne",
+  "mentorship.manage": "Gérer les parrainages",
+  "followUp.manage": "Gérer les points de suivi",
+  "document.read": "Consulter les documents",
+  "document.upload": "Déposer des documents",
+  "user.manage": "Gérer les comptes et leurs profils",
+  "reference.manage": "Gérer le référentiel des formations et fonctions",
+  "setting.manage": "Gérer les paramètres",
+  "reminderRule.manage": "Gérer les règles de rappel",
+  "audit.read": "Consulter le journal d'audit",
+  "accessLog.read": "Consulter le journal des consultations sensibles",
+  "person.export": "Exporter les données des personnes",
+  "notification.readOwn": "Consulter ses notifications",
+};

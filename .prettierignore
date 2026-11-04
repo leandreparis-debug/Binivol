@@ -11,3 +11,4 @@ next-env.d.ts
 *.ico
 src/generated
 prisma/migrations/**/*.sql
+docs/permissions.md
