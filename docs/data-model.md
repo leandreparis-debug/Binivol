@@ -9,6 +9,8 @@ lecture métier. PostgreSQL standard (15 et 16), accès uniquement par Prisma 7 
 ```mermaid
 erDiagram
   User ||--o{ UserProfile : "a les profils"
+  User ||--o{ Account : "identité Google"
+  User ||--o{ Session : "sessions en base"
   User ||--o{ Candidacy : "suit (owner)"
   User ||--o{ CandidacyEvent : "auteur"
   User ||--o{ FollowUp : "mène"
@@ -140,7 +142,8 @@ entités qu'ils décrivent (voir plus bas).
 ## Contraintes posées en SQL
 
 Prisma ne sait pas les exprimer ; elles sont dans
-`prisma/migrations/20261104090200_constraints_and_triggers`. Les index partiels, eux, sont
+`prisma/migrations/20261104090200_constraints_and_triggers` (et, pour `managed_by`,
+`20261104102527_auth_sessions_and_legacy_fields`). Les index partiels, eux, sont
 déclarés dans le schéma (fonctionnalité `partialIndexes` de Prisma 7), donc préservés par les
 migrations futures.
 
@@ -162,6 +165,7 @@ migrations futures.
 | `documents_size_positive`, `documents_sha256_format`                 | documents                    | taille ≥ 0, SHA-256 en hexadécimal minuscule                            |
 | `otp_challenges_attempts_positive`                                   | otp_challenges               | tentatives ≥ 0                                                          |
 | `users_email_lowercase`                                              | users                        | e-mail stocké en minuscules                                             |
+| `reference_items_managed_by_functions_only`                          | reference_items              | `managed_by` vide pour une formation (étape 3)                          |
 | `audit_logs_append_only`, `access_logs_append_only`                  | journaux (déclencheurs)      | ajout seul                                                              |
 
 Les violations connues sont traduites en `DomainError` avec un message français par
@@ -178,37 +182,41 @@ Sensibilité : **N** normale, **S** sensible (accès filtré à l'étape 3, jour
 
 ### Comptes
 
-| Table           | Rôle                                  | Champs clés                            | Sens. |
-| --------------- | ------------------------------------- | -------------------------------------- | ----- |
-| `users`         | Responsable qui se connecte (étape 3) | `email` unique en minuscules, `active` | N     |
-| `user_profiles` | Profils cumulables d'un responsable   | `(user_id, profile)` unique            | N     |
+| Table           | Rôle                                             | Champs clés                                                      | Sens. |
+| --------------- | ------------------------------------------------ | ---------------------------------------------------------------- | ----- |
+| `users`         | Responsable qui se connecte                      | `email` unique en minuscules, `active`, `last_login_at`          | N     |
+| `user_profiles` | Profils cumulables d'un responsable              | `(user_id, profile)` unique                                      | N     |
+| `accounts`      | Identité Google liée à un compte (Auth.js)       | `(provider, provider_account_id)` unique ; **aucun jeton OAuth** | N     |
+| `sessions`      | Sessions en base (Auth.js, stratégie `database`) | `session_token` unique (cookie HttpOnly), `expires`              | N     |
 
-Les bénévoles n'ont pas de compte. Les tables d'Auth.js viendront à l'étape 3.
+Les bénévoles n'ont pas de compte. `accounts` et `sessions` sont des données techniques :
+une session est supprimée à la déconnexion et à la désactivation du compte. Un compte n'est
+jamais supprimé, seulement désactivé.
 
 ### Personnes
 
-| Table                      | Rôle                                                 | Champs clés                                                                                                         | Sens. |
-| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----- |
-| `persons`                  | Candidat **et** bénévole (un seul modèle)            | `ref`, `nivol`, identité, contacts, `status`, départ, aptitude, `legacy_import`, `archived_at`, `purge_eligible_at` | N     |
-| `person_sensitive`         | Naissance, adresse, B3, autorisation parentale (1–1) | `person_id` unique                                                                                                  | S     |
-| `emergency_contacts`       | Personnes à prévenir, ordonnées (`position`)         | civilité, nom, lien, adresse, 2 téléphones, e-mail                                                                  | S     |
-| `person_skills`            | Compétences et niveau                                | `label`, `level`                                                                                                    | N     |
-| `person_languages`         | Langues et niveau                                    | `label`, `level`                                                                                                    | N     |
-| `person_licenses`          | Permis de conduire                                   | `(person_id, category)` unique                                                                                      | N     |
-| `person_declared_diplomas` | Diplômes déclarés dans le dossier (texte libre)      | `label`                                                                                                             | N     |
-| `person_wished_activities` | Activités souhaitées (texte libre)                   | `label`                                                                                                             | N     |
-| `person_annexes`           | Compétences annexes (conducteur VPSP…)               | `code`, `valid_until`                                                                                               | N     |
+| Table                      | Rôle                                                                                                                                                                                | Champs clés                                                                                                         | Sens. |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----- |
+| `persons`                  | Candidat **et** bénévole (un seul modèle) ; `is_trainer` (colonne « Formateur », nul = inconnu, vrai → périmètre FORMAT_GP) et `legacy_drive_folder_id` (colonne « Dossier Drive ») | `ref`, `nivol`, identité, contacts, `status`, départ, aptitude, `legacy_import`, `archived_at`, `purge_eligible_at` | N     |
+| `person_sensitive`         | Naissance, adresse, B3, autorisation parentale (1–1)                                                                                                                                | `person_id` unique                                                                                                  | S     |
+| `emergency_contacts`       | Personnes à prévenir, ordonnées (`position`)                                                                                                                                        | civilité, nom, lien, adresse, 2 téléphones, e-mail                                                                  | S     |
+| `person_skills`            | Compétences et niveau                                                                                                                                                               | `label`, `level`                                                                                                    | N     |
+| `person_languages`         | Langues et niveau                                                                                                                                                                   | `label`, `level`                                                                                                    | N     |
+| `person_licenses`          | Permis de conduire                                                                                                                                                                  | `(person_id, category)` unique                                                                                      | N     |
+| `person_declared_diplomas` | Diplômes déclarés dans le dossier (texte libre)                                                                                                                                     | `label`                                                                                                             | N     |
+| `person_wished_activities` | Activités souhaitées (texte libre)                                                                                                                                                  | `label`                                                                                                             | N     |
+| `person_annexes`           | Compétences annexes (conducteur VPSP…)                                                                                                                                              | `code`, `valid_until`                                                                                               | N     |
 
 ### Référentiel, formations, nominations
 
-| Table                          | Rôle                                                      | Champs clés                                                                                                           | Sens. |
-| ------------------------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----- |
-| `reference_items`              | Formations et fonctions (21 codes du classeur + 3 ajouts) | `code` unique, `category`, `kind`, `validity_months`, `expires_end_of_year`, `forbidden_for_minors`, **`perimeters`** | N     |
-| `reference_item_prerequisites` | Prérequis (n–n réflexive)                                 | `(item_id, prerequisite_id)`                                                                                          | N     |
-| `training_sessions`            | Session organisée                                         | dates, lieu, `pegass_url`, capacité, annulation                                                                       | N     |
-| `training_records`             | Formation suivie (feuille « Sessions »)                   | `ref` S-, `result`, `date` (souvent inconnue), `expires_at` calculé, annulation                                       | N     |
-| `training_wishes`              | Souhait de formation                                      | `status`, `priority`, session prévue                                                                                  | N     |
-| `appointments`                 | Nomination à une fonction (feuille « Fonctions »)         | `ref` F-, dates, `authorized_by`, `decision_ref`, annulation                                                          | N     |
+| Table                          | Rôle                                                      | Champs clés                                                                                                                             | Sens. |
+| ------------------------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `reference_items`              | Formations et fonctions (21 codes du classeur + 3 ajouts) | `code` unique, `category`, `kind`, `validity_months`, `expires_end_of_year`, `forbidden_for_minors`, **`perimeters`**, **`managed_by`** | N     |
+| `reference_item_prerequisites` | Prérequis (n–n réflexive)                                 | `(item_id, prerequisite_id)`                                                                                                            | N     |
+| `training_sessions`            | Session organisée                                         | dates, lieu, `pegass_url`, capacité, annulation                                                                                         | N     |
+| `training_records`             | Formation suivie (feuille « Sessions »)                   | `ref` S-, `result`, `date` (souvent inconnue), `expires_at` calculé, annulation                                                         | N     |
+| `training_wishes`              | Souhait de formation                                      | `status`, `priority`, session prévue                                                                                                    | N     |
+| `appointments`                 | Nomination à une fonction (feuille « Fonctions »)         | `ref` F-, dates, `authorized_by`, `decision_ref`, annulation                                                                            | N     |
 
 `expires_at` est calculé par `computeExpiresAt()` (`src/server/reference.ts`) et représente le
 **dernier jour de validité** : validité en mois, ou 31/12 de l'année d'obtention, ou 31/12 de
@@ -248,108 +256,194 @@ d'après `reference_items.perimeters`.
 
 ### Journaux
 
-| Table         | Rôle                               | Champs clés                                                                   | Sens.                |
-| ------------- | ---------------------------------- | ----------------------------------------------------------------------------- | -------------------- |
-| `audit_logs`  | Toute écriture, champ par champ    | `actor_id`/`actor_label`, `action`, `entity`, `field`, valeurs JSONB masquées | N (valeurs masquées) |
-| `access_logs` | Consultations de données sensibles | `user_id`, `person_id`, `scope`, `context`                                    | N                    |
+| Table         | Rôle                                                                                                                            | Champs clés                                                                   | Sens.                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------- |
+| `audit_logs`  | Toute écriture, champ par champ, connexions (LOGIN, LOGIN_DENIED, LOGOUT) ; `legacy_action` garde le libellé du Journal importé | `actor_id`/`actor_label`, `action`, `entity`, `field`, valeurs JSONB masquées | N (valeurs masquées) |
+| `access_logs` | Consultations de données sensibles                                                                                              | `user_id`, `person_id`, `scope`, `context`                                    | N                    |
 
 ## Référentiel du seed
 
-L'ancien classeur n'est pas dans le dépôt : les 21 codes viennent de la spécification, leurs
-libellés, catégories, validités et prérequis sont **reconstitués** (`prisma/seed/referenceData.ts`)
-et doivent être vérifiés. PSC, FPSC et ASSIST_FORM sont des ajouts marqués « Hypothèse à
-confirmer » dans `note`.
+Les 21 premiers codes reprennent **exactement** l'onglet « Referentiel » de l'ancien classeur
+(pas de donnée personnelle) : libellés, catégories, type, interdiction aux mineurs et échéance au
+31/12. Aucun code n'a de validité en mois (`validity_months` nul partout) ni de prérequis dans le
+classeur. PSC, FPSC et ASSIST_FORM sont des ajouts de Binivol, absents du classeur, à confirmer.
+Source : `prisma/seed/referenceData.ts`.
 
-| Code        | Libellé (à vérifier)                          | Catégorie    | Type     | Validité | Périmètres    |
-| ----------- | --------------------------------------------- | ------------ | -------- | -------- | ------------- |
-| PSC         | Prévention et secours civiques de niveau 1    | TRONC_COMMUN | TRAINING | —        | ACTION        |
-| TCAU        | Tronc commun acteur de l'urgence              | TRONC_COMMUN | TRAINING | —        | LASER         |
-| TCAS        | Tronc commun action sociale                   | TRONC_COMMUN | TRAINING | —        |               |
-| TCEO        | Tronc commun encadrement opérationnel         | TRONC_COMMUN | TRAINING | —        |               |
-| PSE         | Premiers secours en équipe                    | SECOURS      | TRAINING | —        | ACTION, LASER |
-| FCPSE       | Formation continue PSE                        | SECOURS      | TRAINING | 31/12    |               |
-| OPR         | Opérateur radio                               | SECOURS      | TRAINING | 36 mois  |               |
-| ECG         | Réalisation d'électrocardiogramme             | SECOURS      | TRAINING | —        |               |
-| CHEF_PAPS   | Chef de point d'alerte et de premiers secours | SECOURS      | FUNCTION | —        |               |
-| CI          | Chef d'intervention                           | SECOURS      | FUNCTION | —        |               |
-| CDPE        | Chef de dispositif                            | SECOURS      | FUNCTION | —        |               |
-| CI_SDIS     | Chef d'intervention conventionné SDIS         | SECOURS      | FUNCTION | —        |               |
-| CH_TECH     | Chargé technique                              | SECOURS      | FUNCTION | —        |               |
-| CH_FIXE     | Chargé poste fixe                             | SECOURS      | FUNCTION | —        |               |
-| CH_MOBILE   | Chargé poste mobile                           | SECOURS      | FUNCTION | —        |               |
-| CH_RESEAUX  | Chargé réseaux                                | SECOURS      | FUNCTION | —        |               |
-| F_CI        | Formation chef d'intervention                 | FORMATION_IS | TRAINING | —        |               |
-| F_CH        | Formation chargé                              | FORMATION_IS | TRAINING | —        |               |
-| FCCI        | Formation continue chef d'intervention        | FORMATION_IS | TRAINING | 31/12    |               |
-| FPSE        | Formateur PSE                                 | FORMATION_IS | TRAINING | —        | FORMAT_GP     |
-| FPSC        | Formateur PSC                                 | FORMATION_GP | TRAINING | —        | FORMAT_GP     |
-| ASSIST_FORM | Assistant de formation                        | FORMATION_GP | FUNCTION | —        | FORMAT_GP     |
-| GQS         | Gestes qui sauvent                            | AUTRE        | TRAINING | —        |               |
-| CRB         | CRB (libellé à confirmer)                     | AUTRE        | TRAINING | —        |               |
+| Ordre | Code        | Libellé                                           | Catégorie    | Type     | Interdite aux mineurs | Échéance 31/12 | Périmètres    | `managed_by`  | Note                                   |
+| ----- | ----------- | ------------------------------------------------- | ------------ | -------- | --------------------- | -------------- | ------------- | ------------- | -------------------------------------- |
+| 1     | PSE         | Premiers secours en équipe                        | FORMATION_IS | TRAINING | non                   | non            | ACTION, LASER | —             | —                                      |
+| 2     | FCPSE       | Formation continue PSE                            | FORMATION_IS | TRAINING | non                   | **oui**        | —             | —             | Validité à renseigner                  |
+| 3     | F_CI        | Formation chef d'intervention                     | FORMATION_IS | TRAINING | non                   | non            | —             | —             | —                                      |
+| 4     | F_CH        | Formation chauffeur                               | FORMATION_IS | TRAINING | non                   | non            | —             | —             | —                                      |
+| 5     | OPR         | Opérateur radio                                   | FORMATION_IS | TRAINING | non                   | non            | —             | —             | —                                      |
+| 6     | ECG         | Formation ECG (réseau de secours)                 | FORMATION_IS | TRAINING | non                   | non            | —             | —             | —                                      |
+| 7     | GQS         | Gestes qui sauvent                                | TRONC_COMMUN | TRAINING | non                   | non            | —             | —             | —                                      |
+| 8     | CRB         | Croix-Rouge Bienvenue (eCRB)                      | TRONC_COMMUN | TRAINING | non                   | non            | —             | —             | —                                      |
+| 9     | TCAU        | Tronc commun des acteurs de l'urgence (eTCAU)     | TRONC_COMMUN | TRAINING | non                   | non            | LASER         | —             | —                                      |
+| 10    | TCAS        | Tronc commun des acteurs de la solidarité (eTCAS) | TRONC_COMMUN | TRAINING | non                   | non            | —             | —             | —                                      |
+| 11    | CHEF_PAPS   | Chef de PAPS                                      | SECOURS      | FUNCTION | **oui**               | non            | —             | ACTION        | —                                      |
+| 12    | CI          | Chef d'intervention (fonction)                    | SECOURS      | FUNCTION | **oui**               | non            | —             | LASER         | —                                      |
+| 13    | CDPE        | Chef de dispositif de petite envergure            | SECOURS      | FUNCTION | **oui**               | non            | —             | ACTION        | —                                      |
+| 14    | CI_SDIS     | CI réseau de secours SDIS                         | SECOURS      | FUNCTION | **oui**               | non            | —             | LASER         | —                                      |
+| 15    | CH_TECH     | Chauffeur technique                               | SECOURS      | FUNCTION | **oui**               | non            | —             | ACTION, LASER | Interprétation à valider               |
+| 16    | CH_FIXE     | Chauffeur fixe                                    | SECOURS      | FUNCTION | **oui**               | non            | —             | ACTION, LASER | Interprétation à valider               |
+| 17    | CH_MOBILE   | Chauffeur mobile                                  | SECOURS      | FUNCTION | **oui**               | non            | —             | ACTION, LASER | Interprétation à valider               |
+| 18    | CH_RESEAUX  | Chauffeur réseaux                                 | SECOURS      | FUNCTION | **oui**               | non            | —             | ACTION, LASER | Interprétation à valider               |
+| 19    | FPSE        | Formateur PSE                                     | FORMATION_IS | TRAINING | non                   | non            | FORMAT_GP     | —             | Validité à renseigner                  |
+| 20    | FCCI        | Formation continue chef d'intervention            | FORMATION_IS | TRAINING | non                   | **oui**        | —             | —             | Libellé à confirmer                    |
+| 21    | TCEO        | Tronc commun des encadrants opérationnels         | FORMATION_IS | TRAINING | non                   | non            | —             | —             | —                                      |
+| 22    | PSC         | Prévention et secours civiques de niveau 1        | TRONC_COMMUN | TRAINING | non                   | non            | ACTION        | —             | Hypothèse, absent de l'ancien classeur |
+| 23    | FPSC        | Formateur PSC                                     | FORMATION_GP | TRAINING | non                   | non            | FORMAT_GP     | —             | Hypothèse, absent de l'ancien classeur |
+| 24    | ASSIST_FORM | Assistant de formation                            | FORMATION_GP | FUNCTION | non                   | non            | FORMAT_GP     | FORMAT_GP     | Hypothèse, absent de l'ancien classeur |
 
-Toutes les fonctions SECOURS ont `forbidden_for_minors = true`.
+Les notes « Interprétation à valider » portent le texte complet « Interprétation à valider
+(équipage d'évacuation interdit aux mineurs, permis requis) ».
+
+- **Périmètres** (`perimeters`, visibilité des profils) : ajout de Binivol, inchangé depuis
+  l'étape 2. La case « Formateur » d'une personne (`is_trainer`) ajoute aussi FORMAT_GP.
+- **Qui nomme à quelle fonction** (`managed_by`) : **répartition par défaut, à confirmer**.
+  CHEF_PAPS et CDPE par ACTION ; CI et CI_SDIS par LASER ; les quatre CH_* par ACTION et LASER ;
+  ASSIST_FORM par FORMAT GP. TOPAZE peut nommer à toutes les fonctions. Vide pour les
+  formations (contrainte `reference_items_managed_by_functions_only`).
+- **Échéance au 31/12** : le 31 décembre de l'année d'obtention, même pour une obtention en
+  décembre (confirmé par la note de FCCI : « à refaire tous les ans, échéance au 31/12 »).
 
 ## Correspondance avec l'ancien classeur (pour l'étape 4)
 
-Le classeur n'étant pas dans le dépôt, les intitulés de colonnes ci-dessous sont **présumés**
-d'après la spécification ; ils seront confrontés au fichier réel au début de l'étape 4 et ce
-tableau sera corrigé.
+Intitulés exacts de la ligne 1 de chaque onglet. Seule la structure est décrite ici, jamais
+les données.
 
-### Feuille des bénévoles → `persons` (+ tables liées)
+### Valeurs observées et conversion
 
-| Colonne présumée                                     | Table.champ                                                                       | Remarque                                                          |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| N° (P-…)                                             | `persons.ref`                                                                     | conservé ; la séquence est recalée (`setval`) après import        |
-| NIVOL                                                | `persons.nivol`                                                                   | `normalizeNivol()` ; 46/46 au format 11 chiffres + 1 lettre       |
-| Civilité, Nom, Prénom, Nom de naissance, Nom d'usage | `persons.civility`, `last_name`, `first_name`, `birth_name`, `usage_name`         |                                                                   |
-| Mail, Téléphone, Mail pro, Téléphone pro, Mail CRF   | `persons.email`, `phone`, `pro_email`, `pro_phone`, `crf_email`                   |                                                                   |
-| Statut                                               | `persons.status`                                                                  | libellés → enum ; `legacy_import = true` sur toute ligne importée |
-| Date d'entrée, Date de départ, Motif, Commentaire    | `persons.entry_date`, `left_at`, `left_reason`, `left_comment`                    | motif texte → enum, sinon OTHER + texte dans le commentaire       |
-| Adhérent                                             | `persons.is_member`                                                               |                                                                   |
-| Aptitude, Date d'aptitude                            | `persons.aptitude`, `aptitude_date`                                               |                                                                   |
-| Autre AASC, Encadrant régulier de mineurs            | `persons.other_aasc`, `regular_minor_supervisor`                                  |                                                                   |
-| Profession, Secteur, Employeur, Remarques            | `persons.profession`, `sector`, `company`, `notes`                                |                                                                   |
-| Date, ville, département, pays de naissance          | `person_sensitive.birth_*`                                                        | sensible                                                          |
-| Adresse, complément, CP, ville, pays                 | `person_sensitive.street`, `address_complement`, `postal_code`, `city`, `country` | sensible                                                          |
-| Date et résultat du B3                               | `person_sensitive.b3_checked_at`, `b3_status`                                     | sensible                                                          |
-| Autorisation parentale, date                         | `person_sensitive.parental_authorization`, `parental_authorization_date`          | sensible                                                          |
-| Personne à prévenir (1 et 2)                         | `emergency_contacts` (`position` 0 et 1)                                          | sensible                                                          |
-| Compétences, Langues, Permis                         | `person_skills`, `person_languages`, `person_licenses`                            | cellules multi-valeurs découpées                                  |
-| Compétences annexes (conducteur VPSP…)               | `person_annexes`                                                                  |                                                                   |
+| Colonne             | Valeurs du classeur                                                                                                                                                                                           | Valeur Binivol                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Statut              | Candidat, Actif, Suspendu, Inactif, Parti(e)                                                                                                                                                                  | CANDIDATE, ACTIVE, SUSPENDED, INACTIVE, LEFT (PAUSED n'existe pas dans le classeur)        |
+| Aptitude (Pegass)   | Apte, Non apte, Retiré(e), À vérifier                                                                                                                                                                         | FIT, UNFIT, WITHDRAWN, TO_CHECK                                                            |
+| Résultat (Sessions) | Validé, Inscrit(e), À confirmer, Non validé, Absent                                                                                                                                                           | PASSED, REGISTERED, TO_CONFIRM, FAILED, ABSENT                                             |
+| Étape (Prospects)   | « Premier contact », « Dossier en cours »                                                                                                                                                                     | FIRST_CONTACT, FILE                                                                        |
+| Source (Prospects)  | texte libre, casse variable (« Site internet » / « Site Internet »)                                                                                                                                           | texte libre, casse normalisée à l'import                                                   |
+| Oui/Non             | « OUI », « NON » ou vide                                                                                                                                                                                      | `true`, `false`, et **vide = inconnu** (`null`), jamais `false`                            |
+| Annulée (Fonctions) | vide, ou `JJ/MM/AAAA par <email> : <motif>`                                                                                                                                                                   | `cancelled_at`, `cancelled_by_id` (compte retrouvé par e-mail) ou libellé, `cancel_reason` |
+| Action (Journal)    | Création de la base, Installation, Création, Modification, Modification directe, Modification directe (plage), Annulation, Paramètre, Dossier Drive, Sauvegarde, Envoi des alertes, Récapitulatif TCAU envoyé | `action = IMPORT`, libellé d'origine dans `legacy_action`                                  |
 
-### Feuille « Sessions » → `training_records`
+Une colonne booléenne non nullable en base (`is_member`, `other_aasc`,
+`regular_minor_supervisor`, `parental_authorization`) recevra `false` quand la cellule est
+vide ; l'import le signalera dans son rapport. `is_trainer` est nullable pour garder « inconnu ».
 
-| Colonne présumée               | Table.champ                      | Remarque                                 |
-| ------------------------------ | -------------------------------- | ---------------------------------------- |
-| N° (S-…)                       | `training_records.ref`           | conservé ; séquence recalée              |
-| NIVOL ou N° de la personne     | `training_records.person_id`     | rapprochement par NIVOL, sinon par N° P- |
-| Code formation                 | `training_records.reference_id`  | par `reference_items.code`               |
-| Date                           | `training_records.date`          | vide accepté (fréquent)                  |
-| Résultat                       | `training_records.result`        | vide → TO_CONFIRM                        |
-| Lieu, Lien Pegass, Commentaire | `place`, `pegass_url`, `comment` |                                          |
+### Onglet « Benevoles » → `persons` (+ `person_sensitive`)
 
-### Feuille « Fonctions » → `appointments`
+| Colonne                    | Table.champ                                    | Remarque                                                      |
+| -------------------------- | ---------------------------------------------- | ------------------------------------------------------------- |
+| NIVOL                      | `persons.nivol`                                | `normalizeNivol()` ; 46/46 au format 11 chiffres + 1 lettre   |
+| Prénom, Nom                | `persons.first_name`, `last_name`              |                                                               |
+| E-mail, Téléphone          | `persons.email`, `phone`                       |                                                               |
+| Date de naissance          | `person_sensitive.birth_date`                  | sensible                                                      |
+| Statut                     | `persons.status`                               | voir les valeurs ; `legacy_import = true` sur chaque ligne    |
+| Date d'entrée              | `persons.entry_date`                           |                                                               |
+| Date de départ             | `persons.left_at`                              | motif absent du classeur : `left_reason = OTHER` si Parti(e)  |
+| Adhérent                   | `persons.is_member`                            | Oui/Non                                                       |
+| Aptitude (Pegass)          | `persons.aptitude`                             | voir les valeurs                                              |
+| Date aptitude              | `persons.aptitude_date`                        |                                                               |
+| Autre AASC                 | `persons.other_aasc`                           | Oui/Non                                                       |
+| Formateur                  | `persons.is_trainer`                           | Oui/Non/vide → `true`/`false`/`null` ; vrai → FORMAT_GP       |
+| Encadrant régulier mineurs | `persons.regular_minor_supervisor`             | Oui/Non                                                       |
+| Date vérif. B3             | `person_sensitive.b3_checked_at`               | sensible ; `b3_status = CLEAR` si la date est renseignée      |
+| Autorisation parentale     | `person_sensitive.parental_authorization`      | sensible                                                      |
+| Date autorisation          | `person_sensitive.parental_authorization_date` | sensible                                                      |
+| Notes                      | `persons.notes`                                |                                                               |
+| Modifié le, Modifié par    | `persons.updated_at`, `updated_by_id`          | compte retrouvé par e-mail, sinon libellé dans l'audit IMPORT |
+| Dossier Drive              | `persons.legacy_drive_folder_id`               | identifiant de dossier, pour la reprise des fichiers          |
 
-| Colonne présumée                                 | Table.champ                                | Remarque                    |
-| ------------------------------------------------ | ------------------------------------------ | --------------------------- |
-| N° (F-…)                                         | `appointments.ref`                         | conservé ; séquence recalée |
-| NIVOL ou N° de la personne                       | `appointments.person_id`                   |                             |
-| Code fonction                                    | `appointments.reference_id`                | doit être de type FUNCTION  |
-| Date de début, Date de fin                       | `start_date`, `end_date`                   |                             |
-| Autorisé par, Référence de décision, Commentaire | `authorized_by`, `decision_ref`, `comment` |                             |
+### Onglet « Prospects » → `persons` (CANDIDATE) + `candidacies`
 
-### Référentiel et paramètres
+| Colonne                           | Table.champ                                         | Remarque                                 |
+| --------------------------------- | --------------------------------------------------- | ---------------------------------------- |
+| ID                                | rapport d'import et audit IMPORT                    | identifiant du classeur, sans équivalent |
+| Prénom, Nom, E-mail, Téléphone    | `persons.first_name`, `last_name`, `email`, `phone` | statut CANDIDATE                         |
+| Date de naissance                 | `person_sensitive.birth_date`                       | sensible                                 |
+| Source, Intérêt                   | `candidacies.source`, `interest`                    |                                          |
+| Date de premier contact           | `candidacies.first_contact_at`                      |                                          |
+| Étape                             | `candidacies.stage`                                 | voir les valeurs                         |
+| Prochaine action, Date de relance | `candidacies.next_action`, `follow_up_at`           |                                          |
+| Notes                             | `persons.notes`                                     |                                          |
+| NIVOL attribué                    | `persons.nivol`                                     | rapprochement avec l'onglet Benevoles    |
+| Saisi le, Saisi par               | `candidacies.created_at`, `created_by_id`           |                                          |
+| Modifié le, Modifié par           | `candidacies.updated_at`, `updated_by_id`           |                                          |
 
-| Feuille     | Table             | Remarque                                                                                                                       |
-| ----------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Référentiel | `reference_items` | code, libellé, catégorie, type, validité, option « échéance au 31/12 »                                                         |
-| Paramètres  | `settings`        | `ALERT_DAYS_BEFORE_EXPIRY`, `RETENTION_YEARS_AFTER_LEAVE`, `BACKUPS_TO_KEEP`, `DATA_CLASSIFICATION`, `GREETING_EMAILS_ENABLED` |
+### Onglet « Sessions » → `training_records`
 
-### Colonnes non reprises (prévision)
+| Colonne             | Table.champ                                         | Remarque                                   |
+| ------------------- | --------------------------------------------------- | ------------------------------------------ |
+| ID                  | `training_records.ref` si au format S-, sinon audit | séquence recalée après import              |
+| NIVOL               | `training_records.person_id`                        | rapprochement par NIVOL                    |
+| Code                | `training_records.reference_id`                     | par `reference_items.code`                 |
+| Date                | `training_records.date`                             | **vide sur la grande majorité des lignes** |
+| Résultat            | `training_records.result`                           | voir les valeurs ; vide → TO_CONFIRM       |
+| Organisme / lieu    | `training_records.place`                            |                                            |
+| Lien Pegass         | `training_records.pegass_url`                       |                                            |
+| Commentaire         | `training_records.comment`                          |                                            |
+| Saisi le, Saisi par | `created_at`, `created_by_id`                       |                                            |
 
-| Colonne présumée                                           | Raison                                                                 |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Colonnes calculées (âge, jours avant échéance, « à jour ») | recalculées à l'affichage ou stockées par l'application (`expires_at`) |
-| Date d'échéance saisie à la main                           | remplacée par `computeExpiresAt()` ; un écart sera signalé à l'import  |
-| Mises en forme, couleurs, filtres, onglets de synthèse     | pas des données                                                        |
-| Mots de passe ou paramètres de macros éventuels            | sans objet, et jamais stockés                                          |
+### Onglet « Fonctions » → `appointments`
+
+| Colonne                    | Table.champ                                        | Remarque                                      |
+| -------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| ID                         | `appointments.ref` si au format F-, sinon audit    | séquence recalée après import                 |
+| NIVOL                      | `appointments.person_id`                           |                                               |
+| Fonction                   | `appointments.reference_id`                        | doit être de type FUNCTION                    |
+| Date de début, Date de fin | `start_date`, `end_date`                           |                                               |
+| Autorisée par              | `authorized_by`                                    |                                               |
+| Référence décision         | `decision_ref`                                     |                                               |
+| Commentaire                | `comment`                                          |                                               |
+| Saisi le, Saisi par        | `created_at`, `created_by_id`                      |                                               |
+| Annulée                    | `cancelled_at`, `cancelled_by_id`, `cancel_reason` | analyse de `JJ/MM/AAAA par <email> : <motif>` |
+
+### Onglet « Referentiel » → `reference_items`
+
+| Colonne               | Table.champ                    | Remarque                 |
+| --------------------- | ------------------------------ | ------------------------ |
+| Code, Libellé         | `code`, `label`                |                          |
+| Catégorie, Type       | `category`, `kind`             |                          |
+| Ordre                 | `sort_order`                   |                          |
+| Validité (mois)       | `validity_months`              | vide pour tous les codes |
+| Prérequis             | `reference_item_prerequisites` | vide pour tous les codes |
+| Interdite aux mineurs | `forbidden_for_minors`         |                          |
+| Actif                 | `active`                       |                          |
+| Source / commentaire  | `note`                         |                          |
+| Échéance au 31/12     | `expires_end_of_year`          |                          |
+
+### Onglet « Parametres » (Clé, Valeur, Description) → `settings`
+
+| Clé                   | Binivol                         | Remarque                                                     |
+| --------------------- | ------------------------------- | ------------------------------------------------------------ |
+| DELAI_ALERTE_JOURS    | `ALERT_DAYS_BEFORE_EXPIRY`      |                                                              |
+| CONSERVATION_ANS      | `RETENTION_YEARS_AFTER_LEAVE`   |                                                              |
+| SAUVEGARDES_A_GARDER  | `BACKUPS_TO_KEEP`               |                                                              |
+| CLASSIFICATION        | `DATA_CLASSIFICATION`           |                                                              |
+| MAILS_VOEUX_ACTIFS    | `GREETING_EMAILS_ENABLED`       | e-mails de vœux                                              |
+| EMAILS_ALERTES        | non repris                      | remplacé par `reminder_rules.recipients` (profils), étape 12 |
+| EDITEURS              | non repris                      | remplacé par les comptes et profils (`users`), étape 3       |
+| DOSSIER_SAUVEGARDE_ID | non repris                      | dossier Google Drive : remplacé par `StorageService`         |
+| DOSSIER_BENEVOLES_ID  | non repris (présente deux fois) | dossier Google Drive : remplacé par `StorageService`         |
+| VERSION               | non repris                      | version de l'ancien outil, sans objet                        |
+
+### Onglet « Journal » → `audit_logs`
+
+| Colonne                          | Table.champ                        | Remarque                                               |
+| -------------------------------- | ---------------------------------- | ------------------------------------------------------ |
+| Horodatage                       | `at`                               |                                                        |
+| Utilisateur                      | `actor_id` ou `actor_label`        | compte retrouvé par e-mail, sinon l'adresse en libellé |
+| Action                           | `action = IMPORT`, `legacy_action` | libellé d'origine conservé                             |
+| Table                            | `entity`                           |                                                        |
+| Clé                              | `entity_id`                        |                                                        |
+| Champ                            | `field`                            |                                                        |
+| Ancienne valeur, Nouvelle valeur | `old_value`, `new_value`           | masquées si le champ est sensible                      |
+
+### Colonnes non reprises
+
+| Onglet     | Colonne                                                 | Raison                                                           |
+| ---------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
+| Prospects  | ID                                                      | identifiant interne du classeur ; gardé dans le rapport d'import |
+| Parametres | EMAILS_ALERTES, EDITEURS                                | remplacés par les profils (droits, destinataires des rappels)    |
+| Parametres | DOSSIER_SAUVEGARDE_ID, DOSSIER_BENEVOLES_ID (deux fois) | spécifiques à Google Drive, remplacés par `StorageService`       |
+| Parametres | VERSION                                                 | version de l'ancien outil                                        |

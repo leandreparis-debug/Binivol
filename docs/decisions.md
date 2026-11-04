@@ -151,3 +151,94 @@ de la purge, pas de RLS : la sécurité est applicative (étape 3).
 **Conséquences.** Aucune dépendance propre à Supabase. Avec l'adaptateur `pg`, le paramètre
 `pgbouncer=true` est sans effet mais sans danger : le pilote n'utilise pas d'instructions
 préparées nommées, ce qui est compatible avec le pooler en mode transaction.
+
+## ADR-011 — Auth.js v5 en version bêta épinglée, sessions en base
+
+**Contexte.** Il faut couper un compte immédiatement (C3) et rester portable (Vercel puis VPS).
+La v5 de `next-auth`, seule à viser l'App Router, n'existe qu'en version bêta.
+
+**Décision.** `next-auth` épinglé à **5.0.0-beta.32**, fournisseur Google seul, stratégie
+`database` : sessions de 12 h renouvelées après chaque heure d'activité, cookie `HttpOnly`,
+`SameSite=Lax`, `Secure` en HTTPS. La session n'expose que l'identifiant, le nom et l'e-mail ;
+les profils sont relus en base à chaque requête (`loadActor`). Désactiver un compte supprime
+ses sessions.
+
+**Conséquences.** Une requête de plus par page (compte et profils), acceptable pour une
+vingtaine d'utilisateurs. Chaque montée de version de la bêta sera testée avant d'être prise.
+
+## ADR-012 — Adaptateur Auth.js maison, minimal
+
+**Contexte.** `@auth/prisma-adapter` ne déclare la compatibilité qu'avec `@prisma/client`
+jusqu'à la v6, crée un `User` à la première connexion et enregistre tous les jetons OAuth.
+
+**Décision.** Adaptateur minimal sur notre client Prisma 7 (`src/server/auth/adapter.ts`) :
+`createUser` lève toujours une erreur, `linkAccount` ne garde que l'identifiant Google, une
+session d'un compte inactif ou sans profil est ignorée. Le lien par e-mail
+(`allowDangerousEmailAccountLinking`) est activé, car le compte est créé à l'avance par TOPAZE
+et l'adresse est vérifiée (Google, domaine) dans `signIn`.
+
+**Conséquences.** Pas de dépendance supplémentaire. Aucun jeton Google en base.
+
+## ADR-013 — Politique d'accès pure et centralisée
+
+**Contexte.** Six profils cumulables, des droits qui dépendent de la personne visée, et une
+sécurité applicative (pas de RLS).
+
+**Décision.** Une seule fonction `can(actor, action, resource)` (`src/server/policy/can.ts`),
+pure, qui applique une matrice déclarative (`matrix.ts`). Les faits sur la personne
+(`PersonFacts`) sont calculés à part (`loadPersonFacts`). La liste des actions est fermée
+(`src/lib/actions.ts`). `docs/permissions.md` est généré depuis la matrice, et un test échoue
+s'il n'est pas à jour. Les pages appellent `requirePageAccess`/`authorizePage` (403 réel via
+`forbidden()`, option `experimental.authInterrupts` de Next 15), les actions serveur passent
+toutes par `defineAction` (ou `definePublicAction` pour la connexion et la déconnexion), ce
+qu'un test d'architecture vérifie. Le middleware ne fait qu'une redirection rapide.
+
+Choix de lecture : une personne **archivée** n'est visible que de TOPAZE, pour toutes les
+actions (pas seulement l'annuaire). Un **candidat** ne relève que de DIAMANT (et TOPAZE), même
+s'il a déjà une formation qui donne un périmètre. FORMAT agit sur les formations des
+bénévoles, pas des candidats.
+
+**Conséquences.** Toute évolution des droits est un changement de données relu et testé
+(table de vérité indépendante de la matrice).
+
+## ADR-014 — Un seul chemin vers les données sensibles
+
+**Contexte.** Naissance, adresse, personnes à prévenir, B3, autorisation parentale et
+documents sont les données les plus sensibles d'une donnée déjà C3.
+
+**Décision.** Elles ne se lisent que par `src/server/sensitive.ts` (`readPersonSensitive`,
+`readDocument`), qui autorise par la politique puis lit et journalise la consultation dans
+`access_logs` **dans la même transaction**. Un refus ne lit et n'écrit rien. Un test
+d'architecture échoue si `personSensitive`, `emergencyContact` ou `document` sont interrogés
+ailleurs dans `src/` (hors tests). Les projections (`toDirectoryView`, `toFullView`) ne
+contiennent jamais de champ sensible.
+
+**Conséquences.** Chaque consultation est traçable ; ajouter une lecture sensible impose de
+passer par ce module.
+
+## ADR-015 — Périmètre DIAMANT et répartition des nominations
+
+**Contexte.** DIAMANT suit les candidats et les nouveaux ; les nominations aux fonctions
+relèvent de profils différents selon la fonction.
+
+**Décision.** Une personne est dans le périmètre DIAMANT si elle est candidate, a une
+candidature ouverte, est entrée depuis moins de `NEW_VOLUNTEER_MONTHS` mois (paramètre, 12)
+ou a un parrainage en cours comme filleul. Les nominations sont pilotées par
+`reference_items.managed_by` : CHEF_PAPS et CDPE par ACTION ; CI et CI_SDIS par LASER ; les
+CH_* par ACTION et LASER ; ASSIST_FORM par FORMAT GP ; TOPAZE pour toutes. Un profil ne nomme
+que les personnes qui relèvent de lui. Répartition par défaut, à confirmer.
+
+**Conséquences.** Modifier la répartition ne demande pas de déploiement.
+
+## ADR-016 — Le dossier `.next/standalone` contient le `.env` local
+
+**Contexte.** `next build` copie le fichier `.env` du poste dans `.next/standalone`, constaté
+à l'étape 2. Ce fichier peut contenir `DATABASE_URL`, `AUTH_SECRET` ou des secrets Google.
+
+**Décision.** Ce dossier ne doit **jamais** être déployé ni copié depuis un poste de
+développement. Le seul artefact de production est l'image Docker, construite sans `.env`
+(exclu par `.dockerignore`), avec les variables fournies par l'hébergeur ; sur Vercel, le
+build se fait sur leurs serveurs avec les variables du projet.
+
+**Conséquences.** Pas de déploiement manuel par copie de fichiers. À rappeler dans la
+procédure de l'étape 15.

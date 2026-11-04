@@ -8,8 +8,9 @@ Les utilisateurs sont les six profils de responsables (TOPAZE, ACTION, LASER, FO
 DIAMANT). **Les bénévoles n'ont pas de compte.** Les candidats remplissent leur dossier depuis
 un lien sécurisé, sur téléphone.
 
-> **Étapes 1 et 2** : initialisation, design system, coquille de l'application, puis modèle de
-> données complet (Prisma + PostgreSQL) et seed synthétique. Aucune donnée réelle n'est présente
+> **Étapes 1 à 3** : initialisation, design system, coquille de l'application, modèle de
+> données complet (Prisma + PostgreSQL) et seed synthétique, puis connexion Google, profils et
+> droits. Aucune donnée réelle n'est présente
 > dans ce dépôt : tout ce qui est affiché est synthétique et marqué « Données fictives ».
 
 ## Prérequis
@@ -31,28 +32,49 @@ pnpm dev
 `pnpm install` génère le client Prisma (`postinstall`). L'application tourne sur
 <http://localhost:3000>. La page `/design` présente le design system.
 
+## Connexion
+
+Seuls les responsables se connectent, avec leur compte Google @croix-rouge.fr ; le guide
+complet (client Google, variables, Vercel) est dans `docs/auth.md`, les droits dans
+`docs/permissions.md`.
+
+- **En local, sans Google** : mets `AUTH_DEMO_LOGIN=true` et un `AUTH_SECRET` dans `.env`. La
+  page `/connexion` liste les 7 comptes fictifs `@binivol.test` du seed (un par profil, plus
+  un compte FORMAT + DIAMANT). Interdit sur Vercel : le serveur refuse de démarrer.
+- **Premier compte TOPAZE** (avant la première connexion Google) :
+
+  ```bash
+  pnpm admin:grant prenom.nom@croix-rouge.fr TOPAZE --name "Prénom Nom"
+  ```
+
+  `pnpm admin:revoke <email>` désactive un compte. Ensuite, TOPAZE gère les comptes dans
+  l'app (`/admin/comptes`).
+
 ## Commandes
 
-| Commande            | Rôle                                                                     |
-| ------------------- | ------------------------------------------------------------------------ |
-| `pnpm dev`          | Serveur de développement                                                 |
-| `pnpm build`        | Build de production (sortie `standalone`)                                |
-| `pnpm start`        | Serveur de production                                                    |
-| `pnpm lint`         | ESLint (config Next + typescript-eslint strict), zéro avertissement      |
-| `pnpm format`       | Prettier (écriture)                                                      |
-| `pnpm format:check` | Prettier (vérification)                                                  |
-| `pnpm typecheck`    | `tsc --noEmit`                                                           |
-| `pnpm test`         | Tests unitaires Vitest                                                   |
-| `pnpm test:watch`   | Vitest en mode interactif                                                |
-| `pnpm test:db`      | Tests d'intégration sur une vraie base PostgreSQL (`TEST_DATABASE_URL`)  |
-| `pnpm test:e2e`     | Playwright sur le build de production (`pnpm build && pnpm start`)       |
-| `pnpm verify`       | `format:check` + `lint` + `typecheck` + `test` — **avant chaque commit** |
-| `pnpm icons`        | Régénère `icon.svg` et `apple-icon.png` depuis le tracé du logo          |
-| `pnpm db:migrate`   | `prisma migrate dev` : crée et applique une migration (développement)    |
-| `pnpm db:deploy`    | `prisma migrate deploy` : applique les migrations (test, production)     |
-| `pnpm db:reset`     | Recrée la base de développement puis relance le seed                     |
-| `pnpm db:seed`      | Seed synthétique, déterministe et idempotent                             |
-| `pnpm db:studio`    | Prisma Studio, pour parcourir les tables                                 |
+| Commande                | Rôle                                                                     |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `pnpm dev`              | Serveur de développement                                                 |
+| `pnpm build`            | Build de production (sortie `standalone`)                                |
+| `pnpm start`            | Serveur de production                                                    |
+| `pnpm lint`             | ESLint (config Next + typescript-eslint strict), zéro avertissement      |
+| `pnpm format`           | Prettier (écriture)                                                      |
+| `pnpm format:check`     | Prettier (vérification)                                                  |
+| `pnpm typecheck`        | `tsc --noEmit`                                                           |
+| `pnpm test`             | Tests unitaires Vitest                                                   |
+| `pnpm test:watch`       | Vitest en mode interactif                                                |
+| `pnpm test:db`          | Tests d'intégration sur une vraie base PostgreSQL (`TEST_DATABASE_URL`)  |
+| `pnpm test:e2e`         | Playwright sur le build de production (`pnpm build && pnpm start`)       |
+| `pnpm verify`           | `format:check` + `lint` + `typecheck` + `test` — **avant chaque commit** |
+| `pnpm icons`            | Régénère `icon.svg` et `apple-icon.png` depuis le tracé du logo          |
+| `pnpm db:migrate`       | `prisma migrate dev` : crée et applique une migration (développement)    |
+| `pnpm db:deploy`        | `prisma migrate deploy` : applique les migrations (test, production)     |
+| `pnpm db:reset`         | Recrée la base de développement puis relance le seed                     |
+| `pnpm db:seed`          | Seed synthétique, déterministe et idempotent                             |
+| `pnpm db:studio`        | Prisma Studio, pour parcourir les tables                                 |
+| `pnpm admin:grant`      | Crée ou modifie un compte responsable (`<email> <PROFIL...>`)            |
+| `pnpm admin:revoke`     | Désactive un compte responsable (`<email>`)                              |
+| `pnpm docs:permissions` | Régénère `docs/permissions.md` depuis la matrice des droits              |
 
 Avant le premier `pnpm test:e2e` en local : `pnpm exec playwright install chromium`.
 
@@ -103,7 +125,7 @@ Règles : pas de suppression physique (archivage ou annulation tracée), journau
 
 ```
 .github/workflows/ci.yml   CI : pnpm verify + Playwright
-docs/                      data-model.md, design-system.md, decisions.md (ADR)
+docs/                      auth.md, data-model.md, decisions.md (ADR), design-system.md, permissions.md (généré)
 e2e/                       tests Playwright (+ axe)
 prisma/                    schema.prisma, migrations/, seed.ts, seed/ (données fictives)
 scripts/                   generate-icons.ts
@@ -118,7 +140,7 @@ src/components/
   ui/                      composants de base écrits à la main
 src/generated/prisma/      client Prisma généré (non versionné)
 src/lib/                   utilitaires : cn, dates, initials, labels, nivol, status, env, dev-user
-src/server/                accès aux données : db, audit, sequences, reference, perimeter, repositories/
+src/server/                accès aux données : db, audit, sensitive, auth/, policy/, actions/, services/, repositories/
 src/test/                  setup Vitest, harnais de la base de test (db/)
 ```
 

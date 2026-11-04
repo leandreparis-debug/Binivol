@@ -16,10 +16,26 @@ appellent cette couche ; ils n'importent jamais `@/generated/prisma/client` dire
 | `repositories/personRepository.ts`    | `findByRef()`, `search()` (sans accents, pagination par curseur), écritures techniques                  |
 | `repositories/referenceRepository.ts` | `list({ kind, active })`, `findByCode()`                                                                |
 
+## Connexion et droits (étape 3)
+
+| Fichier                         | Rôle                                                                             |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| `auth/config.ts`                | Auth.js : Google, sessions en base, callback `signIn`, événements LOGIN / LOGOUT |
+| `auth/adapter.ts`               | adaptateur minimal : ne crée jamais de compte, ne garde aucun jeton              |
+| `auth/signIn.ts`                | règles de connexion, pures (`evaluateSignIn`, `handleSignIn`)                    |
+| `auth/actor.ts`, `loadActor.ts` | `getActor()`, `requireActor()` : profils relus en base à chaque requête          |
+| `auth/demo.ts`                  | connexion de démonstration (`@binivol.test`), jamais sur Vercel                  |
+| `auth/page.ts`                  | `requirePageAccess()`, `authorizePage()` : 403 par `forbidden()`                 |
+| `policy/`                       | `can()` (pure), `matrix.ts`, `loadPersonFacts()`, `docs/permissions.md` généré   |
+| `actions/defineAction.ts`       | seul moyen d'écrire une action serveur                                           |
+| `sensitive.ts`                  | **seul chemin** vers les données sensibles, avec `access_logs`                   |
+| `projections/person.ts`         | vues annuaire et complète, jamais de champ sensible                              |
+| `services/accounts.ts`          | comptes : ajout, profils, activation, garde-fous du dernier TOPAZE               |
+
 ## À venir
 
-- `services/` : la logique métier (intégration d'un candidat, rappels…), qui orchestre les
-  repositories dans `withAudit()` et applique les droits par profil (étape 3).
+- d'autres `services/` : la logique métier (intégration d'un candidat, rappels…), qui orchestre
+  les repositories dans `withAudit()`.
 - `interfaces/` : `StorageService` (fichiers) et `MailService` (SMTP), avec une implémentation
   locale et une de production.
 

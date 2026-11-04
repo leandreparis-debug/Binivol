@@ -80,6 +80,24 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
 - NIVOL : toujours via `normalizeNivol()` (11 chiffres + 1 lettre).
 - `pnpm test:db` (base réelle) avant de pousser une modification du schéma ou de `src/server/`.
 
+## Connexion et droits
+
+- Seuls les responsables se connectent (Google @croix-rouge.fr, comptes créés par TOPAZE).
+  Les droits sont décrits dans `docs/permissions.md`, généré par `pnpm docs:permissions`.
+- **Toutes les règles d'accès sont dans la politique** (`src/server/policy/`) : `can()` est
+  pure, la matrice est dans `matrix.ts`. Jamais de test de profil ailleurs dans le code.
+- **Toute action serveur passe par `defineAction`** (`src/server/actions/defineAction.ts`),
+  ou par `definePublicAction` pour les seules actions sans session (connexion, déconnexion).
+  Un test d'architecture le vérifie.
+- **Les données sensibles ne se lisent que par `src/server/sensitive.ts`**, qui journalise
+  chaque consultation dans `access_logs`. Un test d'architecture le vérifie.
+- Chaque page appelle `requirePageAccess(action)` (ou `authorizePage` avec la personne) ; le
+  middleware n'est pas une sécurité.
+- Les profils se relisent en base à chaque requête (`getActor`) : ne jamais les mettre en
+  cache dans un cookie ou une session.
+- La connexion démo (`AUTH_DEMO_LOGIN`) n'existe jamais sur Vercel ; le serveur refuse de
+  démarrer si `VERCEL_ENV` est défini.
+
 ## Workflow
 
 - Conventional Commits : `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `ci:`.
