@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { DataTable } from "@/components/ui/DataTable";
 
 const rows = [
-  { id: "1", name: "Camille Démo", nivol: "DEMO00001" },
-  { id: "2", name: "Noa Exemple", nivol: "DEMO00002" },
+  { id: "1", name: "Camille Démo", nivol: "00012345678A" },
+  { id: "2", name: "Noa Exemple", nivol: "00012345679B" },
 ];
 
 describe("DataTable", () => {
@@ -23,7 +23,7 @@ describe("DataTable", () => {
     );
     expect(screen.getByRole("table", { name: "Bénévoles" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "NIVOL" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "DEMO00001" })).toHaveClass("font-mono");
+    expect(screen.getByRole("cell", { name: "00012345678A" })).toHaveClass("font-mono");
     expect(screen.getByRole("list", { name: "Bénévoles" })).toBeInTheDocument();
   });
 
