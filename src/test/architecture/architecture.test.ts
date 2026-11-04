@@ -1,0 +1,74 @@
+// @vitest-environment node
+import { describe, expect, it } from "vitest";
+import { isServerActionFile, isTestFile, sourceFiles } from "./sourceFiles";
+
+const files = sourceFiles();
+
+describe("architecture: server actions", () => {
+  const actionFiles = files.filter((f) => isServerActionFile(f.content));
+
+  it("finds the server action files", () => {
+    expect(actionFiles.length).toBeGreaterThan(0);
+  });
+
+  it("every export of a 'use server' file goes through defineAction or definePublicAction", () => {
+    const offenders: string[] = [];
+    for (const { file, content } of actionFiles) {
+      for (const match of content.matchAll(/^export\s+(?!type\b|interface\b)(.*)$/gm)) {
+        const line = match[1] ?? "";
+        const wrapped = /^const\s+\w+\s*=\s*(defineAction|definePublicAction)\(/.test(line);
+        if (!wrapped) offenders.push(`${file}: export ${line.slice(0, 80)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("no server action is defined inline in a component", () => {
+    const inline = files.filter(
+      ({ file, content }) =>
+        !isServerActionFile(content) &&
+        /^\s*["']use server["'];?\s*$/m.test(content) &&
+        !isTestFile(file),
+    );
+    expect(inline.map((f) => f.file)).toEqual([]);
+  });
+});
+
+describe("architecture: sensitive data", () => {
+  const ALLOWED = new Set(["src/server/sensitive.ts"]);
+  const DELEGATE = /\.(personSensitive|emergencyContact|document)\s*\.\s*\w+\s*\(/;
+  const RELATION = /\b(sensitive|emergencyContacts|documents)\s*:\s*(true|\{)/;
+
+  it("personSensitive, emergencyContact and document are only queried in src/server/sensitive.ts", () => {
+    const offenders = files
+      .filter(({ file }) => !ALLOWED.has(file) && !isTestFile(file))
+      .flatMap(({ file, content }) =>
+        content
+          .split("\n")
+          .map((line, i) => ({ line, i }))
+          .filter(({ line }) => DELEGATE.test(line) || RELATION.test(line))
+          .map(({ line, i }) => `${file}:${i + 1}: ${line.trim()}`),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it("the guard really detects a forbidden access", () => {
+    expect(DELEGATE.test("await db.personSensitive.findMany()")).toBe(true);
+    expect(DELEGATE.test("tx.document.findUnique({")).toBe(true);
+    expect(RELATION.test("include: { sensitive: true }")).toBe(true);
+    expect(DELEGATE.test('entity: "PersonSensitive"')).toBe(false);
+  });
+});
+
+describe("architecture: database access", () => {
+  it("components and pages never import the Prisma client", () => {
+    const offenders = files
+      .filter(
+        ({ file }) =>
+          (file.startsWith("src/app/") || file.startsWith("src/components/")) && !isTestFile(file),
+      )
+      .filter(({ content }) => /from\s+["']@\/generated\/prisma\/client["']/.test(content))
+      .map((f) => f.file);
+    expect(offenders).toEqual([]);
+  });
+});
