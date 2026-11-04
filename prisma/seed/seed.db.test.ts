@@ -2,7 +2,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { NIVOL_PATTERN } from "@/lib/nivol";
 import { perimetersOf } from "@/server/perimeter";
 import { getTestDb } from "@/test/db/testDatabase";
-import { SEED_MARK, SEED_VOLUMES, countRows, seed, seedUserEmail, USERS } from "./index";
+import {
+  SEED_MARK,
+  SEED_VOLUMES,
+  countRows,
+  seedDemo as seed,
+  seedUserEmail,
+  USERS,
+} from "./index";
 import { HYPOTHESIS_CODES, LEGACY_CODES, REFERENCE_ITEMS } from "./referenceData";
 
 const db = getTestDb();

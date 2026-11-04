@@ -213,17 +213,160 @@ function planPersons(): PersonPlan[] {
 // Seed
 // ---------------------------------------------------------------------------
 
+const refId = (code: string) => `seed_ref_${code.toLowerCase()}`;
+const audit = { createdById: null, updatedById: null };
+
+type SeedTx = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
+
+/** Thrown when the demo seed would mix fictitious and real people. */
+export class RealDataPresentError extends Error {
+  constructor(count: number) {
+    super(
+      `Seed de démonstration refusé : la base contient ${count} personne(s) sans la note « ${SEED_MARK} ». ` +
+        "Il ne mélange jamais des données fictives avec de vraies données (utilise une base neuve : pnpm db:fresh).",
+    );
+    this.name = "RealDataPresentError";
+  }
+}
+
+/** Number of people that are not synthetic seed data. */
+export async function countNonSeedPersons(db: PrismaClient | SeedTx): Promise<number> {
+  return db.person.count({
+    where: { OR: [{ notes: null }, { NOT: { notes: { contains: SEED_MARK } } }] },
+  });
+}
+
+async function seedBaseIn(tx: SeedTx): Promise<void> {
+  // -- Settings -----------------------------------------------------------
+  const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = [
+    ["ALERT_DAYS_BEFORE_EXPIRY", 60, "Nombre de jours avant échéance déclenchant une alerte."],
+    ["RETENTION_YEARS_AFTER_LEAVE", 5, "Durée de conservation après le départ, en années (RGPD)."],
+    ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
+    ["DATA_CLASSIFICATION", "C3 CONFIDENTIEL", "Classification des données de l'outil."],
+    ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
+    [
+      "NEW_VOLUNTEER_MONTHS",
+      12,
+      "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
+    ],
+  ].map(([key, value, description]) => ({
+    id: `seed_setting_${String(key).toLowerCase()}`,
+    key: String(key),
+    value: value as Prisma.InputJsonValue,
+    description: String(description),
+    ...audit,
+  }));
+  await save(tx.setting, settings);
+
+  // -- Reference list --------------------------------------------------------
+  await save<Prisma.ReferenceItemUncheckedCreateInput>(
+    tx.referenceItem,
+    REFERENCE_ITEMS.map((item, i) => ({
+      id: refId(item.code),
+      code: item.code,
+      label: item.label,
+      category: item.category,
+      kind: item.kind,
+      sortOrder: i + 1,
+      validityMonths: null,
+      expiresEndOfYear: item.expiresEndOfYear,
+      forbiddenForMinors: item.forbiddenForMinors,
+      perimeters: item.perimeters ?? [],
+      managedBy: item.managedBy ?? [],
+      active: true,
+      note: item.note ?? null,
+      ...audit,
+    })),
+  );
+  // The legacy workbook has no prerequisite: drop the links of earlier seeds
+  // (configuration rows, not business data).
+  await tx.referenceItemPrerequisite.deleteMany({
+    where: { itemId: { in: REFERENCE_ITEMS.map((item) => refId(item.code)) } },
+  });
+
+  const rules: WithId<Prisma.ReminderRuleUncheckedCreateInput>[] = [
+    {
+      id: "seed_rule_candidacy_idle",
+      key: "CANDIDACY_IDLE",
+      label: "Candidature sans action depuis 14 jours",
+      trigger: "CANDIDACY_IDLE",
+      offsetDays: 14,
+      recipients: ["DIAMANT"],
+      channels: ["IN_APP", "EMAIL_DIGEST"],
+    },
+    {
+      id: "seed_rule_dossier_unsigned",
+      key: "DOSSIER_UNSIGNED",
+      label: "Dossier envoyé et non signé depuis 7 jours",
+      trigger: "DOSSIER_UNSIGNED",
+      offsetDays: 7,
+      recipients: ["DIAMANT"],
+      channels: ["IN_APP"],
+    },
+    {
+      id: "seed_rule_training_expiring",
+      key: "TRAINING_EXPIRING",
+      label: "Formation arrivant à échéance dans 60 jours",
+      trigger: "TRAINING_EXPIRING",
+      offsetDays: 60,
+      recipients: ["FORMAT", "ACTION", "LASER"],
+      channels: ["IN_APP", "EMAIL_DIGEST"],
+      params: { setting: "ALERT_DAYS_BEFORE_EXPIRY" },
+    },
+    {
+      id: "seed_rule_followup_due",
+      key: "FOLLOWUP_DUE",
+      label: "Point de suivi à faire",
+      trigger: "FOLLOWUP_DUE",
+      offsetDays: 0,
+      recipients: ["DIAMANT"],
+      channels: ["IN_APP"],
+    },
+    {
+      id: "seed_rule_person_inactive",
+      key: "PERSON_INACTIVE",
+      label: "Bénévole sans activité depuis 6 mois",
+      trigger: "PERSON_INACTIVE",
+      offsetDays: 180,
+      recipients: ["TOPAZE"],
+      channels: ["EMAIL_DIGEST"],
+    },
+    {
+      id: "seed_rule_b3_annual",
+      key: "B3_ANNUAL",
+      label: "Vérification annuelle du B3",
+      trigger: "B3_ANNUAL",
+      offsetDays: 365,
+      recipients: ["TOPAZE"],
+      channels: ["IN_APP"],
+      active: false,
+    },
+  ];
+  await save(
+    tx.reminderRule,
+    rules.map((r) => ({ ...r, ...audit })),
+  );
+}
+
 /**
- * Fills the database with the synthetic data set. Safe to run again: it only
- * creates what is missing and refreshes the rest. Runs in one transaction.
+ * Base seed — **the only seed allowed in production**: reference list,
+ * settings and default reminder rules. No person, no account. Idempotent.
  */
-export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise<void> {
+export async function seedBase(db: PrismaClient): Promise<void> {
+  await db.$transaction((tx) => seedBaseIn(tx), { timeout: 60_000, maxWait: 20_000 });
+}
+
+/**
+ * Demo seed: runs the base seed, then the demo accounts and the 60 fictitious
+ * people. Safe to run again: it only creates what is missing and refreshes the
+ * rest, in one transaction. Refuses a database that holds any non-seed person.
+ */
+export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Promise<void> {
   faker.seed(FAKER_SEED);
   const today = options.today ?? toParisDay();
   const year = today.getUTCFullYear();
   const people = planPersons();
   const byCode = new Map(REFERENCE_ITEMS.map((item) => [item.code, item]));
-  const refId = (code: string) => `seed_ref_${code.toLowerCase()}`;
   const expires = (code: string, date: Date | null) => {
     const item = byCode.get(code);
     return computeExpiresAt(
@@ -234,34 +377,15 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
       date,
     );
   };
-  const audit = { createdById: null, updatedById: null };
+
+  const realPeople = await countNonSeedPersons(db);
+  if (realPeople > 0) throw new RealDataPresentError(realPeople);
 
   await db.$transaction(
     async (tx) => {
-      // -- Settings -----------------------------------------------------------
-      const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = [
-        ["ALERT_DAYS_BEFORE_EXPIRY", 60, "Nombre de jours avant échéance déclenchant une alerte."],
-        [
-          "RETENTION_YEARS_AFTER_LEAVE",
-          5,
-          "Durée de conservation après le départ, en années (RGPD).",
-        ],
-        ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
-        ["DATA_CLASSIFICATION", "C3 CONFIDENTIEL", "Classification des données de l'outil."],
-        ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
-        [
-          "NEW_VOLUNTEER_MONTHS",
-          12,
-          "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
-        ],
-      ].map(([key, value, description]) => ({
-        id: `seed_setting_${String(key).toLowerCase()}`,
-        key: String(key),
-        value: value as Prisma.InputJsonValue,
-        description: String(description),
-        ...audit,
-      }));
-      await save(tx.setting, settings);
+      if ((await countNonSeedPersons(tx)) > 0)
+        throw new RealDataPresentError(await countNonSeedPersons(tx));
+      await seedBaseIn(tx);
 
       // -- Users ----------------------------------------------------------------
       await save<Prisma.UserUncheckedCreateInput>(
@@ -284,32 +408,6 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
           })),
         ),
       );
-
-      // -- Reference list --------------------------------------------------------
-      await save<Prisma.ReferenceItemUncheckedCreateInput>(
-        tx.referenceItem,
-        REFERENCE_ITEMS.map((item, i) => ({
-          id: refId(item.code),
-          code: item.code,
-          label: item.label,
-          category: item.category,
-          kind: item.kind,
-          sortOrder: i + 1,
-          validityMonths: null,
-          expiresEndOfYear: item.expiresEndOfYear,
-          forbiddenForMinors: item.forbiddenForMinors,
-          perimeters: item.perimeters ?? [],
-          managedBy: item.managedBy ?? [],
-          active: true,
-          note: item.note ?? null,
-          ...audit,
-        })),
-      );
-      // The legacy workbook has no prerequisite: drop the links of earlier seeds
-      // (configuration rows, not business data).
-      await tx.referenceItemPrerequisite.deleteMany({
-        where: { itemId: { in: REFERENCE_ITEMS.map((item) => refId(item.code)) } },
-      });
 
       // -- Training sessions ------------------------------------------------------
       const sessions: WithId<Prisma.TrainingSessionUncheckedCreateInput>[] = [
@@ -942,68 +1040,6 @@ export async function seed(db: PrismaClient, options: SeedOptions = {}): Promise
       await save(tx.document, documents);
 
       // -- Reminder rules and notifications ---------------------------------------------
-      const rules: WithId<Prisma.ReminderRuleUncheckedCreateInput>[] = [
-        {
-          id: "seed_rule_candidacy_idle",
-          key: "CANDIDACY_IDLE",
-          label: "Candidature sans action depuis 14 jours",
-          trigger: "CANDIDACY_IDLE",
-          offsetDays: 14,
-          recipients: ["DIAMANT"],
-          channels: ["IN_APP", "EMAIL_DIGEST"],
-        },
-        {
-          id: "seed_rule_dossier_unsigned",
-          key: "DOSSIER_UNSIGNED",
-          label: "Dossier envoyé et non signé depuis 7 jours",
-          trigger: "DOSSIER_UNSIGNED",
-          offsetDays: 7,
-          recipients: ["DIAMANT"],
-          channels: ["IN_APP"],
-        },
-        {
-          id: "seed_rule_training_expiring",
-          key: "TRAINING_EXPIRING",
-          label: "Formation arrivant à échéance dans 60 jours",
-          trigger: "TRAINING_EXPIRING",
-          offsetDays: 60,
-          recipients: ["FORMAT", "ACTION", "LASER"],
-          channels: ["IN_APP", "EMAIL_DIGEST"],
-          params: { setting: "ALERT_DAYS_BEFORE_EXPIRY" },
-        },
-        {
-          id: "seed_rule_followup_due",
-          key: "FOLLOWUP_DUE",
-          label: "Point de suivi à faire",
-          trigger: "FOLLOWUP_DUE",
-          offsetDays: 0,
-          recipients: ["DIAMANT"],
-          channels: ["IN_APP"],
-        },
-        {
-          id: "seed_rule_person_inactive",
-          key: "PERSON_INACTIVE",
-          label: "Bénévole sans activité depuis 6 mois",
-          trigger: "PERSON_INACTIVE",
-          offsetDays: 180,
-          recipients: ["TOPAZE"],
-          channels: ["EMAIL_DIGEST"],
-        },
-        {
-          id: "seed_rule_b3_annual",
-          key: "B3_ANNUAL",
-          label: "Vérification annuelle du B3",
-          trigger: "B3_ANNUAL",
-          offsetDays: 365,
-          recipients: ["TOPAZE"],
-          channels: ["IN_APP"],
-          active: false,
-        },
-      ];
-      await save(
-        tx.reminderRule,
-        rules.map((r) => ({ ...r, ...audit })),
-      );
       const someone = required(
         people.find((p) =>
           records.some(
@@ -1222,3 +1258,6 @@ export async function countRows(db: PrismaClient): Promise<Record<string, number
     access_logs: accessLogs,
   };
 }
+
+/** @deprecated Alias kept for existing callers: the demo seed. */
+export const seed = seedDemo;
