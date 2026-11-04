@@ -5,13 +5,17 @@ import { makePerson, makeReference, makeUser, testNivol } from "@/test/db/factor
 import { getTestDb } from "@/test/db/testDatabase";
 
 const db = getTestDb();
+const TEST_ACTOR = { userId: null, label: "Test" };
 
 describe("persons", () => {
   it("rejects a duplicate NIVOL with a business message", async () => {
     const nivol = testNivol();
     const repo = personRepository(db);
-    await repo.create({ firstName: "A", lastName: "Un", nivol, status: "ACTIVE" });
-    const attempt = repo.create({ firstName: "B", lastName: "Deux", nivol, status: "ACTIVE" });
+    await repo.create({ firstName: "A", lastName: "Un", nivol, status: "ACTIVE" }, TEST_ACTOR);
+    const attempt = repo.create(
+      { firstName: "B", lastName: "Deux", nivol, status: "ACTIVE" },
+      TEST_ACTOR,
+    );
     await expect(attempt).rejects.toBeInstanceOf(DomainError);
     await expect(attempt).rejects.toMatchObject({
       code: "NIVOL_TAKEN",
@@ -28,7 +32,7 @@ describe("persons", () => {
 
   it("translates a format error too", async () => {
     await expect(
-      personRepository(db).create({ firstName: "A", lastName: "B", nivol: "bad" }),
+      personRepository(db).create({ firstName: "A", lastName: "B", nivol: "bad" }, TEST_ACTOR),
     ).rejects.toMatchObject({
       code: "NIVOL_INVALID",
     });

@@ -1,6 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { PersonStatus } from "@/generated/prisma/enums";
 import type { DbOrTx } from "../db";
+import { withAudit, type Actor as AuditActor } from "../audit";
 import { translateDbError } from "../errors";
 
 /** Non-sensitive fields returned by lists and lookups. */
@@ -18,6 +19,21 @@ export const personSummarySelect = {
 } satisfies Prisma.PersonSelect;
 
 export type PersonSummary = Prisma.PersonGetPayload<{ select: typeof personSummarySelect }>;
+
+function pickSummary(row: PersonSummary & Record<string, unknown>): PersonSummary {
+  return {
+    id: row.id,
+    ref: row.ref,
+    nivol: row.nivol,
+    civility: row.civility,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    usageName: row.usageName,
+    status: row.status,
+    entryDate: row.entryDate,
+    archivedAt: row.archivedAt,
+  };
+}
 
 export interface PersonSearchParams {
   /** Free text: words are matched (accent- and case-insensitive) on last, first and usage name, and NIVOL. */
@@ -128,21 +144,43 @@ export function personRepository(db: DbOrTx) {
     },
 
     /**
-     * Technical insert used by the seed, the import (step 4) and tests.
-     * Database errors are translated into `DomainError` (duplicate NIVOL…).
+     * Technical insert (import of step 4, tests). Audited through `withAudit`
+     * in the same transaction; database errors become `DomainError`
+     * (duplicate NIVOL…). Business screens will use services instead.
      */
-    async create(data: Prisma.PersonUncheckedCreateInput): Promise<PersonSummary> {
+    async create(
+      data: Prisma.PersonUncheckedCreateInput,
+      actor: AuditActor,
+    ): Promise<PersonSummary> {
       try {
-        return await db.person.create({ data, select: personSummarySelect });
+        return await withAudit(db, actor, async (tx, audit) => {
+          const created = await tx.person.create({
+            data: { ...data, createdById: actor.userId, updatedById: actor.userId },
+          });
+          audit.created("Person", created.id, created);
+          return pickSummary(created);
+        });
       } catch (error) {
         throw translateDbError(error);
       }
     },
 
-    /** Technical update, with the same error translation. */
-    async update(id: string, data: Prisma.PersonUncheckedUpdateInput): Promise<PersonSummary> {
+    /** Technical update, audited field by field, with the same error translation. */
+    async update(
+      id: string,
+      data: Prisma.PersonUncheckedUpdateInput,
+      actor: AuditActor,
+    ): Promise<PersonSummary> {
       try {
-        return await db.person.update({ where: { id }, data, select: personSummarySelect });
+        return await withAudit(db, actor, async (tx, audit) => {
+          const before = await tx.person.findUniqueOrThrow({ where: { id } });
+          const after = await tx.person.update({
+            where: { id },
+            data: { ...data, updatedById: actor.userId },
+          });
+          audit.updated("Person", id, before, after);
+          return pickSummary(after);
+        });
       } catch (error) {
         throw translateDbError(error);
       }
