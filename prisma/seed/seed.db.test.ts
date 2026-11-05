@@ -226,10 +226,10 @@ describe("seed", () => {
       include: { attachments: true, person: { select: { status: true } } },
     });
     expect(subs.map((s) => [s.id, s.status, s.schemaVersion])).toEqual([
-      ["seed_sub_adult", "SUBMITTED", 1],
-      ["seed_sub_draft", "DRAFT", 1],
-      ["seed_sub_minor", "SUBMITTED", 1],
-      ["seed_sub_signed", "SIGNED", 1],
+      ["seed_sub_adult", "SUBMITTED", 2],
+      ["seed_sub_draft", "DRAFT", 2],
+      ["seed_sub_minor", "SUBMITTED", 2],
+      ["seed_sub_signed", "SIGNED", 2],
     ]);
     for (const s of subs.filter((x) => x.status !== "DRAFT")) {
       const data = migrateDossierData(s.data, s.schemaVersion).data;
