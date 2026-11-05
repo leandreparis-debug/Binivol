@@ -17,6 +17,7 @@ export const POLICY_ACTIONS = [
   "appointment.read",
   "appointment.write",
   "candidacy.manage",
+  "candidacy.create",
   "dossier.manage",
   "mentorship.manage",
   "followUp.manage",

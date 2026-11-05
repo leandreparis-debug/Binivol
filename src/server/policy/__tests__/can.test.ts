@@ -122,6 +122,7 @@ const GLOBAL_TABLE: Partial<Record<PolicyAction, Profile[]>> = {
   "accessLog.read": ["TOPAZE"],
   "person.export": ["TOPAZE"],
   "import.run": ["TOPAZE"],
+  "candidacy.create": ["TOPAZE", "DIAMANT"],
   "notification.readOwn": PROFILES,
 };
 

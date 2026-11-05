@@ -93,7 +93,8 @@ describe("seed", () => {
       "GAIA",
       "MEETING",
     ]);
-    expect(await db.candidacy.count({ where: { closedAt: null } })).toBe(5);
+    // 5 candidates + 1 person who left, re-engaged (step 6).
+    expect(await db.candidacy.count({ where: { closedAt: null } })).toBe(6);
   });
 
   it("loads the exact legacy reference list, in its order, plus the 3 hypotheses", async () => {
@@ -218,6 +219,7 @@ describe("seed", () => {
       DATA_CLASSIFICATION: "C3 CONFIDENTIEL",
       GREETING_EMAILS_ENABLED: true,
       NEW_VOLUNTEER_MONTHS: 12,
+      CANDIDACY_FOLLOW_UP_DAYS: 7,
     });
     expect(await db.reminderRule.count()).toBe(6);
   });
@@ -230,5 +232,33 @@ describe("seed", () => {
     expect([...(await perimetersOf(db, withPse.personId, today))]).toEqual(
       expect.arrayContaining(["ACTION", "LASER"]),
     );
+  });
+});
+
+describe("seed: integration (step 6)", () => {
+  it("covers every stage, an overdue follow-up, an abandonment, a resume and a re-engagement", async () => {
+    const open = await db.candidacy.findMany({
+      where: { closedAt: null },
+      include: { person: true },
+    });
+    expect(new Set(open.map((c) => c.stage))).toEqual(
+      new Set(["FIRST_CONTACT", "MEETING", "CONFIRMED", "FILE", "GAIA"]),
+    );
+    expect(open.some((c) => c.followUpAt && c.followUpAt.getTime() < today.getTime())).toBe(true);
+    expect(
+      await db.candidacy.count({ where: { stage: "ABANDONED", abandonReason: "NO_RESPONSE" } }),
+    ).toBe(1);
+    expect(await db.candidacyEvent.count({ where: { fromStage: "ABANDONED" } })).toBe(1);
+    expect(open.some((c) => c.person.status === "LEFT")).toBe(true);
+    const done = await db.candidacy.findMany({
+      where: { stage: "DONE" },
+      select: { personId: true },
+    });
+    expect(done.length).toBeGreaterThanOrEqual(2);
+    expect(
+      await db.followUp.count({
+        where: { kind: "THREE_MONTHS", personId: { in: done.map((d) => d.personId) } },
+      }),
+    ).toBe(done.length);
   });
 });

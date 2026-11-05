@@ -5,6 +5,7 @@
  * Imports only `enums.ts` from the generated client, which is browser-safe.
  */
 import type {
+  AbandonReason,
   AccessScope,
   Aptitude,
   AuditAction,
@@ -137,6 +138,14 @@ export const CANDIDACY_STAGE_LABELS: Record<CandidacyStage, string> = {
   ABANDONED: "Abandon",
 };
 
+export const ABANDON_REASON_LABELS: Record<AbandonReason, string> = {
+  NO_RESPONSE: "Ne répond plus",
+  NOT_INTERESTED: "N'est plus intéressé(e)",
+  UNAVAILABLE: "Pas disponible",
+  REDIRECTED: "Orienté(e) ailleurs",
+  OTHER: "Autre motif",
+};
+
 export const FOLLOW_UP_KIND_LABELS: Record<FollowUpKind, string> = {
   THREE_MONTHS: "Point à 3 mois",
   ANNUAL: "Point annuel",
@@ -234,6 +243,7 @@ export const ENUM_LABELS = {
   TrainingWishStatus: TRAINING_WISH_STATUS_LABELS,
   CandidacyStage: CANDIDACY_STAGE_LABELS,
   FollowUpKind: FOLLOW_UP_KIND_LABELS,
+  AbandonReason: ABANDON_REASON_LABELS,
   DossierLinkMode: DOSSIER_LINK_MODE_LABELS,
   SubmissionStatus: SUBMISSION_STATUS_LABELS,
   SignerRole: SIGNER_ROLE_LABELS,
@@ -264,6 +274,7 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
   "appointment.read": "Consulter les nominations",
   "appointment.write": "Nommer à une fonction ou annuler une nomination",
   "candidacy.manage": "Gérer les candidatures",
+  "candidacy.create": "Créer un candidat ou réengager une personne",
   "dossier.manage": "Gérer les dossiers en ligne",
   "mentorship.manage": "Gérer les parrainages",
   "followUp.manage": "Gérer les points de suivi",

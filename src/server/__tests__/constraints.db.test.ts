@@ -73,9 +73,20 @@ describe("candidacies", () => {
     const first = await db.candidacy.create({ data: { personId: person.id } });
     await db.candidacy.update({
       where: { id: first.id },
-      data: { stage: "ABANDONED", closedAt: new Date() },
+      data: { stage: "ABANDONED", closedAt: new Date(), abandonReason: "OTHER" },
     });
     await expect(db.candidacy.create({ data: { personId: person.id } })).resolves.toBeTruthy();
+  });
+
+  it("requires a reason for an abandoned candidacy", async () => {
+    const person = await makePerson(db);
+    const candidacy = await db.candidacy.create({ data: { personId: person.id } });
+    await expect(
+      db.candidacy.update({
+        where: { id: candidacy.id },
+        data: { stage: "ABANDONED", closedAt: new Date() },
+      }),
+    ).rejects.toThrow(/candidacies_abandon_reason/);
   });
 
   it("keeps closedAt consistent with the stage", async () => {

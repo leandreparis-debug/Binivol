@@ -11,18 +11,22 @@ export interface NumericSettings {
   retentionYears: number;
   /** `NEW_VOLUNTEER_MONTHS`: DIAMANT scope of newcomers. */
   newVolunteerMonths: number;
+  /** `CANDIDACY_FOLLOW_UP_DAYS`: default follow-up date after a change of stage. */
+  candidacyFollowUpDays: number;
 }
 
 export const DEFAULT_SETTINGS: NumericSettings = {
   alertDays: 60,
   retentionYears: 5,
   newVolunteerMonths: 12,
+  candidacyFollowUpDays: 7,
 };
 
 const KEYS: Record<keyof NumericSettings, string> = {
   alertDays: "ALERT_DAYS_BEFORE_EXPIRY",
   retentionYears: "RETENTION_YEARS_AFTER_LEAVE",
   newVolunteerMonths: "NEW_VOLUNTEER_MONTHS",
+  candidacyFollowUpDays: "CANDIDACY_FOLLOW_UP_DAYS",
 };
 
 function asCount(value: unknown, fallback: number): number {
@@ -41,6 +45,10 @@ export async function numericSettings(db: DbOrTx): Promise<NumericSettings> {
     newVolunteerMonths: asCount(
       byKey.get(KEYS.newVolunteerMonths),
       DEFAULT_SETTINGS.newVolunteerMonths,
+    ),
+    candidacyFollowUpDays: asCount(
+      byKey.get(KEYS.candidacyFollowUpDays),
+      DEFAULT_SETTINGS.candidacyFollowUpDays,
     ),
   };
 }

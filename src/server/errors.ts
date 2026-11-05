@@ -28,7 +28,11 @@ export type DomainErrorCode =
   | "FILE_INVALID"
   | "FILE_TOO_LARGE"
   | "FILE_MISSING"
-  | "STORAGE_UNAVAILABLE";
+  | "STORAGE_UNAVAILABLE"
+  | "TRANSITION_REFUSED"
+  | "STALE_CANDIDACY"
+  | "DUPLICATE_PERSON"
+  | "MENTOR_INVALID";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {
@@ -67,6 +71,10 @@ export const CONSTRAINT_RULES: Record<string, Rule> = {
   candidacies_one_open: {
     code: "CANDIDACY_ALREADY_OPEN",
     message: "Cette personne a déjà une candidature en cours.",
+  },
+  candidacies_abandon_reason: {
+    code: "INVALID_DATA",
+    message: "Le motif d'abandon est obligatoire.",
   },
   candidacies_closed_matches_stage: {
     code: "CANDIDACY_STAGE_MISMATCH",

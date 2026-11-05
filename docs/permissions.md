@@ -30,6 +30,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Consulter les nominations (`appointment.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | — | Si la personne relève du profil | Si la personne relève du profil |
 | Nommer à une fonction ou annuler une nomination (`appointment.write`) | une personne et une fonction | Oui | Si la fonction lui est confiée et que la personne relève du profil | Si la fonction lui est confiée et que la personne relève du profil | — | Si la fonction lui est confiée et que la personne relève du profil | — |
 | Gérer les candidatures (`candidacy.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
+| Créer un candidat ou réengager une personne (`candidacy.create`) | — | Oui | — | — | — | — | Oui |
 | Gérer les dossiers en ligne (`dossier.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Gérer les parrainages (`mentorship.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Gérer les points de suivi (`followUp.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |

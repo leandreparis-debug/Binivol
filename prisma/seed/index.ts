@@ -245,6 +245,11 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["DATA_CLASSIFICATION", "C3 CONFIDENTIEL", "Classification des données de l'outil."],
     ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
     [
+      "CANDIDACY_FOLLOW_UP_DAYS",
+      7,
+      "Délai de relance proposé, en jours, après un passage d'étape d'une candidature.",
+    ],
+    [
       "NEW_VOLUNTEER_MONTHS",
       12,
       "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
@@ -877,16 +882,25 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
           ]),
           firstContactAt,
           nextAction: closed ? null : "Relancer par téléphone (fictif).",
-          followUpAt: closed ? null : addDays(today, 7 + k),
+          // The first-contact candidate is overdue (follow-up date passed).
+          followUpAt: closed ? null : addDays(today, stage === "FIRST_CONTACT" ? -3 : 7 + k),
+          meetingAt:
+            stage === "MEETING" || stage === "CONFIRMED"
+              ? new Date(addDays(today, stage === "MEETING" ? 4 : -12).getTime() + 17 * 3_600_000)
+              : null,
           ownerId: userId(k % 2 === 0 ? "diamant" : "format-diamant"),
-          abandonedReason: stage === "ABANDONED" ? "Ne donne plus de nouvelles (fictif)." : null,
+          abandonReason: stage === "ABANDONED" ? "NO_RESPONSE" : null,
+          abandonNote: stage === "ABANDONED" ? "Ne donne plus de nouvelles (fictif)." : null,
           closedAt: closed ? addDays(firstContactAt, stage === "DONE" ? 60 : 20) : null,
           ...audit,
         });
+        // The MEETING candidate was abandoned, then resumed at MEETING.
         const path =
           stage === "ABANDONED"
             ? ["FIRST_CONTACT", "MEETING", "ABANDONED"]
-            : STAGE_PATH.slice(0, STAGE_PATH.indexOf(stage) + 1);
+            : stage === "MEETING"
+              ? ["FIRST_CONTACT", "MEETING", "ABANDONED", "MEETING"]
+              : STAGE_PATH.slice(0, STAGE_PATH.indexOf(stage) + 1);
         path.forEach((to, e) =>
           events.push({
             id: `${candidacyId}_ev_${e + 1}`,
@@ -895,11 +909,50 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
             authorId: userId("diamant"),
             fromStage: e === 0 ? null : (path[e - 1] as CandidacyStage),
             toStage: to as CandidacyStage,
-            note: e === 0 ? "Premier contact (fictif)." : null,
+            note:
+              e === 0
+                ? "Premier contact (fictif)."
+                : to === "ABANDONED"
+                  ? "Ne répond plus (fictif)."
+                  : stage === "MEETING" && e === 3
+                    ? "Reprise : a rappelé de lui-même (fictif)."
+                    : null,
             ...audit,
           }),
         );
       }
+      // A person who left, re-engaged: a new open candidacy on her existing page.
+      const returning = required(
+        people.find((p) => p.status === "LEFT"),
+        "personne partie",
+      );
+      const returnAt = addDays(today, -25);
+      candidacies.push({
+        id: `seed_cand_reengage_${pad(returning.index)}`,
+        personId: returning.id,
+        stage: "CONFIRMED",
+        source: "Bouche-à-oreille",
+        interest: "Postes de secours",
+        firstContactAt: returnAt,
+        nextAction: "Envoyer le dossier bénévole (fictif).",
+        followUpAt: addDays(today, 2),
+        ownerId: userId("diamant"),
+        notes: "Réengagement d'une ancienne bénévole (fictif).",
+        closedAt: null,
+        ...audit,
+      });
+      (["FIRST_CONTACT", "MEETING", "CONFIRMED"] as const).forEach((to, e, all) =>
+        events.push({
+          id: `seed_cand_reengage_${pad(returning.index)}_ev_${String(e + 1)}`,
+          candidacyId: `seed_cand_reengage_${pad(returning.index)}`,
+          at: addDays(returnAt, e * 8),
+          authorId: userId("diamant"),
+          fromStage: e === 0 ? null : (all[e - 1] ?? null),
+          toStage: to,
+          note: e === 0 ? "Réengagement d'une personne déjà connue (fictif)." : null,
+          ...audit,
+        }),
+      );
       await save(tx.candidacy, candidacies);
       await save(tx.candidacyEvent, events);
 

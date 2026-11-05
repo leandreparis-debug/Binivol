@@ -102,6 +102,11 @@ export const MATRIX = {
     ],
   },
   "candidacy.manage": diamantInScope("person"),
+  // Creating a candidate (no person yet) or re-engaging a person who left.
+  "candidacy.create": {
+    target: "none",
+    grants: [{ profiles: ["TOPAZE", "DIAMANT"], when: "always" }],
+  },
   "dossier.manage": diamantInScope("person"),
   "mentorship.manage": diamantInScope("person"),
   "followUp.manage": diamantInScope("person"),

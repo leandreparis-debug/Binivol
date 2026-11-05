@@ -132,6 +132,15 @@ enum CandidacyStage {
   ABANDONED
 }
 
+/// Why a candidacy was abandoned (step 6).
+enum AbandonReason {
+  NO_RESPONSE
+  NOT_INTERESTED
+  UNAVAILABLE
+  REDIRECTED
+  OTHER
+}
+
 enum FollowUpKind {
   THREE_MONTHS
   ANNUAL
@@ -694,24 +703,31 @@ model Appointment {
 
 /// A candidacy. At most one open (closedAt null) per person.
 model Candidacy {
-  id              String         @id @default(cuid(2))
+  id             String         @id @default(cuid(2))
   /// ID of the legacy workbook row (never reused as `ref`).
-  legacyRef       String?        @unique @map("legacy_ref")
-  personId        String         @map("person_id")
-  stage           CandidacyStage @default(FIRST_CONTACT)
-  source          String?
-  interest        String?
-  firstContactAt  DateTime?      @map("first_contact_at") @db.Timestamptz(3)
-  nextAction      String?        @map("next_action")
-  followUpAt      DateTime?      @map("follow_up_at") @db.Date
-  ownerId         String?        @map("owner_id")
-  abandonedReason String?        @map("abandoned_reason")
+  legacyRef      String?        @unique @map("legacy_ref")
+  personId       String         @map("person_id")
+  stage          CandidacyStage @default(FIRST_CONTACT)
+  source         String?
+  interest       String?
+  firstContactAt DateTime?      @map("first_contact_at") @db.Timestamptz(3)
+  nextAction     String?        @map("next_action")
+  followUpAt     DateTime?      @map("follow_up_at") @db.Date
+  /// Date and time of the meeting at the local unit (stage MEETING).
+  meetingAt      DateTime?      @map("meeting_at") @db.Timestamptz(3)
+  ownerId        String?        @map("owner_id")
+  /// Set when ABANDONED (CHECK candidacies_abandon_reason).
+  abandonReason  AbandonReason? @map("abandon_reason")
+  /// Free note of the abandonment (historical column name).
+  abandonNote    String?        @map("abandoned_reason")
+  /// Free notes on the candidacy.
+  notes          String?
   /// Set when the stage is DONE or ABANDONED (CHECK candidacies_closed_matches_stage).
-  closedAt        DateTime?      @map("closed_at") @db.Timestamptz(3)
-  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById     String?        @map("created_by_id")
-  updatedById     String?        @map("updated_by_id")
+  closedAt       DateTime?      @map("closed_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById    String?        @map("created_by_id")
+  updatedById    String?        @map("updated_by_id")
 
   person Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
   owner  User?            @relation("CandidacyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
