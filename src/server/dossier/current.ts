@@ -13,7 +13,7 @@ import {
 /**
  * The candidate behind the request, from the dossier cookie (`/dossier*`
  * only). Never reads a token: the token was exchanged for the cookie by
- * `/dossier/[token]`.
+ * `openDossierAction` (`/dossier/ouvrir#<token>`).
  *
  * - `none`: no cookie, expired cookie, or a link revoked / expired since;
  * - `submitted`: the dossier was sent through this link (it is used);
@@ -43,6 +43,12 @@ export async function setDossierCookie(linkId: string): Promise<void> {
     sealDossierSession(linkId),
     dossierCookieOptions(shouldUseSecureCookies()),
   );
+}
+
+/** Removes the dossier cookie (refused link). Server Action only. */
+export async function clearDossierCookie(): Promise<void> {
+  const store = await cookies();
+  store.set(DOSSIER_COOKIE, "", { ...dossierCookieOptions(shouldUseSecureCookies()), maxAge: 0 });
 }
 
 export const SESSION_EXPIRED_MESSAGE =

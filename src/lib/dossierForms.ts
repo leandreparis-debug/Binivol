@@ -47,6 +47,9 @@ const id = z.string().min(1).max(40);
 const scope = { personId: id.optional() };
 
 export const saveDossierInput = z.object({ ...scope, data: dossierDraftSchema });
+
+/** The link token, read from the fragment of `/dossier/ouvrir` (never from an address). */
+export const openDossierInput = z.object({ token: z.string().min(1).max(100) });
 export const removeAttachmentInput = z.object({ ...scope, attachmentId: id });
 
 const attachmentFields = z.object({

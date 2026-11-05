@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Neutral page of a refused link (`/dossier/[token]` redirects here). */
+/** Neutral page of a refused link (`/dossier/ouvrir` shows it too). */
 export default function InvalidLinkPage() {
   return <InvalidLink />;
 }

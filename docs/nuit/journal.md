@@ -16,16 +16,15 @@
 - CI GitHub et déploiement Vercel : consultables par les outils MCP, vérifiés en fin d'étape
   quand c'est possible.
 
-| #   | Étape                                              | Statut  |
-| --- | -------------------------------------------------- | ------- |
+| #   | Étape                                              | Statut   |
+| --- | -------------------------------------------------- | -------- |
 | 8   | Signature électronique et PDF officiels            | en cours |
-| 9   | Assistant Gaia et passage au statut bénévole       | à faire |
-| 10  | Formations, compétences et nominations             | à faire |
-| 11  | Points de suivi, parrainage, B3, pauses et départs | à faire |
-| 12  | Alertes, rappels et e-mails automatiques           | à faire |
-| 13  | Tableaux de bord, matrice et exports               | à faire |
-| 14  | RGPD et administration                             | à faire |
-| 15  | Recette, audit et guides (sans VPS)                | à faire |
+| 9   | Assistant Gaia et passage au statut bénévole       | à faire  |
+| 10  | Formations, compétences et nominations             | à faire  |
+| 11  | Points de suivi, parrainage, B3, pauses et départs | à faire  |
+| 12  | Alertes, rappels et e-mails automatiques           | à faire  |
+| 13  | Tableaux de bord, matrice et exports               | à faire  |
+| 14  | RGPD et administration                             | à faire  |
+| 15  | Recette, audit et guides (sans VPS)                | à faire  |
 
 ## Étape 8 — en cours
-

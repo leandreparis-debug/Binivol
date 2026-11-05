@@ -602,3 +602,18 @@ d'habitude. Partout ailleurs (`pnpm db:seed:demo`, `db:fresh`, tests), le refus 
 
 **Conséquences.** La démo se met à jour à chaque déploiement de `main`, même après des essais.
 Ce chemin n'existe que derrière `isHostedDemo()` et `VERCEL_ENV=production`.
+
+## ADR-043 — Le jeton du dossier passe après `#`
+
+**Contexte.** Avec `GET /dossier/[token]` (ADR-038), le jeton figurait dans la première adresse
+reçue par le serveur, donc dans les journaux d'accès de l'hébergeur et du proxy du VPS.
+
+**Décision.** Le lien envoyé devient `/dossier/ouvrir#<jeton>`. Le navigateur n'envoie jamais
+le fragment : la page lit le jeton, l'efface de l'adresse (`history.replaceState`) avant toute
+requête, puis l'envoie par un `POST` à l'action publique `openDossierAction`, qui pose le cookie
+de dossier. L'ancienne route (jeton dans le chemin) est retirée : aucun vrai lien n'avait été
+envoyé.
+
+**Conséquences.** Le jeton n'apparaît dans aucune adresse reçue par le serveur ni dans aucun
+journal d'accès ; il ne voyage que dans le corps d'un `POST` en HTTPS. Sans JavaScript, le lien
+ne s'ouvre pas (le formulaire en a besoin de toute façon).

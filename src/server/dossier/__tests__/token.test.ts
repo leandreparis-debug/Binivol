@@ -7,7 +7,7 @@ import {
   openDossierSession,
   sealDossierSession,
 } from "../session";
-import { hashDossierToken, looksLikeDossierToken, newDossierToken } from "../token";
+import { dossierOpenUrl, hashDossierToken, looksLikeDossierToken, newDossierToken } from "../token";
 
 describe("dossier token", () => {
   it("is 32 random bytes in base64url, stored as its SHA-256 only", () => {
@@ -24,6 +24,18 @@ describe("dossier token", () => {
     expect(looksLikeDossierToken(newDossierToken().token)).toBe(true);
     expect(looksLikeDossierToken("abc")).toBe(false);
     expect(looksLikeDossierToken(`${"a".repeat(42)}=`)).toBe(false);
+  });
+});
+
+describe("dossier link address", () => {
+  it("puts the token in the fragment, never in the path or the query (ADR-043)", () => {
+    const { token } = newDossierToken();
+    const url = new URL(dossierOpenUrl("https://binivol.exemple.test/", token));
+    expect(url.pathname).toBe("/dossier/ouvrir");
+    expect(url.search).toBe("");
+    expect(url.hash).toBe(`#${token}`);
+    // What a browser sends to the server: everything but the fragment.
+    expect(`${url.origin}${url.pathname}${url.search}`).not.toContain(token);
   });
 });
 

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * The candidate's dossier, behind the dossier cookie set by `/dossier/[token]`
+ * The candidate's dossier, behind the dossier cookie set by `/dossier/ouvrir`
  * (no responsible session, no token in the address).
  */
 export default async function DossierPage() {

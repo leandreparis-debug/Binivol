@@ -18,3 +18,11 @@ export function hashDossierToken(token: string): string {
 export function looksLikeDossierToken(value: string): boolean {
   return /^[A-Za-z0-9_-]{43}$/.test(value);
 }
+
+/**
+ * The address handed to the candidate: the token is in the **fragment**
+ * (ADR-043), which browsers never send to the server.
+ */
+export function dossierOpenUrl(baseUrl: string, token: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/dossier/ouvrir#${token}`;
+}
