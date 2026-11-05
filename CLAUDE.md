@@ -108,7 +108,12 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   (`src/server/policy/visibility.ts`), miroir de `can()`, testé contre lui sur le seed. Toute
   modification de la matrice se reporte dans `visibility.ts`.
 - Une personne qu'un profil ne voit pas dans l'annuaire est **introuvable** (404) pour lui ;
-  visible mais hors périmètre, elle est interdite (403).
+  visible mais hors périmètre, elle est interdite (403). La fiche s'ouvre avec
+  `person.full.read`, ou réduite à l'onglet Formations avec `training.read` seul
+  (`personPageAccess()`).
+- **Passages d'étape des candidatures** : uniquement par la machine pure
+  `src/server/candidacy/machine.ts` ; chaque passage porte l'étape attendue (concurrence) et écrit
+  un `CandidacyEvent` dans la même transaction (`docs/integration.md`).
 - Les profils se relisent en base à chaque requête (`getActor`) : ne jamais les mettre en
   cache dans un cookie ou une session.
 - La connexion démo (`AUTH_DEMO_LOGIN`) n'existe jamais sur Vercel ; le serveur refuse de

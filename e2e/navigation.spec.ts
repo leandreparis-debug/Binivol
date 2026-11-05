@@ -22,7 +22,7 @@ test.describe("Navigation (TOPAZE)", () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       const current = nav.locator("a[aria-current='page']");
       await expect(current).toHaveCount(1);
-      await expect(current).toHaveText(section.label);
+      await expect(current).toContainText(section.label);
     }
   });
 

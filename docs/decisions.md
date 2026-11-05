@@ -448,3 +448,43 @@ action. Les candidats restent invisibles pour FORMAT (404).
 
 **Conséquences.** Dans l'annuaire, FORMAT ouvre les 54 fiches non candidates du seed, en version
 réduite. `docs/permissions.md` décrit les deux fiches.
+
+## ADR-032 — Machine de passage centralisée
+
+**Contexte.** Les passages d'étape d'une candidature ont des règles (sauts limités, retour avec
+note, abandon avec motif, reprise, finalisation) qui ne doivent pas se disperser entre écrans
+et services.
+
+**Décision.** Un module pur, `src/server/candidacy/machine.ts`, décide de chaque passage
+(`decideTransition`) et liste ceux d'une étape (`availableTransitions`), avec les champs exigés.
+Les services l'appliquent à chaque écriture ; l'interface ne montre que ses boutons. Un test
+couvre les 49 couples d'étapes et la reprise depuis chaque étape d'abandon.
+
+**Conséquences.** Changer une règle se fait à un seul endroit, et le tableau de
+`docs/integration.md` se vérifie contre le test.
+
+## ADR-033 — Contrôle de concurrence sur l'étape attendue
+
+**Contexte.** Deux responsables peuvent faire avancer la même candidature en même temps.
+
+**Décision.** Chaque passage porte l'étape affichée (`expectedStage`). La mise à jour est
+conditionnelle (`updateMany … where stage = expectedStage`) : si l'étape a changé, rien n'est
+écrit et le message est « La candidature a changé entre-temps : rechargez la page. ». Les autres
+champs (prochaine action, notes…) suivent la règle « le dernier l'emporte » (ADR-029).
+
+**Conséquences.** Pas de double passage ni d'événement en double (testé avec deux appels
+simultanés).
+
+## ADR-034 — Règle des doublons à la création d'un candidat
+
+**Contexte.** Un candidat peut déjà être connu : ancien bénévole, candidature précédente,
+homonyme.
+
+**Décision.** Avant toute écriture, recherche sur tous les statuts par e-mail, téléphone
+normalisé, ou nom et prénom sans accents ni casse. Les fiches trouvées sont proposées : réengager
+(partie ou inactive), ouvrir la fiche (candidature en cours), ou « déjà bénévole ». Une fiche que
+l'acteur ne voit pas dans l'annuaire est signalée sans aucun champ. « Créer quand même » est
+tracé dans l'audit (`duplicateOverride`).
+
+**Conséquences.** Le réengagement garde l'historique sur la fiche existante au lieu d'en créer
+une seconde.

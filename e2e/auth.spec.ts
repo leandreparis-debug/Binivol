@@ -45,7 +45,10 @@ test.describe("Chaque compte de démonstration", () => {
         (item) => item.action === null || canSome(actor, item.action),
       ).map((i) => i.label);
       const nav = mainNav(page, testInfo);
-      await expect(nav.getByRole("link")).toHaveText(expectedNav);
+      // A menu entry may carry a badge (overdue follow-ups on « Candidats »).
+      await expect(nav.getByRole("link")).toHaveText(
+        expectedNav.map((label) => new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))),
+      );
 
       await page.goto("/moi");
       await expect(page.getByRole("list", { name: "Mes profils" }).first()).toContainText(

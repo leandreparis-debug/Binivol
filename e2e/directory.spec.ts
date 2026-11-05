@@ -16,8 +16,10 @@ const EXPECTED: Record<string, { visible: number; openable: number }> = {
   // FORMAT opens every visible page, reduced to the Formations tab.
   format: { visible: 54, openable: 54 },
   "format-gp": { visible: 54, openable: 13 },
-  diamant: { visible: 60, openable: 11 },
-  "format-diamant": { visible: 60, openable: 11 },
+  // Candidates, newcomers, mentees, and the re-engaged person who left (step 6).
+  diamant: { visible: 60, openable: 12 },
+  // FORMAT's reduced pages of the 54 non-candidates, plus DIAMANT's candidates.
+  "format-diamant": { visible: 60, openable: 60 },
 };
 
 async function expectNoSeriousViolation(page: Page) {

@@ -30,20 +30,32 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-desktop",
-      testIgnore: /import\.spec\.ts/,
+      testIgnore: /(import|candidates)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     {
-      // The import adds 24 people to the e2e database: it runs after every other
-      // test, so the directory counts checked there stay those of the seed.
-      name: "chromium-desktop-import",
-      testMatch: /import\.spec\.ts/,
+      // The import adds 24 people and the candidate tests create candidates: they run
+      // after every other test, so the directory counts checked there stay those of the seed.
+      name: "chromium-desktop-late",
+      testMatch: /(import|candidates)\.spec\.ts/,
       dependencies: ["chromium-desktop", "chromium-mobile"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     {
+      name: "chromium-mobile-late",
+      testMatch: /candidates\.spec\.ts/,
+      dependencies: ["chromium-desktop", "chromium-mobile"],
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+        deviceScaleFactor: 3,
+      },
+    },
+    {
       name: "chromium-mobile",
-      testIgnore: /import\.spec\.ts/,
+      testIgnore: /(import|candidates)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 844 },

@@ -48,6 +48,14 @@ appellent cette couche ; ils n'importent jamais `@/generated/prisma/client` dire
 | `settings.ts`               | paramètres numériques (`ALERT_DAYS_BEFORE_EXPIRY`, `RETENTION_YEARS_AFTER_LEAVE`…)           |
 | `trainingSummary.ts`        | état des qualifications (à jour, échéance proche, expirée, sans date), pur                   |
 
+## Candidats et intégration (étape 6)
+
+| Fichier                   | Rôle                                                                                                            |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `candidacy/machine.ts`    | machine de passage pure : passages permis, champs exigés, boutons (`docs/integration.md`)                       |
+| `candidacy/rules.ts`      | relances, jours sans action, regroupement des sources, classement des parrains (pur)                            |
+| `services/candidacies.ts` | création avec doublons, réengagement, passages (étape attendue), finalisation, parrainage, tableau `/candidats` |
+
 ## À venir
 
 - d'autres `services/` : la logique métier (intégration d'un candidat, rappels…), qui orchestre

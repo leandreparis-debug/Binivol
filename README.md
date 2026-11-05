@@ -8,10 +8,10 @@ Les utilisateurs sont les six profils de responsables (TOPAZE, ACTION, LASER, FO
 DIAMANT). **Les bénévoles n'ont pas de compte.** Les candidats remplissent leur dossier depuis
 un lien sécurisé, sur téléphone.
 
-> **Étapes 1 à 5** : initialisation, design system, coquille de l'application, modèle de
+> **Étapes 1 à 6** : initialisation, design system, coquille de l'application, modèle de
 > données complet (Prisma + PostgreSQL) et seed synthétique, connexion Google, profils et
-> droits, import de l'ancien classeur, puis annuaire `/benevoles` et fiche bénévole avec
-> documents. Aucune donnée réelle n'est présente dans ce dépôt : tout ce qui est affiché est
+> droits, import de l'ancien classeur, annuaire `/benevoles` et fiche bénévole avec
+> documents, puis candidats et intégration (`/candidats`, `docs/integration.md`). Aucune donnée réelle n'est présente dans ce dépôt : tout ce qui est affiché est
 > synthétique et marqué « Données fictives ».
 
 ## Prérequis
@@ -143,13 +143,13 @@ Règles : pas de suppression physique (archivage ou annulation tracée), journau
 
 ```
 .github/workflows/ci.yml   CI : pnpm verify + Playwright
-docs/                      auth.md, data-model.md, decisions.md (ADR), design-system.md, import.md, permissions.md (généré), storage.md
+docs/                      auth.md, data-model.md, decisions.md (ADR), design-system.md, import.md, integration.md, permissions.md (généré), storage.md
 e2e/                       tests Playwright (+ axe)
 prisma/                    schema.prisma, migrations/, seed.ts, seed/ (données fictives)
 scripts/                   generate-icons.ts, admin.ts, db-fresh.ts, import-classeur.ts, make-fixture-classeur.ts
 tests/fixtures/            classeurs .xlsx 100 % fictifs (les seuls .xlsx du dépôt)
 src/app/                   App Router
-  (app)/                   coquille connectée : /, /benevoles (annuaire), /benevoles/[ref] (fiche), /candidats, /formations, /rappels, /design
+  (app)/                   coquille connectée : /, /benevoles (annuaire), /benevoles/[ref] (fiche), /candidats (intégration), /formations, /rappels, /design
   (public)/                parcours candidat sans connexion : /dossier/demo
   api/health/              sonde de vie
   api/documents/[id]/      téléchargement d'un document (droits + access_logs)
@@ -161,7 +161,7 @@ src/components/
   ui/                      composants de base écrits à la main
 src/generated/prisma/      client Prisma généré (non versionné)
 src/lib/                   utilitaires : cn, dates, age, deadlines, phone, timeline, personForms, initials, labels, nivol, status, env
-src/server/                accès aux données : db, audit, sensitive, timeline, storage/, auth/, policy/, actions/, services/, repositories/
+src/server/                accès aux données : db, audit, sensitive, timeline, candidacy/ (machine de passage), storage/, auth/, policy/, actions/, services/, repositories/
 src/test/                  setup Vitest, harnais de la base de test (db/)
 ```
 

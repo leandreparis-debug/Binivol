@@ -237,12 +237,12 @@ d'après `reference_items.perimeters`.
 
 ### Candidatures, intégration, suivi
 
-| Table              | Rôle                             | Champs clés                                                       | Sens. |
-| ------------------ | -------------------------------- | ----------------------------------------------------------------- | ----- |
-| `candidacies`      | Candidature (une seule ouverte)  | `stage`, `source`, `owner_id`, `follow_up_at`, `closed_at`        | N     |
-| `candidacy_events` | Historique des étapes            | `from_stage`, `to_stage`, `at`, `author_id`                       | N     |
-| `mentorships`      | Parrainage                       | `mentee_id`, `mentor_id`, dates                                   | N     |
-| `follow_ups`       | Points de suivi (3 mois, annuel) | `kind`, `scheduled_at`, `done_at`, `conducted_by_id`, `next_date` | N     |
+| Table              | Rôle                                                                                                                   | Champs clés                                                                                                                                                                                                 | Sens. |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `candidacies`      | Candidature (une seule ouverte) ; passages par la machine de `src/server/candidacy/machine.ts` (`docs/integration.md`) | `stage`, `source`, `owner_id`, `follow_up_at`, `meeting_at`, `notes`, `abandon_reason` (enum, obligatoire si abandon, CHECK `candidacies_abandon_reason`), `abandoned_reason` (note d'abandon), `closed_at` | N     |
+| `candidacy_events` | Historique des étapes, un par passage, dans la transaction du passage                                                  | `from_stage`, `to_stage`, `at`, `author_id`, `note`                                                                                                                                                         | N     |
+| `mentorships`      | Parrainage                                                                                                             | `mentee_id`, `mentor_id`, dates                                                                                                                                                                             | N     |
+| `follow_ups`       | Points de suivi (3 mois, annuel)                                                                                       | `kind`, `scheduled_at`, `done_at`, `conducted_by_id`, `next_date`                                                                                                                                           | N     |
 
 ### Dossier, documents, signature
 
