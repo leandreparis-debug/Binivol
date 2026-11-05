@@ -162,7 +162,8 @@ function qualificationSql(code: string, day: Date): Prisma.Sql {
   )`;
 }
 
-function termSql(term: string): Prisma.Sql {
+/** A name, usage name, birth name or NIVOL containing `term` (accents and case ignored). */
+export function termSql(term: string): Prisma.Sql {
   const pattern = `%${escapeLike(term)}%`;
   const nivolPattern = `%${escapeLike(term.replace(/\s/g, "").toUpperCase())}%`;
   return Prisma.sql`(
@@ -175,7 +176,7 @@ function termSql(term: string): Prisma.Sql {
 }
 
 /** A NIVOL typed with spaces (« 000 9900 0002 C ») is one search term. */
-function directoryTerms(q: string): string[] {
+export function directoryTerms(q: string): string[] {
   const compact = q.replace(/\s/g, "");
   if (/^\d{6,11}[a-zA-Z]?$/.test(compact)) return [compact];
   return searchTerms(q);

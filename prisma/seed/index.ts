@@ -434,7 +434,8 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
   await saveMissing(tx.setting, settings);
 
   // -- Reference list --------------------------------------------------------
-  await save<Prisma.ReferenceItemUncheckedCreateInput>(
+  // Edited in the app (step 10, « Référentiel »): a deployment only adds the missing items.
+  await saveMissing<Prisma.ReferenceItemUncheckedCreateInput>(
     tx.referenceItem,
     REFERENCE_ITEMS.map((item, i) => ({
       id: refId(item.code),
@@ -453,11 +454,8 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
       ...audit,
     })),
   );
-  // The legacy workbook has no prerequisite: drop the links of earlier seeds
-  // (configuration rows, not business data).
-  await tx.referenceItemPrerequisite.deleteMany({
-    where: { itemId: { in: REFERENCE_ITEMS.map((item) => refId(item.code)) } },
-  });
+  // The legacy workbook has no prerequisite; the links are edited by TOPAZE
+  // and FORMAT (step 10): a deployment never touches them.
 
   const rules: WithId<Prisma.ReminderRuleUncheckedCreateInput>[] = [
     {
