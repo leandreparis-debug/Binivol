@@ -58,7 +58,7 @@ export const envObject = z.object({
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   /** Folder of the `local` driver. Relative paths start from the working directory. */
   STORAGE_LOCAL_DIR: z.string().trim().min(1).default("./storage"),
-  /** S3 endpoint (Supabase: https://<project>.storage.supabase.co/storage/v1/s3). */
+  /** S3 endpoint (Supabase: the one shown in Storage settings, https://<project>.supabase.co/storage/v1/s3). */
   S3_ENDPOINT: z.url().optional(),
   S3_REGION: z.string().trim().min(1).optional(),
   /** Private bucket: never public, files are only served through the application. */

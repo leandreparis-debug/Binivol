@@ -32,6 +32,9 @@ Six profils de responsables, cumulables :
 - **Les composants et les pages n'accèdent jamais à la base.** Chaîne autorisée :
   page / action / route → `src/server/services` → `src/server/repositories` → Prisma.
 - Toute entrée est validée par Zod (variables d'environnement incluses, `src/lib/env.ts`).
+- Fichiers : `StorageService` (`src/server/storage/`, pilotes `local` et `s3`), clés aléatoires,
+  type vérifié par la signature binaire, **jamais d'URL publique ni présignée** : tout fichier
+  est servi par une route qui vérifie les droits et écrit un `AccessLog` (`docs/storage.md`).
 
 ## Aucune donnée réelle
 
@@ -98,6 +101,14 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   chaque consultation dans `access_logs`. Un test d'architecture le vérifie.
 - Chaque page appelle `requirePageAccess(action)` (ou `authorizePage` avec la personne) ; le
   middleware n'est pas une sécurité.
+- **Jamais de donnée sensible dans le rendu initial d'une page** : elle s'affiche à la demande,
+  par une action serveur qui passe par `readPersonSensitive` (journalisée). Seul l'âge, dérivé,
+  sort de `sensitive.ts` sans journal.
+- **Les listes filtrent en SQL avant de compter et de paginer** : `visibleSql()`
+  (`src/server/policy/visibility.ts`), miroir de `can()`, testé contre lui sur le seed. Toute
+  modification de la matrice se reporte dans `visibility.ts`.
+- Une personne qu'un profil ne voit pas dans l'annuaire est **introuvable** (404) pour lui ;
+  visible mais hors périmètre, elle est interdite (403).
 - Les profils se relisent en base à chaque requête (`getActor`) : ne jamais les mettre en
   cache dans un cookie ou une session.
 - La connexion démo (`AUTH_DEMO_LOGIN`) n'existe jamais sur Vercel ; le serveur refuse de

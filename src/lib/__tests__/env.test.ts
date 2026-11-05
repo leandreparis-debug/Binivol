@@ -1,6 +1,38 @@
 import { describe, expect, it } from "vitest";
 import { isDemoLoginEnabled, isGoogleConfigured, parseEnv } from "@/lib/env";
 
+describe("parseEnv: storage", () => {
+  it("defaults to the local driver in ./storage", () => {
+    const env = parseEnv({});
+    expect(env.STORAGE_DRIVER).toBe("local");
+    expect(env.STORAGE_LOCAL_DIR).toBe("./storage");
+    expect(env.S3_FORCE_PATH_STYLE).toBe(true);
+  });
+
+  it("requires the five S3 values with the s3 driver, naming each one without its value", () => {
+    expect(() => parseEnv({ STORAGE_DRIVER: "s3", S3_SECRET_ACCESS_KEY: "secret-fictif" })).toThrow(
+      /S3_ENDPOINT[\s\S]*S3_REGION[\s\S]*S3_BUCKET[\s\S]*S3_ACCESS_KEY_ID/,
+    );
+    expect(() =>
+      parseEnv({ STORAGE_DRIVER: "s3", S3_SECRET_ACCESS_KEY: "secret-fictif" }),
+    ).not.toThrow(/secret-fictif/);
+    const env = parseEnv({
+      STORAGE_DRIVER: "s3",
+      S3_ENDPOINT: "https://exemple.supabase.co/storage/v1/s3",
+      S3_REGION: "eu-west-3",
+      S3_BUCKET: "binivol-documents",
+      S3_ACCESS_KEY_ID: "id-fictif",
+      S3_SECRET_ACCESS_KEY: "secret-fictif",
+      S3_FORCE_PATH_STYLE: "false",
+    });
+    expect(env).toMatchObject({ STORAGE_DRIVER: "s3", S3_FORCE_PATH_STYLE: false });
+  });
+
+  it("refuses an unknown driver", () => {
+    expect(() => parseEnv({ STORAGE_DRIVER: "ftp" })).toThrow(/STORAGE_DRIVER/);
+  });
+});
+
 describe("parseEnv", () => {
   it("applies defaults when variables are absent", () => {
     const env = parseEnv({});

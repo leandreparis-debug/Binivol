@@ -32,12 +32,27 @@ appellent cette couche ; ils n'importent jamais `@/generated/prisma/client` dire
 | `projections/person.ts`         | vues annuaire et complète, jamais de champ sensible                              |
 | `services/accounts.ts`          | comptes : ajout, profils, activation, garde-fous du dernier TOPAZE               |
 
+## Annuaire et fiche (étape 5)
+
+| Fichier                     | Rôle                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| `policy/visibility.ts`      | `visibleSql()` : la matrice en SQL, testée contre `can()` (annuaire avant pagination)        |
+| `policy/facts.ts`           | `loadPersonFactsMany()` : faits de la politique pour une page, en un nombre fixe de requêtes |
+| `services/directory.ts`     | `listDirectory()` : recherche, filtres, compteur visible, pagination par curseur             |
+| `services/personProfile.ts` | `lookupPerson()` (404/403), en-tête et onglets de la fiche, chacun autorisé par `can()`      |
+| `services/personWrites.ts`  | statut, identité, correction de NIVOL, compétences annexes, langues, permis (audités)        |
+| `services/documents.ts`     | dépôt (stockage puis base, sans orphelin), archivage, ouverture journalisée                  |
+| `timeline.ts`               | `timelineOf()` : frise de la personne, filtrée par droit                                     |
+| `storage/`                  | `StorageService`, pilotes `local` et `s3`, clés aléatoires (`docs/storage.md`)               |
+| `documentFile.ts`           | signature binaire (PDF, JPEG, PNG), 10 Mo, nom d'origine nettoyé                             |
+| `settings.ts`               | paramètres numériques (`ALERT_DAYS_BEFORE_EXPIRY`, `RETENTION_YEARS_AFTER_LEAVE`…)           |
+| `trainingSummary.ts`        | état des qualifications (à jour, échéance proche, expirée, sans date), pur                   |
+
 ## À venir
 
 - d'autres `services/` : la logique métier (intégration d'un candidat, rappels…), qui orchestre
   les repositories dans `withAudit()`.
-- `interfaces/` : `StorageService` (fichiers) et `MailService` (SMTP), avec une implémentation
-  locale et une de production.
+- `MailService` (SMTP), avec une implémentation locale et une de production.
 
 ## Règles
 

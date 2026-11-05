@@ -138,6 +138,14 @@ entités qu'ils décrivent (voir plus bas).
   la recherche insensible aux accents et à la casse ; utilisable dans un index d'expression.
 - **Libellés** : chaque valeur d'énumération a son libellé français dans `src/lib/labels.ts`
   (vérifié par un test).
+- **Téléphones** : chiffres seuls (`0612345678`), normalisés à la saisie et à l'import, affichés
+  par paires (`src/lib/phone.ts`). Un numéro étranger saisi avec `+` est gardé tel quel.
+- **Visibilité en SQL** (étape 5) : les listes appliquent `visibleSql()`
+  (`src/server/policy/visibility.ts`), miroir de `can()` testé contre lui, avant de compter et de
+  paginer (ADR-025).
+- **Documents** : la ligne `documents` est créée **après** l'écriture du fichier par
+  `StorageService` (clé aléatoire, type vérifié par signature, SHA-256) ; jamais d'URL publique
+  (`docs/storage.md`, ADR-026 et ADR-027). Un document archivé n'est visible que par TOPAZE.
 
 ## Contraintes posées en SQL
 
@@ -200,12 +208,12 @@ jamais supprimé, seulement désactivé.
 | `persons`                  | Candidat **et** bénévole (un seul modèle) ; `is_trainer` (colonne « Formateur », nul = inconnu, vrai → périmètre FORMAT_GP) et `legacy_drive_folder_id` (colonne « Dossier Drive ») | `ref`, `nivol`, identité, contacts, `status`, départ, aptitude, `legacy_import`, `archived_at`, `purge_eligible_at` | N     |
 | `person_sensitive`         | Naissance, adresse, B3, autorisation parentale (1–1)                                                                                                                                | `person_id` unique                                                                                                  | S     |
 | `emergency_contacts`       | Personnes à prévenir, ordonnées (`position`)                                                                                                                                        | civilité, nom, lien, adresse, 2 téléphones, e-mail                                                                  | S     |
-| `person_skills`            | Compétences et niveau                                                                                                                                                               | `label`, `level`                                                                                                    | N     |
-| `person_languages`         | Langues et niveau                                                                                                                                                                   | `label`, `level`                                                                                                    | N     |
-| `person_licenses`          | Permis de conduire                                                                                                                                                                  | `(person_id, category)` unique                                                                                      | N     |
+| `person_skills`            | Compétences et niveau ; archivage `archived_at` (étape 5)                                                                                                                           | `label`, `level`                                                                                                    | N     |
+| `person_languages`         | Langues et niveau ; archivage `archived_at` (étape 5)                                                                                                                               | `label`, `level`                                                                                                    | N     |
+| `person_licenses`          | Permis de conduire ; archivage `archived_at` (étape 5), une ligne par catégorie                                                                                                     | `(person_id, category)` unique                                                                                      | N     |
 | `person_declared_diplomas` | Diplômes déclarés dans le dossier (texte libre)                                                                                                                                     | `label`                                                                                                             | N     |
 | `person_wished_activities` | Activités souhaitées (texte libre)                                                                                                                                                  | `label`                                                                                                             | N     |
-| `person_annexes`           | Compétences annexes (conducteur VPSP…)                                                                                                                                              | `code`, `valid_until`                                                                                               | N     |
+| `person_annexes`           | Compétences annexes (conducteur VPSP…) ; archivage `archived_at` (étape 5)                                                                                                          | `code`, `valid_until`                                                                                               | N     |
 
 ### Référentiel, formations, nominations
 
@@ -266,10 +274,10 @@ jamais réutilisés comme `ref`.
 
 ### Journaux
 
-| Table         | Rôle                                                                                                                            | Champs clés                                                                   | Sens.                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------- |
-| `audit_logs`  | Toute écriture, champ par champ, connexions (LOGIN, LOGIN_DENIED, LOGOUT) ; `legacy_action` garde le libellé du Journal importé | `actor_id`/`actor_label`, `action`, `entity`, `field`, valeurs JSONB masquées | N (valeurs masquées) |
-| `access_logs` | Consultations de données sensibles                                                                                              | `user_id`, `person_id`, `scope`, `context`                                    | N                    |
+| Table         | Rôle                                                                                                                                                                                                        | Champs clés                                                                   | Sens.                |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------- |
+| `audit_logs`  | Toute écriture, champ par champ, connexions (LOGIN, LOGIN_DENIED, LOGOUT) ; `legacy_action` garde le libellé du Journal importé ; `entity` nul seulement pour une action système importée (« Sauvegarde »…) | `actor_id`/`actor_label`, `action`, `entity`, `field`, valeurs JSONB masquées | N (valeurs masquées) |
+| `access_logs` | Consultations de données sensibles                                                                                                                                                                          | `user_id`, `person_id`, `scope`, `context`                                    | N                    |
 
 ## Référentiel du seed
 

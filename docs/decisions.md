@@ -350,3 +350,86 @@ séquences. Les personnes sont reconnues par leur NIVOL ; les lignes du Journal 
 saisie dans Binivol), comme `is_trainer`. L'import y écrit `null` pour une case vide.
 
 **Conséquences.** Les écrans des étapes suivantes afficheront « Non renseigné » pour `null`.
+
+## ADR-025 — Visibilité filtrée en SQL, testée contre `can()`
+
+**Contexte.** L'annuaire ne doit jamais montrer une personne interdite, ni par le compteur ni par
+la pagination. Charger tout le monde puis filtrer avec `can()` en mémoire ne tient pas à
+l'échelle et fausse la pagination.
+
+**Décision.** `src/server/policy/visibility.ts` traduit la matrice en conditions SQL sur
+`persons p` (`visibleSql(actor, action)`, `directoryVisibilitySql`) : mêmes conditions que `can()`
+(archivée, candidat, périmètres via formations et nominations actives, champ DIAMANT). La
+condition est appliquée avant `count(*)` et avant la pagination par curseur. Un test sur base
+(`visibility.db.test.ts`) compare, pour les 7 comptes du seed et les 15 actions portant sur une
+personne, l'ensemble rendu par le SQL à celui de `can()` : ils doivent être identiques. Chaque
+ligne passe encore par `can()` (défense en profondeur), et les droits par ligne (lien vers la
+fiche, formations) viennent de `can()` sur des faits chargés par lot (`loadPersonFactsMany`).
+
+**Conséquences.** Toute modification de `matrix.ts` ou de `relevesOf` doit être reportée dans
+`visibility.ts` ; le test échoue sinon. Le nombre de requêtes d'une page est fixe (testé).
+
+## ADR-026 — Couche de stockage `StorageService`
+
+**Contexte.** Les documents sont testés sur Supabase puis iront sur un VPS. Pas de SDK Supabase.
+
+**Décision.** Une interface `StorageService` (`put`, `get`, `delete`) et deux pilotes choisis par
+`STORAGE_DRIVER` : `local` (un dossier, clés refusées si elles sortent du dossier) et `s3`
+(n'importe quel service compatible S3 : Supabase Storage via son point d'accès S3, MinIO…). Une
+seule dépendance : `@aws-sdk/client-s3`, client S3 officiel et générique, modulaire, maintenu,
+sans lien avec un hébergeur ; le pilote est testé contre un double de test HTTP. Les clés sont
+aléatoires (`documents/<année>/<32 hex>.<ext>`), jamais un nom de personne. Le fichier est
+écrit **avant** la ligne `documents` ; si la base échoue, il est supprimé ; si le stockage
+échoue, aucune ligne n'est créée.
+
+**Conséquences.** Passer de Supabase à MinIO ou au disque d'un VPS est une affaire de variables.
+
+## ADR-027 — Jamais d'URL publique ni présignée
+
+**Contexte.** Une URL présignée, même courte, peut être transmise, mise en cache ou journalisée
+ailleurs, sans contrôle des droits ni trace de consultation.
+
+**Décision.** `StorageService` n'a aucune méthode qui rend une URL. Le navigateur ne voit que
+`GET /api/documents/[id]`, qui vérifie `document.read` (et `document.archived.read` pour un
+document archivé), écrit un `AccessLog` `DOCUMENT_VIEW`, puis renvoie le fichier en
+`Content-Disposition: attachment`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+Le compartiment S3 est privé.
+
+**Conséquences.** Chaque téléchargement passe par le serveur (sans incidence au volume de l'UL).
+
+## ADR-028 — Données sensibles affichées à la demande
+
+**Contexte.** La fiche doit permettre de lire la naissance, l'adresse, les personnes à prévenir,
+le B3 et l'autorisation parentale, mais chaque lecture doit être tracée.
+
+**Décision.** Rien de sensible n'est rendu par le serveur dans la page initiale. Le bloc est
+replié ; le bouton « Afficher les données sensibles » appelle une action serveur
+(`person.sensitive.read`) qui passe par `readPersonSensitive` : un `AccessLog` `SENSITIVE_VIEW`
+par affichage, avec la mention « Cette consultation est enregistrée. ». Exception assumée :
+l'**âge** et la pastille « Mineur » (et le filtre « Mineurs » de l'annuaire) sont dérivés de la
+date de naissance par `sensitive.ts` (`agesOf`, `minorSql`) sans journalisation, car seule une
+valeur dérivée sort du module, jamais la date.
+
+**Conséquences.** Règle ajoutée à `CLAUDE.md` : jamais de donnée sensible dans le rendu initial
+d'une page.
+
+## ADR-029 — Modifications concurrentes : le dernier enregistrement l'emporte
+
+**Contexte.** Deux responsables peuvent modifier la même fiche en même temps.
+
+**Décision.** Pas de verrou optimiste à cette étape : le dernier enregistrement l'emporte,
+champ par champ pour les champs envoyés. L'audit garde les deux modifications (ancienne et
+nouvelle valeur de chacune), ce qui permet de reconstituer et corriger.
+
+**Conséquences.** Simple et suffisant au volume de l'UL ; un contrôle de version pourra être
+ajouté si des conflits apparaissent.
+
+## ADR-030 — Nouvelles actions de la politique
+
+**Contexte.** Deux règles de l'étape 5 visaient TOPAZE seul : corriger un NIVOL, voir un document
+archivé. Aucun test de profil n'est permis hors de la politique.
+
+**Décision.** Deux actions ajoutées à la matrice : `person.nivol.correct` et
+`document.archived.read`, toutes deux TOPAZE. `docs/permissions.md` est régénéré.
+
+**Conséquences.** Les écrans demandent `can()`, jamais le profil.
