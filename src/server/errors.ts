@@ -24,7 +24,11 @@ export type DomainErrorCode =
   | "ACCOUNT_NOT_FOUND"
   | "DEMO_LOGIN_DISABLED"
   | "SIGN_IN_DENIED"
-  | "IMPORT_BUSY";
+  | "IMPORT_BUSY"
+  | "FILE_INVALID"
+  | "FILE_TOO_LARGE"
+  | "FILE_MISSING"
+  | "STORAGE_UNAVAILABLE";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {

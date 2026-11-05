@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { adultBornOnOrBefore, ageOn } from "@/lib/age";
+import { withAudit } from "./audit";
 import type { DbOrTx } from "./db";
 import { inTransaction } from "./db";
 import { DomainError } from "./errors";
@@ -139,10 +140,13 @@ export async function readDocument(
 ): Promise<DocumentView> {
   const owner = await db.document.findUnique({
     where: { id: documentId },
-    select: { personId: true },
+    select: { personId: true, archivedAt: true },
   });
   if (!owner) throw new DomainError("INVALID_DATA", "Document introuvable.");
-  authorize(actor, "document.read", { person: await personFactsOrThrow(db, owner.personId) });
+  const person = await personFactsOrThrow(db, owner.personId);
+  authorize(actor, "document.read", { person });
+  // An archived document stays readable by TOPAZE only.
+  if (owner.archivedAt) authorize(actor, "document.archived.read", { person });
   return inTransaction(db, async (tx) => {
     const doc = await tx.document.findUniqueOrThrow({ where: { id: documentId } });
     await tx.accessLog.create({
@@ -164,6 +168,69 @@ export async function readDocument(
 }
 
 export { ForbiddenError };
+
+/** Owner of a document (resource of the archive action), or null. */
+export async function documentOwner(db: DbOrTx, documentId: string): Promise<string | null> {
+  const row = await db.document.findUnique({
+    where: { id: documentId },
+    select: { personId: true },
+  });
+  return row?.personId ?? null;
+}
+
+export interface NewDocumentRow {
+  personId: string;
+  kind: DocumentKind;
+  storageKey: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  expiresAt: Date | null;
+}
+
+/**
+ * Inserts the row of an uploaded document (after the file is stored), audited
+ * with masked file name, key and hash. The caller authorised `document.upload`.
+ */
+export async function insertDocumentRow(
+  db: DbOrTx,
+  actor: Actor,
+  data: NewDocumentRow,
+): Promise<string> {
+  return withAudit(db, { userId: actor.userId, label: actor.name }, async (tx, audit) => {
+    const row = await tx.document.create({
+      data: {
+        ...data,
+        copy: "UL",
+        uploadedById: actor.userId,
+        createdById: actor.userId,
+        updatedById: actor.userId,
+      },
+    });
+    audit.created("Document", row.id, row);
+    return row.id;
+  });
+}
+
+/**
+ * Archives a document (never deleted: the file stays in the storage). The
+ * caller authorised `document.upload` on its owner.
+ */
+export async function archiveDocumentRow(
+  db: DbOrTx,
+  actor: Actor,
+  documentId: string,
+): Promise<void> {
+  await withAudit(db, { userId: actor.userId, label: actor.name }, async (tx, audit) => {
+    const { count } = await tx.document.updateMany({
+      where: { id: documentId, archivedAt: null },
+      data: { archivedAt: new Date(), updatedById: actor.userId },
+    });
+    if (count === 0) throw new DomainError("INVALID_DATA", "Document introuvable ou déjà archivé.");
+    audit.archived("Document", documentId);
+  });
+}
 
 /** A document of the « Documents » tab (metadata only, no storage key). */
 export interface DocumentListItem {

@@ -52,6 +52,24 @@ export const envObject = z.object({
   AUTH_DEMO_LOGIN: booleanFlag,
   /** Set by Vercel on every deployment (production, preview, development). */
   VERCEL_ENV: z.string().optional(),
+
+  // --- Document storage (StorageService, docs/storage.md) -------------------
+  /** `local` (a folder on disk: development, VPS) or `s3` (S3-compatible: Supabase Storage, MinIO…). */
+  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  /** Folder of the `local` driver. Relative paths start from the working directory. */
+  STORAGE_LOCAL_DIR: z.string().trim().min(1).default("./storage"),
+  /** S3 endpoint (Supabase: https://<project>.storage.supabase.co/storage/v1/s3). */
+  S3_ENDPOINT: z.url().optional(),
+  S3_REGION: z.string().trim().min(1).optional(),
+  /** Private bucket: never public, files are only served through the application. */
+  S3_BUCKET: z.string().trim().min(1).optional(),
+  S3_ACCESS_KEY_ID: z.string().trim().min(1).optional(),
+  S3_SECRET_ACCESS_KEY: z.string().trim().min(1).optional(),
+  /** Path-style URLs (`endpoint/bucket/key`): true for Supabase and MinIO. */
+  S3_FORCE_PATH_STYLE: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
 });
 
 /**
@@ -66,6 +84,23 @@ export const envSchema = envObject.superRefine((env, ctx) => {
       message:
         "la connexion de démonstration est interdite sur Vercel (VERCEL_ENV est défini) : retire AUTH_DEMO_LOGIN",
     });
+  }
+  if (env.STORAGE_DRIVER === "s3") {
+    for (const key of [
+      "S3_ENDPOINT",
+      "S3_REGION",
+      "S3_BUCKET",
+      "S3_ACCESS_KEY_ID",
+      "S3_SECRET_ACCESS_KEY",
+    ] as const) {
+      if (env[key] === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: "obligatoire quand STORAGE_DRIVER=s3",
+        });
+      }
+    }
   }
   if ((env.AUTH_GOOGLE_ID === undefined) !== (env.AUTH_GOOGLE_SECRET === undefined)) {
     ctx.addIssue({

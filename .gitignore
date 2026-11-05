@@ -50,3 +50,6 @@ next-env.d.ts
 *.xlsx
 *.xls
 !tests/fixtures/*.xlsx
+
+# Documents of the local StorageService driver (personal data, never versioned)
+/storage/

@@ -38,6 +38,7 @@
     "fixtures:classeur": "tsx scripts/make-fixture-classeur.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1153.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "@radix-ui/react-dialog": "^1.1.15",
