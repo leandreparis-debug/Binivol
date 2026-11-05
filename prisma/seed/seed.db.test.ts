@@ -201,7 +201,7 @@ describe("seed", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("has wishes on a waiting list, one cancelled appointment and five mentorships", async () => {
+  it("has wishes on a waiting list, one cancelled appointment and six mentorships (one of 13 months)", async () => {
     expect(await db.trainingWish.count({ where: { status: "WAITLISTED" } })).toBeGreaterThan(0);
     expect(await db.appointment.count({ where: { cancelledAt: { not: null } } })).toBe(1);
     expect(await db.mentorship.count()).toBe(SEED_VOLUMES.mentorships);

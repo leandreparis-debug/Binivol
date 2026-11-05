@@ -5,7 +5,8 @@ import type { DbOrTx } from "./db";
 import { inTransaction } from "./db";
 import { DomainError } from "./errors";
 import type { DocumentCopy, DocumentKind } from "@/generated/prisma/enums";
-import { authorize, can, ForbiddenError } from "./policy/can";
+import { authorize, can, canSome, ForbiddenError } from "./policy/can";
+import { b3Due } from "./statusRules";
 import { loadPersonFacts } from "./policy/facts";
 import type { Actor, PersonFacts } from "./policy/types";
 
@@ -32,6 +33,8 @@ export interface SensitiveView {
   country: string | null;
   b3CheckedAt: Date | null;
   b3Status: string | null;
+  /** The outcome is hidden from this reader (FLAGGED, TOPAZE only). */
+  b3Restricted: boolean;
   /** Null when unknown (empty legacy cell). */
   parentalAuthorization: boolean | null;
   parentalAuthorizationDate: Date | null;
@@ -70,7 +73,8 @@ export async function readPersonSensitive(
   personId: string,
   context: string,
 ): Promise<SensitiveView> {
-  authorize(actor, "person.sensitive.read", { person: await personFactsOrThrow(db, personId) });
+  const facts = await personFactsOrThrow(db, personId);
+  authorize(actor, "person.sensitive.read", { person: facts });
   return inTransaction(db, async (tx) => {
     const [sensitive, contacts] = await Promise.all([
       tx.personSensitive.findUnique({ where: { personId } }),
@@ -91,7 +95,13 @@ export async function readPersonSensitive(
       city: sensitive?.city ?? null,
       country: sensitive?.country ?? null,
       b3CheckedAt: sensitive?.b3CheckedAt ?? null,
-      b3Status: sensitive?.b3Status ?? null,
+      // FLAGGED is visible to TOPAZE only (`b3.manage`, step 11): others see that it was checked.
+      b3Status:
+        sensitive?.b3Status === "FLAGGED" && !can(actor, "b3.manage", { person: facts }).allowed
+          ? null
+          : (sensitive?.b3Status ?? null),
+      b3Restricted:
+        sensitive?.b3Status === "FLAGGED" && !can(actor, "b3.manage", { person: facts }).allowed,
       parentalAuthorization: sensitive?.parentalAuthorization ?? null,
       parentalAuthorizationDate: sensitive?.parentalAuthorizationDate ?? null,
       emergencyContacts: contacts.map((c) => ({
@@ -406,4 +416,97 @@ export async function hasDocumentOfKind(
   kind: DocumentKind,
 ): Promise<boolean> {
   return (await db.document.count({ where: { personId, kind, archivedAt: null } })) > 0;
+}
+
+// ---------------------------------------------------------------------------
+// B3 (step 11): the date, the outcome and who checked. Never a copy.
+// ---------------------------------------------------------------------------
+
+/**
+ * Records a B3 check (`b3.manage`, TOPAZE): date, outcome (`CLEAR` or
+ * `FLAGGED`), who checked. **No copy of the record is ever stored**
+ * (ADR-054). One check per civil year. The audit masks the outcome; a
+ * separate entry « b3Check » (date only) feeds the timeline.
+ */
+export async function recordB3Check(
+  db: DbOrTx,
+  actor: Actor,
+  input: { personId: string; checkedAt: Date; status: "CLEAR" | "FLAGGED" },
+): Promise<void> {
+  const facts = await personFactsOrThrow(db, input.personId);
+  authorize(actor, "b3.manage", { person: facts });
+  await withAudit(db, { userId: actor.userId, label: actor.name }, async (tx, audit) => {
+    const before = await tx.personSensitive.findUnique({ where: { personId: input.personId } });
+    if (!b3Due(before?.b3CheckedAt ?? null, input.checkedAt)) {
+      throw new DomainError(
+        "INVALID_DATA",
+        `Le B3 est déjà vérifié pour ${String(input.checkedAt.getUTCFullYear())} : une vérification par année civile.`,
+      );
+    }
+    const data = {
+      b3CheckedAt: input.checkedAt,
+      b3Status: input.status,
+      b3CheckedById: actor.userId,
+      updatedById: actor.userId,
+    };
+    const after = before
+      ? await tx.personSensitive.update({ where: { personId: input.personId }, data })
+      : await tx.personSensitive.create({
+          data: { personId: input.personId, ...data, createdById: actor.userId },
+        });
+    if (before) audit.updated("PersonSensitive", after.id, before, after);
+    else audit.created("PersonSensitive", after.id, after);
+    audit.log({
+      action: "UPDATE",
+      entity: "Person",
+      entityId: input.personId,
+      field: "b3Check",
+      newValue: { checkedAt: input.checkedAt.toISOString().slice(0, 10) },
+    });
+  });
+}
+
+export interface B3ToCheck {
+  personId: string;
+  ref: string;
+  firstName: string;
+  lastName: string;
+  lastCheckedAt: Date | null;
+}
+
+/**
+ * « B3 à vérifier cette année » (TOPAZE): present regular supervisors of
+ * minors without a check in the current civil year. Dates only, never the
+ * outcome.
+ */
+export async function b3ToCheck(db: DbOrTx, actor: Actor, day: Date): Promise<B3ToCheck[]> {
+  if (!canSome(actor, "b3.manage")) authorize(actor, "b3.manage");
+  const startOfYear = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
+  const rows = await db.person.findMany({
+    where: {
+      regularMinorSupervisor: true,
+      status: { in: ["ACTIVE", "PAUSED"] },
+      archivedAt: null,
+      OR: [
+        { sensitive: null },
+        { sensitive: { b3CheckedAt: null } },
+        { sensitive: { b3CheckedAt: { lt: startOfYear } } },
+      ],
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: {
+      id: true,
+      ref: true,
+      firstName: true,
+      lastName: true,
+      sensitive: { select: { b3CheckedAt: true } },
+    },
+  });
+  return rows.map((r) => ({
+    personId: r.id,
+    ref: r.ref,
+    firstName: r.firstName,
+    lastName: r.lastName,
+    lastCheckedAt: r.sensitive?.b3CheckedAt ?? null,
+  }));
 }

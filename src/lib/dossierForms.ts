@@ -45,7 +45,7 @@ export const LANGUAGE_LEVEL_LABELS = {
 export const DOSSIER_ATTACHMENT_KINDS = ["PARENTAL_AUTH", "ADHESION"] as const;
 
 /** Document kinds refused for any new file (the value stays in the enum for old rows). */
-export const RETIRED_DOCUMENT_KINDS = ["DIPLOMA_COPY"] as const;
+export const RETIRED_DOCUMENT_KINDS = ["DIPLOMA_COPY", "B3_ATTESTATION"] as const;
 export type DossierAttachmentKind = (typeof DOSSIER_ATTACHMENT_KINDS)[number];
 
 const id = z.string().min(1).max(40);

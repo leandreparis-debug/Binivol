@@ -284,6 +284,7 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
   "appointment.write": "Nommer à une fonction ou annuler une nomination",
   "candidacy.manage": "Gérer les candidatures",
   "candidacy.create": "Créer un candidat ou réengager une personne",
+  "b3.manage": "Enregistrer la vérification du B3 et en voir l'issue",
   "person.return": "Enregistrer le retour d'un ancien bénévole",
   "candidacy.finalize.undo": "Annuler une intégration finalisée par erreur (7 jours)",
   "dossier.manage": "Gérer les dossiers en ligne",

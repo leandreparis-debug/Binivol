@@ -52,7 +52,7 @@ export const SEED_VOLUMES = {
   minors: 3,
   users: 7,
   referenceItems: REFERENCE_ITEMS.length,
-  mentorships: 5,
+  mentorships: 6,
   /** Active (half-filled draft), revoked, expired, and two used by a submitted dossier. */
   dossierLinks: 5,
 } as const satisfies { byStatus: Record<PersonStatus, number> } & Record<string, unknown>;
@@ -1268,6 +1268,89 @@ export async function seedDemo(
         }),
       );
       await save(tx.followUp, followUps);
+
+      // -- Step 11: pauses, departures, mentorship of 13 months, B3 ----------------------
+      // A mentorship started 13 months ago: its end is suggested (never imposed).
+      const longMentee = integrated[2];
+      if (longMentee) {
+        await save<Prisma.MentorshipUncheckedCreateInput>(tx.mentorship, [
+          {
+            id: `seed_mentor_${pad(longMentee.index)}_long`,
+            menteeId: longMentee.id,
+            mentorId: required(adults[25], "parrain long").id,
+            startDate: addDays(today, -395),
+            endDate: null,
+            note: "Parrainage de 13 mois (fictif).",
+            ...audit,
+          },
+        ]);
+      }
+      // A paused person whose planned return is past (step 12 will remind it).
+      const paused = people.find((p) => p.status === "PAUSED");
+      if (paused) {
+        await tx.person.update({
+          where: { id: paused.id },
+          data: {
+            pausedAt: addDays(today, -90),
+            pauseUntil: addDays(today, -5),
+            pauseReason: "Examens (fictif).",
+          },
+        });
+      }
+      // A departure 6 years ago: eligible to the purge (step 14).
+      const oldLeaver = people.filter((p) => p.status === "LEFT").at(-1);
+      if (oldLeaver) {
+        const leftAt = addYears(today, -6);
+        await tx.person.update({
+          where: { id: oldLeaver.id },
+          data: { leftAt, purgeEligibleAt: addYears(leftAt, 5) },
+        });
+      }
+      // A regular supervisor of minors without a B3 check this year (last one: last year).
+      const supervisor = adults[26];
+      if (supervisor) {
+        await tx.person.update({
+          where: { id: supervisor.id },
+          data: { regularMinorSupervisor: true },
+        });
+        await tx.personSensitive.update({
+          where: { personId: supervisor.id },
+          data: {
+            b3CheckedAt: new Date(Date.UTC(today.getUTCFullYear() - 1, 5, 15)),
+            b3Status: "CLEAR",
+          },
+        });
+      }
+      // The return of a former volunteer, traced (LEFT → ACTIVE with its reason).
+      const returned = adults[27];
+      if (returned) {
+        await tx.auditLog.createMany({
+          skipDuplicates: true,
+          data: [
+            {
+              id: "seed_audit_return_status",
+              at: addDays(today, -40),
+              actorId: userId("diamant"),
+              action: "UPDATE",
+              entity: "Person",
+              entityId: returned.id,
+              field: "status",
+              oldValue: "LEFT",
+              newValue: "ACTIVE",
+            },
+            {
+              id: "seed_audit_return_reason",
+              at: addDays(today, -40),
+              actorId: userId("diamant"),
+              action: "UPDATE",
+              entity: "Person",
+              entityId: returned.id,
+              field: "statusReason",
+              newValue: { kind: "return", reason: "Revient après un déménagement (fictif)." },
+            },
+          ],
+        });
+      }
 
       // -- Online file, signature ----------------------------------------------------------
       const fileCandidate = candidateAt("FILE");

@@ -53,6 +53,8 @@ import { appointableFunctions, referenceOptions } from "@/server/services/traini
 import { DocumentsPanel } from "./DocumentsPanel";
 import { DossierBlock } from "./DossierBlock";
 import { GaiaBlock } from "./GaiaBlock";
+import { B3Dialog, CompleteFollowUpDialog } from "./FollowUpTools";
+import { nextAnniversary } from "@/server/statusRules";
 import {
   AddTrainingDialog,
   AddWishDialog,
@@ -662,14 +664,26 @@ async function FollowUpTab({
   actor,
   header,
   facts,
+  day,
 }: {
   actor: Actor;
   header: PersonHeader;
   facts: PersonFacts;
+  day: Date;
 }) {
   const data = await personFollowUp(getDb(), actor, header.person.id, facts);
+  const todayIso = day.toISOString().slice(0, 10);
+  const nextIso = nextAnniversary(header.person.entryDate, day).toISOString().slice(0, 10);
+  const canB3 =
+    header.person.regularMinorSupervisor === true &&
+    can(actor, "b3.manage", { person: facts }).allowed;
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {canB3 && (
+        <div className="lg:col-span-2">
+          <B3Dialog personId={header.person.id} today={todayIso} />
+        </div>
+      )}
       <Card>
         <CardHeader>
           <CardTitle as="h2">Points de suivi</CardTitle>
@@ -696,7 +710,20 @@ async function FollowUpTab({
                     )}
                     {f.conductedBy && ` · par ${f.conductedBy}`}
                   </span>
+                  {f.cancelledAt && (
+                    <span className="text-small text-danger-ink">
+                      Annulé{f.cancelReason ? ` : ${f.cancelReason}` : ""}
+                    </span>
+                  )}
                   {f.summary && <span className="text-small text-ink">{f.summary}</span>}
+                  {!f.doneAt && !f.cancelledAt && (
+                    <CompleteFollowUpDialog
+                      followUpId={f.id}
+                      label={FOLLOW_UP_KIND_LABELS[f.kind]}
+                      today={todayIso}
+                      suggestedNext={nextIso}
+                    />
+                  )}
                 </li>
               ))}
             </ul>

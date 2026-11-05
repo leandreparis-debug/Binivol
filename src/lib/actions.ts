@@ -10,6 +10,7 @@ export const POLICY_ACTIONS = [
   "person.update",
   "person.status.change",
   "person.return",
+  "b3.manage",
   "person.nivol.correct",
   "training.read",
   "training.write",

@@ -293,7 +293,11 @@ describe("status change", () => {
     await changePersonStatus(
       db,
       who("topaze"),
-      statusChangeSchema.parse({ personId: person.id, status: "ACTIVE" }),
+      statusChangeSchema.parse({
+        personId: person.id,
+        status: "ACTIVE",
+        reason: "Retour (fictif)",
+      }),
     );
     const back = await db.person.findUniqueOrThrow({ where: { id: person.id } });
     expect(back).toMatchObject({
@@ -312,10 +316,19 @@ describe("status change", () => {
       ["LEFT", "ACTIVE"],
     ]);
     const timeline = await timelineOf(db, who("topaze"), person.id, await facts(person.id));
-    expect(timeline.filter((e) => e.type === "status").map((e) => e.title)).toEqual([
-      "Statut : Parti(e) → Actif",
-      "Statut : Actif → Parti(e)",
-    ]);
+    // Step 11: the return of a former volunteer carries its reason.
+    expect(
+      timeline
+        .filter((e) => e.type === "status")
+        .map((e) => e.title)
+        .sort(),
+    ).toEqual(
+      [
+        "Retour d'un ancien bénévole",
+        "Statut : Actif → Parti(e)",
+        "Statut : Parti(e) → Actif",
+      ].sort(),
+    );
   });
 
   it("refuses LEFT without date and reason (schema), and ACTIVE without NIVOL", async () => {

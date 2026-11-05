@@ -440,6 +440,8 @@ export interface PersonFollowUp {
     conductedBy: string | null;
     summary: string | null;
     nextDate: Date | null;
+    cancelledAt: Date | null;
+    cancelReason: string | null;
   }[];
   mentorships: {
     id: string;
@@ -471,6 +473,8 @@ export async function personFollowUp(
         doneAt: true,
         summary: true,
         nextDate: true,
+        cancelledAt: true,
+        cancelReason: true,
         conductedBy: { select: { name: true } },
       },
     }),
@@ -492,6 +496,8 @@ export async function personFollowUp(
     followUps: followUps.map((f) => ({
       id: f.id,
       kind: f.kind,
+      cancelledAt: f.cancelledAt,
+      cancelReason: f.cancelReason,
       scheduledAt: f.scheduledAt,
       doneAt: f.doneAt,
       conductedBy: f.conductedBy?.name ?? null,

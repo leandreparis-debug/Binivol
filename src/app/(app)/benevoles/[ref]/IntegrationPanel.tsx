@@ -530,7 +530,13 @@ function MentorDialog({
   );
 }
 
-function EndMentorship({ mentorship, today }: { mentorship: MentorshipView; today: string }) {
+export function EndMentorship({
+  mentorship,
+  today,
+}: {
+  mentorship: Pick<MentorshipView, "id" | "mentorName">;
+  today: string;
+}) {
   const [open, setOpen] = useState(false);
   const { pending, feedback, errorOf, run, reset } = useFormAction<null>();
   return (

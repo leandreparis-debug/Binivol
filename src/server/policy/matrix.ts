@@ -79,6 +79,8 @@ export const MATRIX = {
   "person.sensitive.read": personRead,
   "person.update": diamantInScope("person"),
   "person.status.change": topazeOnly("person"),
+  // B3 (step 11): date and outcome of the check, FLAGGED visible to TOPAZE only.
+  "b3.manage": topazeOnly("person"),
   // Return of a former volunteer (LEFT → ACTIVE, step 11): TOPAZE and DIAMANT.
   "person.return": {
     target: "person",

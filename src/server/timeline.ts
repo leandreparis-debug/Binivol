@@ -54,7 +54,13 @@ export async function timelineOf(
         where: {
           entity: "Person",
           entityId: personId,
-          OR: [{ field: "status" }, { action: "IMPORT", field: null }],
+          OR: [
+            { field: "status" },
+            { action: "IMPORT", field: null },
+            // Step 11: the reason of a return or a pause, and the B3 check (date only).
+            { field: "statusReason" },
+            { field: "b3Check" },
+          ],
         },
         orderBy: { at: "asc" },
         select: { id: true, at: true, action: true, field: true, oldValue: true, newValue: true },
@@ -139,6 +145,27 @@ export async function timelineOf(
         date: entry.at,
         title: `Statut : ${label(entry.oldValue)} → ${label(entry.newValue)}`,
         detail: entry.action === "IMPORT" ? "Mis à jour par l'import de l'ancien classeur" : null,
+      });
+    } else if (entry.field === "statusReason") {
+      const value = entry.newValue as { kind?: string; reason?: string } | null;
+      push({
+        id: `reason-${entry.id}`,
+        type: "status",
+        date: entry.at,
+        title:
+          value?.kind === "return"
+            ? "Retour d'un ancien bénévole"
+            : "Motif du changement de statut",
+        detail: value?.reason ?? null,
+      });
+    } else if (entry.field === "b3Check") {
+      // Never the outcome: only that it was checked, and when.
+      const value = entry.newValue as { checkedAt?: string } | null;
+      push({
+        id: `b3-${entry.id}`,
+        type: "status",
+        date: value?.checkedAt ? new Date(`${value.checkedAt}T00:00:00.000Z`) : entry.at,
+        title: "B3 vérifié",
       });
     } else {
       push({

@@ -70,7 +70,7 @@ describe("documents with the local driver", () => {
     const p = await person();
     const id = await uploadDocument(db, storage, who("topaze"), {
       personId: p.id,
-      kind: "B3_ATTESTATION",
+      kind: "OTHER",
       expiresAt: new Date("2027-12-31T00:00:00.000Z"),
       fileName: `${p.lastName} diplôme.pdf`,
       bytes: PDF,

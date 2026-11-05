@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AlarmClock, CheckCircle2, UserPlus } from "lucide-react";
 import { FakeDataBanner } from "@/components/layout/FakeDataBanner";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatCard } from "@/components/ui/StatCard";
 import { getEnv } from "@/lib/env";
@@ -9,7 +11,7 @@ import { CANDIDACY_STAGE_LABELS } from "@/lib/labels";
 import { requirePageAccess } from "@/server/auth/page";
 import { OPEN_STAGES } from "@/server/candidacy/machine";
 import { getDb } from "@/server/db";
-import { can } from "@/server/policy/can";
+import { can, canSome } from "@/server/policy/can";
 import { candidacyBoard, type CandidateCard as Card } from "@/server/services/candidacies";
 import { BoardFilters } from "./BoardFilters";
 import { CandidateCard } from "./CandidateCard";
@@ -49,6 +51,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
   const stages = [...OPEN_STAGES, ...(first(raw.abandons) === "1" ? (["ABANDONED"] as const) : [])];
   const byStage = (stage: string) => board.cards.filter((c) => c.stage === stage).sort(urgency);
   const canCreate = can(actor, "candidacy.create").allowed;
+  const canFollow = canSome(actor, "followUp.manage");
 
   return (
     <>
@@ -58,6 +61,11 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
         actions={
           <>
             {getEnv().AUTH_DEMO_LOGIN && <FakeDataBanner />}
+            {canFollow && (
+              <Button asChild variant="outline">
+                <Link href="/candidats/suivi">Suivi des bénévoles</Link>
+              </Button>
+            )}
             {canCreate && <NewCandidateDialog sources={board.sources} />}
           </>
         }

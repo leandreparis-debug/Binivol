@@ -106,6 +106,7 @@ export function SensitivePanel({ personId }: { personId: string }) {
                         ? B3_STATUS_LABELS[data.b3Status as keyof typeof B3_STATUS_LABELS]
                         : null,
                       data.b3CheckedAt ? `vérifié le ${day(data.b3CheckedAt) ?? ""}` : null,
+                      data.b3Restricted ? "issue réservée à TOPAZE" : null,
                     ]
                       .filter(Boolean)
                       .join(", ")

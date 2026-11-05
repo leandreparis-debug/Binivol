@@ -43,7 +43,9 @@ export async function uploadDocument(
   if ((RETIRED_DOCUMENT_KINDS as readonly string[]).includes(input.kind)) {
     throw new DomainError(
       "INVALID_DATA",
-      "Les copies de diplôme ne sont plus conservées : les diplômes se vérifient dans Pegass.",
+      input.kind === "B3_ATTESTATION"
+        ? "Aucune copie du casier judiciaire n'est conservée : enregistrez seulement la date et l'issue de la vérification du B3."
+        : "Les copies de diplôme ne sont plus conservées : les diplômes se vérifient dans Pegass.",
     );
   }
   const type = checkDocumentFile(input.bytes);
