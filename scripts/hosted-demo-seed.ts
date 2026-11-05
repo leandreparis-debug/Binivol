@@ -16,7 +16,8 @@ async function main() {
     process.stdout.write("Démo hébergée inactive : aucun seed de démonstration.\n");
     return;
   }
-  const url = env.DIRECT_URL ?? env.DATABASE_URL;
+  // The application URL (pg driver); DIRECT_URL serves the Prisma migrations only.
+  const url = env.DATABASE_URL ?? env.DIRECT_URL;
   if (!url) throw new Error("DIRECT_URL ou DATABASE_URL manquant.");
   const db = createDb(url);
   try {
