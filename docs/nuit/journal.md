@@ -26,7 +26,7 @@
 | --- | -------------------------------------------------- | ------------------------- |
 | 8   | Signature électronique et PDF officiels            | terminée (version `main`) |
 | 9   | Assistant Gaia et passage au statut bénévole       | terminée                  |
-| 10  | Formations, compétences et nominations             | à faire                   |
+| 10  | Formations, compétences et nominations             | terminée                  |
 | 11  | Points de suivi, parrainage, B3, pauses et départs | à faire                   |
 | 12  | Alertes, rappels et e-mails automatiques           | à faire                   |
 | 13  | Tableaux de bord, matrice et exports               | à faire                   |
@@ -82,3 +82,29 @@ dans les 7 jours, l'étiquette et le filtre « À créer dans Gaia ».
 - **Nationalité** : non recueillie par le dossier, affichée « À demander ».
 - La saisie du résultat reste la boîte « Finaliser l'intégration » de l'étape 6 (déjà
   conforme), au lieu d'un nouveau formulaire dans le bloc Gaia.
+
+## Étape 10 — terminée
+
+**Commits** : `7c571c1` + `f1de650` (état unique et avertissements), `6892717` (services ; le
+seed de base ne réécrit plus le référentiel), `fe07088` (pages `/formations` et outils de la
+fiche ; `reference.manage` donné à FORMAT), puis seed, e2e, captures et documentation.
+
+**Migration** : aucune (le modèle de l'étape 2 suffisait).
+
+**Résultats** : `pnpm verify` 739 tests unitaires ; `pnpm test:db` 265 ; `pnpm test:e2e` 93
+verts, 38 ignorés (ignorés par projet). `pnpm db:fresh` passe.
+
+**Captures** : `formations-sessions-1440.png`, `formations-saisie-1440.png`,
+`formations-trouver-1440.png`, `fiche-formations-etape10-1440.png`.
+
+**Écarts, justifiés** :
+
+- `trainingSummary.ts` (pastilles et échéances de l'annuaire) est conservé : il calcule déjà
+  les échéances selon la même règle et son SQL (`deadlineSql`) est testé contre l'état pur sur
+  le seed. Les nouveaux écrans (Trouver, avertissements) lisent `qualification.ts`.
+- « Une expiration dans 30 jours » du seed a une échéance posée (aucune entrée du référentiel
+  n'a de validité en mois).
+- `reference.manage` était TOPAZE seul ; le cahier le donne aussi à FORMAT : matrice changée,
+  `docs/permissions.md` régénéré.
+- Le lien entre deux entrées du référentiel (prérequis) est une ligne de configuration sans
+  historique : retirer un prérequis la supprime, l'opération est auditée.

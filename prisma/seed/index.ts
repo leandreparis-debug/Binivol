@@ -1000,6 +1000,58 @@ export async function seedDemo(
         cancelledById: userId("action"),
         cancelReason: "Nomination saisie par erreur (fictif).",
       });
+      // -- Step 10: one state of each kind ------------------------------------------------
+      // A group entry on the past PSC session: four passes and one result still to report.
+      [20, 21, 22, 23].forEach((n) => {
+        const p = pick(n);
+        records.push({
+          id: `seed_tr_${pad(p.index)}_psc_group`,
+          personId: p.id,
+          referenceId: refId("PSC"),
+          sessionId: "seed_session_psc",
+          date: addDays(today, -30),
+          result: "PASSED",
+          place: "Locaux de l'unité locale, Versailles",
+          comment: "Saisie de groupe (fictif).",
+          ...audit,
+        });
+      });
+      records.push({
+        id: `seed_tr_${pad(pick(24).index)}_psc_pending`,
+        personId: pick(24).id,
+        referenceId: refId("PSC"),
+        sessionId: "seed_session_psc",
+        date: addDays(today, -30),
+        result: "REGISTERED",
+        comment: "Résultat à reporter (fictif).",
+        ...audit,
+      });
+      // An expiry within 30 days (date set on purpose: no reference has a validity in months).
+      records.push({
+        id: `seed_tr_${pad(pick(25).index)}_gqs_soon`,
+        personId: pick(25).id,
+        referenceId: refId("GQS"),
+        date: addDays(today, -335),
+        result: "PASSED",
+        expiresAt: addDays(today, 30),
+        comment: "Échéance dans 30 jours (fictif).",
+        ...audit,
+      });
+      // A minor with an imported appointment forbidden to minors: kept, flagged by step 12.
+      const activeMinor = people.find((p) => p.status === "ACTIVE" && p.minor);
+      if (activeMinor) {
+        appointments.push({
+          id: `seed_app_${pad(activeMinor.index)}_chef_paps_import`,
+          legacyRef: `F-LEGACY-${pad(activeMinor.index)}`,
+          personId: activeMinor.id,
+          referenceId: refId("CHEF_PAPS"),
+          startDate: addDays(today, -120),
+          endDate: null,
+          authorizedBy: null,
+          comment: "Importée de l'ancien classeur : interdite aux mineurs (fictif).",
+          ...audit,
+        });
+      }
       await save(tx.trainingRecord, records);
       await save(tx.appointment, appointments);
 

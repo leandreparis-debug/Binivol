@@ -721,3 +721,29 @@ stockage, la clôture n'est pas bloquée : « Compléter l'attestation » permet
 **Conséquences.** La preuve PDF d'origine ne change pas (elle porte les empreintes des documents
 signés) ; la nouvelle empreinte figure dans la base. Une annulation de la clôture archive cette
 version et rétablit la précédente.
+
+## ADR-052 — Un état unique par compétence, calculé en un seul endroit
+
+**Contexte.** La fiche, l'annuaire, « Trouver » et bientôt la matrice (étape 13) affichent l'état
+des formations ; dupliquer la règle mène à des écarts (une personne « valide » ici, « expirée »
+là).
+
+**Décision.** `src/server/qualification.ts` donne un seul état par personne et entrée du
+référentiel (Valide, Valide sans date, Expire bientôt, Expirée, Inscrit, À confirmer, fonction en
+cours ou terminée, Aucune) : lignes annulées ignorées, réussite la plus récente gagnante. Le SQL
+de l'annuaire et de « Trouver » en est le miroir, testé contre lui sur le seed.
+
+**Conséquences.** Toute évolution de la règle se fait dans ce module et dans son miroir SQL.
+
+## ADR-053 — Avertir sans bloquer
+
+**Contexte.** L'ancien outil laissait le terrain saisir : une date manquante ou un prérequis
+non à jour ne doit pas empêcher d'enregistrer une formation réellement suivie.
+
+**Décision.** Seules les vraies erreurs bloquent (format, obligatoire, dates incohérentes, hors
+périmètre, mineur et fonction interdite). Les autres contrôles (`src/server/warnings.ts`) sont des
+avertissements affichés avant l'enregistrement, calculés pour tout un groupe à la fois ;
+« Enregistrer quand même » écrit la liste acceptée dans l'audit.
+
+**Conséquences.** Les données peuvent contenir des situations signalées mais acceptées ; les
+rappels (étape 12) et la matrice (étape 13) les font ressortir.
