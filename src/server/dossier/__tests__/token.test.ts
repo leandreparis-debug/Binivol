@@ -39,13 +39,18 @@ describe("dossier session cookie", () => {
   });
 
   it("refuses a tampered or malformed cookie", () => {
-    const value = sealDossierSession("link_1");
+    // Fixed instant: the signature (hence its first character) no longer depends on the clock.
+    const at = Date.UTC(2026, 10, 5, 10);
+    const value = sealDossierSession("link_1", at);
     const [body = "", sig = ""] = value.split(".");
     const forged = Buffer.from(
       JSON.stringify({ linkId: "link_2", exp: Date.now() + 1e6 }),
     ).toString("base64url");
     expect(openDossierSession(`${forged}.${sig}`)).toBeNull();
-    expect(openDossierSession(`${body}.x${sig.slice(1)}`)).toBeNull();
+    // A different first character: « x » was the original one once in 64 runs (flaky).
+    const tampered = `${sig.startsWith("x") ? "y" : "x"}${sig.slice(1)}`;
+    expect(tampered).not.toBe(sig);
+    expect(openDossierSession(`${body}.${tampered}`, at + 1000)).toBeNull();
     expect(openDossierSession("n'importe quoi")).toBeNull();
     expect(openDossierSession(undefined)).toBeNull();
   });
