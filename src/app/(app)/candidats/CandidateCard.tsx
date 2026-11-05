@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FollowUpDot } from "@/components/person/FollowUpDot";
+import { Chip } from "@/components/ui/Chip";
 import { CANDIDACY_STAGE_LABELS } from "@/lib/labels";
 import type { CandidateCard as Card } from "@/server/services/candidacies";
 
@@ -23,6 +24,11 @@ export function CandidateCard({ card, showStage }: { card: Card; showStage: bool
         )}
       </div>
       {showStage && <p className="text-small text-ink-2">{CANDIDACY_STAGE_LABELS[card.stage]}</p>}
+      {card.stage === "GAIA" && (
+        <Chip tone="accent" className="self-start" data-testid="gaia-tag">
+          À créer dans Gaia
+        </Chip>
+      )}
       {card.nextAction && <p className="text-small text-ink">{card.nextAction}</p>}
       {card.stage !== "ABANDONED" && <FollowUpDot state={card.followUp} date={card.followUpAt} />}
       <p className="text-small text-muted">

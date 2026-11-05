@@ -44,6 +44,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
     overdueOnly: first(raw.retard) === "1",
     source: first(raw.source)?.slice(0, 100) ?? null,
     showAbandoned: first(raw.abandons) === "1",
+    gaiaOnly: first(raw.gaia) === "1",
   });
   const stages = [...OPEN_STAGES, ...(first(raw.abandons) === "1" ? (["ABANDONED"] as const) : [])];
   const byStage = (stage: string) => board.cards.filter((c) => c.stage === stage).sort(urgency);

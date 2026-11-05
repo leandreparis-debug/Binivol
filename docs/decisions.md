@@ -693,3 +693,31 @@ formulaire dit : « Tes diplômes seront vérifiés dans Pegass, tu n'as pas à 
 
 **Conséquences.** Réversible : remettre la valeur dans `DOSSIER_ATTACHMENT_KINDS` et la retirer
 de `RETIRED_DOCUMENT_KINDS`. Les diplômes déclarés (texte) restent demandés et reportables.
+
+## ADR-050 — Binivol n'appelle jamais Gaia
+
+**Contexte.** Gaia est l'outil national de la Croix-Rouge : il attribue le NIVOL et l'adresse
+`@croix-rouge.fr`. Aucune interface ouverte n'est prévue pour une unité locale, et une
+intégration automatique ferait sortir des données personnelles vers un système tiers sans cadre.
+
+**Décision.** Binivol assiste la saisie manuelle : une fiche dans l'ordre de l'écran de Gaia
+(lue à la demande, journalisée), « Copier » champ par champ ou « Tout copier », une liste à
+cocher datée (paramètre `GAIA_CHECKLIST`). Le responsable saisit ensuite le résultat (NIVOL,
+e-mail CRF) dans Binivol.
+
+**Conséquences.** Aucune dépendance à Gaia ni secret à gérer ; la saisie reste humaine. Une
+clôture faite par erreur s'annule par TOPAZE dans les 7 jours, motif obligatoire.
+
+## ADR-051 — L'attestation d'aptitude est régénérée avec le NIVOL
+
+**Contexte.** À la signature (étape 8), le NIVOL n'existe pas encore : le champ de l'attestation
+reste vide. Il est connu à la clôture (étape 9).
+
+**Décision.** Après la clôture, l'attestation est régénérée depuis le dossier signé et les
+signatures stockées, avec le NIVOL de la fiche (jamais le NIVOL déclaré) : nouvelle version de la
+copie UL, l'ancienne archivée, l'empreinte ajoutée aux `documentHashes` de chaque signature. Sans
+stockage, la clôture n'est pas bloquée : « Compléter l'attestation » permet de réessayer.
+
+**Conséquences.** La preuve PDF d'origine ne change pas (elle porte les empreintes des documents
+signés) ; la nouvelle empreinte figure dans la base. Une annulation de la clôture archive cette
+version et rétablit la précédente.

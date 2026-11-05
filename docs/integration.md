@@ -12,7 +12,7 @@ actif. Le code est dans `src/server/candidacy/` (règles pures), `src/server/ser
 | 2   | Rencontre           | `MEETING`       | un entretien à l'unité locale (date et heure : `meetingAt`)                                                    |
 | 3   | Engagement confirmé | `CONFIRMED`     | la personne veut s'engager                                                                                     |
 | 4   | Dossier             | `FILE`          | dossier en ligne (`docs/dossier.md`) : créer le lien depuis « Confirmé » y fait passer ; signature à l'étape 8 |
-| 5   | Création Gaia       | `GAIA`          | compte dans l'outil national, NIVOL et e-mail CRF (passage manuel ; assistant à l'étape 9)                     |
+| 5   | Création Gaia       | `GAIA`          | compte dans l'outil national, NIVOL et e-mail CRF : bloc « Gaia » (fiche à copier, liste à cocher)             |
 | 6   | Intégré             | `DONE`          | bénévole actif, par la **finalisation** uniquement                                                             |
 | —   | Abandon             | `ABANDONED`     | depuis n'importe quelle étape ouverte, avec un motif                                                           |
 
@@ -130,6 +130,41 @@ En **une seule transaction** : la personne passe en Actif (départ effacé pour 
 réengagée), la candidature est close en « Intégré », un point de suivi « Point à 3 mois » est
 planifié à la date d'entrée + 3 mois, l'audit et l'événement sont écrits. Un échec au milieu
 n'écrit rien. L'écran propose ensuite d'attribuer un parrain.
+
+## Assistant Gaia (étape 9)
+
+Binivol **n'appelle jamais Gaia**, l'outil national (ADR-050) : il aide à la saisie, puis
+enregistre le résultat. Le bloc « Gaia » de l'onglet Intégration (`candidacy.manage`) apparaît
+quand la candidature est à « Création Gaia », et dans les 7 jours qui suivent la clôture.
+
+- **Fiche Gaia** : « Afficher la fiche Gaia » lit les valeurs à la demande (lecture journalisée
+  par `readPersonSensitive`, contexte « gaia » ; rien de sensible dans le rendu initial). Une
+  ligne par champ, dans l'ordre de l'écran de création de Gaia : civilité, nom de naissance, nom
+  d'usage, prénom, date et lieu de naissance, pays de naissance, nationalité (non recueillie par
+  le dossier : « À demander »), adresse, téléphone, e-mail, contact d'urgence. Un bouton
+  « Copier » par champ, et « Tout copier » (une ligne par champ, libellé et valeur séparés par
+  une tabulation). Dates en `JJ/MM/AAAA`. Les valeurs viennent de la fiche : reporter d'abord le
+  dossier (« Voir le dossier »).
+- **Liste à cocher**, enregistrée sur la candidature (`gaia_checklist`) avec qui et quand :
+  « Personne créée dans Gaia », « Adhésion enregistrée » (seulement si une demande d'adhésion
+  figure dans les documents), « Rattachement à l'UL de Versailles », « Compte @croix-rouge.fr
+  demandé ». La liste est le paramètre `GAIA_CHECKLIST` (clé, libellé, adhésion seulement).
+- **Saisie du résultat** : « Finaliser l'intégration » (ci-dessus). Le NIVOL passe par
+  `normalizeNivol()` ; un doublon est refusé avec le nom de la fiche si l'acteur peut la voir. L'e-
+  mail Croix-Rouge finit par `@croix-rouge.fr` et doit être **unique** parmi les personnes
+  (comparaison sans casse) ; même message nominatif.
+- **Attestation d'aptitude** : après la clôture, Binivol régénère l'attestation avec le NIVOL
+  (nouvelle version de la copie UL, l'ancienne archivée, jamais effacée ; son empreinte est
+  ajoutée à la preuve, dans `documentHashes`, sous « <fichier> (NIVOL …) »). Si le stockage
+  manque (démo hébergée), la clôture réussit quand même et le bloc propose « Compléter
+  l'attestation ».
+- **Annuler la clôture** (TOPAZE seulement, `candidacy.finalize.undo`, dans les 7 jours, motif
+  obligatoire) : en une transaction, NIVOL, e-mail CRF et date d'entrée retirés de la fiche,
+  statut « Candidat », candidature rouverte à « Création Gaia » avec un événement « Clôture
+  annulée : motif », point à 3 mois annulé (`cancelled_at`, jamais supprimé), attestation au
+  NIVOL archivée et version précédente rétablie. Tout est audité. Après 7 jours : refusé.
+- **`/candidats`** : les candidats à « Création Gaia » portent l'étiquette « À créer dans Gaia » ;
+  le filtre « À créer dans Gaia seulement » (`?gaia=1`) ne garde qu'eux.
 
 ## Parrainage
 

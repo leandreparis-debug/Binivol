@@ -89,6 +89,54 @@ test.describe("Candidats (bureau)", () => {
     test.skip(isMobileProject(testInfo), "Parcours bureau ; la saisie mobile a son propre test.");
   });
 
+  test("assistant Gaia : DIAMANT copie la fiche, coche la liste, saisit le NIVOL ; la personne passe en Actif", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const who = fictitious("Gaia");
+    await loginAs(page, "diamant");
+    await createCandidate(page, who);
+    const ref = /\/benevoles\/(P-\d+)/.exec(page.url())?.[1] ?? "";
+    await move(page, "Passer à « Engagement confirmé »");
+    await move(page, "Passer à « Dossier »");
+    await move(page, "Passer à « Création Gaia »");
+
+    // The board tags it « À créer dans Gaia », with its own filter.
+    await page.goto("/candidats?responsable=tous&gaia=1");
+    const card = page.getByRole("article").filter({ hasText: who.lastName });
+    await expect(card.getByTestId("gaia-tag")).toHaveText("À créer dans Gaia");
+    await expect(page.getByTestId("gaia-tag").first()).toBeVisible();
+    await expectNoSeriousViolation(page);
+
+    await page.goto(`/benevoles/${ref}?onglet=integration`);
+    await page.getByRole("button", { name: "Afficher la fiche Gaia" }).click();
+    const sheet = page.getByTestId("gaia-sheet");
+    await expect(sheet).toContainText(who.firstName);
+    await page.getByRole("button", { name: "Tout copier" }).click();
+    await expect(page.getByText("Toute la fiche est copiée.")).toBeVisible();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied.split("\n")[0]).toMatch(/^Civilité\t/);
+    expect(copied).toContain(`Prénom\t${who.firstName}`);
+    await expectNoSeriousViolation(page);
+
+    const checklist = page.getByTestId("gaia-checklist");
+    await checklist.getByText("Personne créée dans Gaia").click();
+    await expect(checklist).toContainText("Coché par Maé Démo");
+
+    await page.getByRole("button", { name: "Finaliser l'intégration" }).click();
+    const finalize = page.getByRole("dialog", { name: "Finaliser l'intégration" });
+    await finalize.getByLabel("NIVOL").fill(who.nivol);
+    await finalize.getByRole("button", { name: "Finaliser" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: /Intégration finalisée/ }),
+    ).toBeVisible();
+
+    await page.goto(`/benevoles?q=${encodeURIComponent(who.lastName)}`);
+    const row = page.getByRole("row").filter({ hasText: who.lastName });
+    await expect(row.getByText("Actif", { exact: true })).toBeVisible();
+  });
+
   test("ACTION reçoit un 403 sur /candidats", async ({ page }) => {
     await loginAs(page, "action");
     expect((await page.goto("/candidats"))?.status()).toBe(403);

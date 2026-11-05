@@ -72,6 +72,13 @@ export function BoardFilters({
         }}
       />
       <Checkbox
+        label="À créer dans Gaia seulement"
+        checked={params.get("gaia") === "1"}
+        onChange={(e) => {
+          push("gaia", e.target.checked ? "1" : null);
+        }}
+      />
+      <Checkbox
         label="Afficher les abandons"
         checked={params.get("abandons") === "1"}
         onChange={(e) => {

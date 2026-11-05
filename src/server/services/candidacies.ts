@@ -807,6 +807,8 @@ export interface BoardFilters {
   overdueOnly: boolean;
   source: string | null;
   showAbandoned: boolean;
+  /** Only the candidates to create in Gaia (stage GAIA, step 9). */
+  gaiaOnly?: boolean;
 }
 
 export interface CandidateCard {
@@ -860,6 +862,9 @@ export async function candidacyBoard(
   );
   if (filters.owner === "me") conditions.push(Prisma.sql`c.owner_id = ${actor.userId}`);
   else if (filters.owner !== "all") conditions.push(Prisma.sql`c.owner_id = ${filters.owner}`);
+  if (filters.gaiaOnly) {
+    conditions.push(Prisma.sql`c.closed_at IS NULL AND c.stage = 'GAIA'::"CandidacyStage"`);
+  }
   if (filters.overdueOnly) {
     conditions.push(Prisma.sql`c.closed_at IS NULL AND c.follow_up_at < ${day}::date`);
   }

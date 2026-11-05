@@ -1088,7 +1088,28 @@ export async function seedDemo(
           ownerId: userId(k % 2 === 0 ? "diamant" : "format-diamant"),
           abandonReason: stage === "ABANDONED" ? "NO_RESPONSE" : null,
           abandonNote: stage === "ABANDONED" ? "Ne donne plus de nouvelles (fictif)." : null,
-          closedAt: closed ? addDays(firstContactAt, stage === "DONE" ? 60 : 20) : null,
+          // The last integrated person was closed 2 days ago: TOPAZE can still undo it (step 9).
+          closedAt: closed
+            ? p === integrated.at(-1)
+              ? addDays(today, -2)
+              : addDays(firstContactAt, stage === "DONE" ? 60 : 20)
+            : null,
+          // Step 9: the Gaia candidate has half of her checklist ticked.
+          gaiaChecklist:
+            stage === "GAIA"
+              ? {
+                  created: {
+                    at: addDays(today, -1).toISOString(),
+                    byId: userId("diamant"),
+                    by: "Maé Démo",
+                  },
+                  attached: {
+                    at: addDays(today, -1).toISOString(),
+                    byId: userId("diamant"),
+                    by: "Maé Démo",
+                  },
+                }
+              : {},
           ...audit,
         });
         // The MEETING candidate was abandoned, then resumed at MEETING.

@@ -48,8 +48,10 @@ import { defaultFollowUp } from "@/server/candidacy/rules";
 import { can } from "@/server/policy/can";
 import { integrationTab } from "@/server/services/candidacies";
 import { dossierBlock } from "@/server/services/dossiers";
+import { gaiaBlock } from "@/server/services/gaia";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { DossierBlock } from "./DossierBlock";
+import { GaiaBlock } from "./GaiaBlock";
 import { IntegrationPanel } from "./IntegrationPanel";
 import { ListEditor } from "./ListEditor";
 import { PersonActions } from "./PersonActions";
@@ -729,11 +731,11 @@ async function IntegrationTabView({
   day: Date;
 }) {
   const db = getDb();
-  const [tab, dossier] = await Promise.all([
+  const canDossier = can(actor, "dossier.manage", { person: facts }).allowed;
+  const [tab, dossier, gaia] = await Promise.all([
     integrationTab(db, actor, header.person.id, facts, day),
-    can(actor, "dossier.manage", { person: facts }).allowed
-      ? dossierBlock(db, actor, header.person.id, facts)
-      : Promise.resolve(null),
+    canDossier ? dossierBlock(db, actor, header.person.id, facts) : Promise.resolve(null),
+    gaiaBlock(db, actor, header.person.id, facts),
   ]);
   return (
     <div className="flex flex-col gap-6">
@@ -743,6 +745,9 @@ async function IntegrationTabView({
         today={day.toISOString().slice(0, 10)}
         defaultFollowUpAt={defaultFollowUp(day, tab.followUpDays).toISOString().slice(0, 10)}
       />
+      {gaia && (
+        <GaiaBlock personId={header.person.id} block={gaia} canCompleteAttestation={canDossier} />
+      )}
       {dossier && (
         <DossierBlock personId={header.person.id} personRef={header.person.ref} block={dossier} />
       )}
