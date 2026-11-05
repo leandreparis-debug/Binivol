@@ -1,3 +1,7 @@
+import {
+  ANNIVERSARY_TEXT_DEFAULT,
+  BIRTHDAY_TEXT_DEFAULT,
+} from "../../src/server/automationSettings";
 import { beforeAll, describe, expect, it } from "vitest";
 import { DEFAULT_GAIA_CHECKLIST } from "@/lib/gaia";
 import { NIVOL_PATTERN } from "@/lib/nivol";
@@ -292,7 +296,15 @@ describe("seed", () => {
       RETENTION_YEARS_AFTER_LEAVE: 5,
       BACKUPS_TO_KEEP: 12,
       DATA_CLASSIFICATION: "C3 CONFIDENTIEL",
-      GREETING_EMAILS_ENABLED: true,
+      GREETING_EMAILS_ENABLED: false,
+      ALERT_RULES_DISABLED: [],
+      CORE_TRAINING_CODES: ["CRB", "TCAU", "TCAS"],
+      REQUIRED_COMPANIONS: { PSE: ["OPR", "ECG"] },
+      DIGEST_FREQUENCY: "MONTHLY",
+      URGENCE_NOTIFY_CODES: ["TCAU"],
+      URGENCE_NOTIFY_RECIPIENTS: [],
+      GREETING_BIRTHDAY_TEXT: BIRTHDAY_TEXT_DEFAULT,
+      GREETING_ANNIVERSARY_TEXT: ANNIVERSARY_TEXT_DEFAULT,
       NEW_VOLUNTEER_MONTHS: 12,
       CANDIDACY_FOLLOW_UP_DAYS: 7,
       DOSSIER_LINK_DAYS: 7,
@@ -302,7 +314,7 @@ describe("seed", () => {
       FINAL_MAIL_TEXT: FINAL_MAIL_DEFAULT,
       RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });
-    expect(await db.reminderRule.count()).toBe(6);
+    expect(await db.reminderRule.count()).toBe(8);
   });
 
   it("gives perimeters to seeded volunteers", async () => {

@@ -66,7 +66,7 @@ beforeEach(async () => {
 
 const EXPECTED_COUNTS = {
   Referentiel: { created: 0, updated: 0, unchanged: 21, conflicts: 0, rejected: 0, warnings: 1 },
-  Parametres: { created: 0, updated: 0, unchanged: 5, conflicts: 0, rejected: 0, warnings: 6 },
+  Parametres: { created: 0, updated: 1, unchanged: 4, conflicts: 0, rejected: 0, warnings: 6 },
   Benevoles: { created: 20, updated: 0, unchanged: 0, conflicts: 0, rejected: 2, warnings: 4 },
   Prospects: { created: 5, updated: 0, unchanged: 0, conflicts: 0, rejected: 0, warnings: 1 },
   Sessions: { created: 58, updated: 0, unchanged: 0, conflicts: 0, rejected: 3, warnings: 1 },
