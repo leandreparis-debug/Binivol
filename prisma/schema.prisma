@@ -737,6 +737,8 @@ model Candidacy {
   notes          String?
   /// Set when the stage is DONE or ABANDONED (CHECK candidacies_closed_matches_stage).
   closedAt       DateTime?      @map("closed_at") @db.Timestamptz(3)
+  /// Gaia checklist (step 9): item key → { at, byId, by } when checked (setting GAIA_CHECKLIST).
+  gaiaChecklist  Json           @default("{}") @map("gaia_checklist")
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById    String?        @map("created_by_id")
@@ -803,6 +805,10 @@ model FollowUp {
   conductedById String?      @map("conducted_by_id")
   summary       String?
   nextDate      DateTime?    @map("next_date") @db.Date
+  /// Cancelled follow-up (never deleted): e.g. the closure of the integration was undone.
+  cancelledAt   DateTime?    @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById String?      @map("cancelled_by_id")
+  cancelReason  String?      @map("cancel_reason")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById   String?      @map("created_by_id")
@@ -844,24 +850,24 @@ model DossierLink {
 
 /// Content of the online file (JSONB validated by Zod at step 7).
 model DossierSubmission {
-  id            String           @id @default(cuid(2))
-  personId      String           @map("person_id")
-  linkId        String?          @map("link_id")
-  status        SubmissionStatus @default(DRAFT)
-  data          Json             @default("{}")
-  schemaVersion Int              @default(1) @map("schema_version")
-  submittedAt   DateTime?        @map("submitted_at") @db.Timestamptz(3)
-  signedAt      DateTime?        @map("signed_at") @db.Timestamptz(3)
+  id                   String           @id @default(cuid(2))
+  personId             String           @map("person_id")
+  linkId               String?          @map("link_id")
+  status               SubmissionStatus @default(DRAFT)
+  data                 Json             @default("{}")
+  schemaVersion        Int              @default(1) @map("schema_version")
+  submittedAt          DateTime?        @map("submitted_at") @db.Timestamptz(3)
+  signedAt             DateTime?        @map("signed_at") @db.Timestamptz(3)
   /// Claim of a countersignature in progress (concurrency, resumed after 10 min).
-  countersignStartedAt DateTime? @map("countersign_started_at") @db.Timestamptz(3)
-  completedAt          DateTime? @map("completed_at") @db.Timestamptz(3)
+  countersignStartedAt DateTime?        @map("countersign_started_at") @db.Timestamptz(3)
+  completedAt          DateTime?        @map("completed_at") @db.Timestamptz(3)
   /// E-mail of the final documents: sent at, or the last error (no personal data).
-  finalMailSentAt      DateTime? @map("final_mail_sent_at") @db.Timestamptz(3)
-  finalMailError       String?   @map("final_mail_error")
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById   String?          @map("created_by_id")
-  updatedById   String?          @map("updated_by_id")
+  finalMailSentAt      DateTime?        @map("final_mail_sent_at") @db.Timestamptz(3)
+  finalMailError       String?          @map("final_mail_error")
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById          String?          @map("created_by_id")
+  updatedById          String?          @map("updated_by_id")
 
   person        Person              @relation(fields: [personId], references: [id], onDelete: Cascade)
   link          DossierLink?        @relation(fields: [linkId], references: [id], onDelete: SetNull)
@@ -900,18 +906,18 @@ model DossierAttachment {
 
 /// One-time code sent by e-mail before signing. Only the hash of the code is stored.
 model OtpChallenge {
-  id           String    @id @default(cuid(2))
-  submissionId String    @map("submission_id")
-  codeHash     String    @map("code_hash")
+  id           String     @id @default(cuid(2))
+  submissionId String     @map("submission_id")
+  codeHash     String     @map("code_hash")
   email        String
   signerRole   SignerRole @default(VOLUNTEER) @map("signer_role")
-  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
-  attempts     Int       @default(0)
-  verifiedAt   DateTime? @map("verified_at") @db.Timestamptz(3)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById  String?   @map("created_by_id")
-  updatedById  String?   @map("updated_by_id")
+  expiresAt    DateTime   @map("expires_at") @db.Timestamptz(3)
+  attempts     Int        @default(0)
+  verifiedAt   DateTime?  @map("verified_at") @db.Timestamptz(3)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?    @map("created_by_id")
+  updatedById  String?    @map("updated_by_id")
 
   submission DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   signature  Signature?
@@ -921,31 +927,31 @@ model OtpChallenge {
 }
 
 model Signature {
-  id             String     @id @default(cuid(2))
-  submissionId   String     @map("submission_id")
-  signerRole     SignerRole @map("signer_role")
-  signerName     String     @map("signer_name")
-  signerQuality  String?    @map("signer_quality")
+  id             String          @id @default(cuid(2))
+  submissionId   String          @map("submission_id")
+  signerRole     SignerRole      @map("signer_role")
+  signerName     String          @map("signer_name")
+  signerQuality  String?         @map("signer_quality")
   /// Storage key of the drawn signature (PNG, StorageService); null when typed.
-  imageKey       String?    @map("image_key")
+  imageKey       String?         @map("image_key")
   /// Name typed as the signature (keyboard alternative), drawn in a handwriting font.
-  typedName      String?    @map("typed_name")
+  typedName      String?         @map("typed_name")
   method         SignatureMethod @default(OTP_EMAIL)
   /// The e-mail the code was sent to (OTP_EMAIL).
-  verifiedEmail  String?    @map("verified_email")
+  verifiedEmail  String?         @map("verified_email")
   /// The responsible who checked the identity in person (IN_PERSON) or countersigned.
-  verifiedById   String?    @map("verified_by_id")
-  signedAt       DateTime   @map("signed_at") @db.Timestamptz(3)
-  otpChallengeId String?    @unique @map("otp_challenge_id")
-  userAgent      String?    @map("user_agent")
+  verifiedById   String?         @map("verified_by_id")
+  signedAt       DateTime        @map("signed_at") @db.Timestamptz(3)
+  otpChallengeId String?         @unique @map("otp_challenge_id")
+  userAgent      String?         @map("user_agent")
   /// HMAC/SHA-256 of the IP address, never the address itself.
-  ipHash         String?    @map("ip_hash")
+  ipHash         String?         @map("ip_hash")
   /// File name → SHA-256 of each signed document.
-  documentHashes Json       @default("{}") @map("document_hashes")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById    String?    @map("created_by_id")
-  updatedById    String?    @map("updated_by_id")
+  documentHashes Json            @default("{}") @map("document_hashes")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById    String?         @map("created_by_id")
+  updatedById    String?         @map("updated_by_id")
 
   submission   DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   otpChallenge OtpChallenge?     @relation(fields: [otpChallengeId], references: [id], onDelete: SetNull)

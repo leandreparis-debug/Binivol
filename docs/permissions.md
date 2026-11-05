@@ -31,6 +31,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Nommer à une fonction ou annuler une nomination (`appointment.write`) | une personne et une fonction | Oui | Si la fonction lui est confiée et que la personne relève du profil | Si la fonction lui est confiée et que la personne relève du profil | — | Si la fonction lui est confiée et que la personne relève du profil | — |
 | Gérer les candidatures (`candidacy.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Créer un candidat ou réengager une personne (`candidacy.create`) | — | Oui | — | — | — | — | Oui |
+| Annuler une intégration finalisée par erreur (7 jours) (`candidacy.finalize.undo`) | une personne | Oui | — | — | — | — | — |
 | Gérer les dossiers en ligne (`dossier.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Gérer les parrainages (`mentorship.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Gérer les points de suivi (`followUp.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |

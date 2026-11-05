@@ -107,6 +107,8 @@ export const MATRIX = {
     target: "none",
     grants: [{ profiles: ["TOPAZE", "DIAMANT"], when: "always" }],
   },
+  // Undoing a closure made by mistake (step 9): TOPAZE only, within 7 days (service rule).
+  "candidacy.finalize.undo": topazeOnly("person"),
   "dossier.manage": diamantInScope("person"),
   "mentorship.manage": diamantInScope("person"),
   "followUp.manage": diamantInScope("person"),
