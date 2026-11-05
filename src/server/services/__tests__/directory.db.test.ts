@@ -32,7 +32,10 @@ async function allRows(actor: Actor, q: DirectoryQuery, pageSize = 7): Promise<D
   const rows: DirectoryRow[] = [];
   let cursor: string | null = null;
   for (let i = 0; i < 50; i += 1) {
-    const page = await listDirectory(db, actor, { ...q, apres: cursor }, { day, pageSize });
+    // The cursor goes through the URL parser, like the « Page suivante » link.
+    const apres = cursor ? parseDirectoryQuery({ apres: cursor }).apres : null;
+    expect(apres).toBe(cursor);
+    const page = await listDirectory(db, actor, { ...q, apres }, { day, pageSize });
     rows.push(...page.rows);
     cursor = page.nextCursor;
     if (!cursor) break;

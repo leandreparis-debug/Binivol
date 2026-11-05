@@ -75,7 +75,7 @@ export const directoryQuerySchema = z.object({
   apres: z
     .string()
     .optional()
-    .transform((v) => (v && /^[a-z0-9]{10,40}$/.test(v) ? v : null)),
+    .transform((v) => (v && /^[a-z0-9_]{10,40}$/i.test(v) ? v : null)),
 });
 
 export type DirectoryQuery = z.infer<typeof directoryQuerySchema>;
