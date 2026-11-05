@@ -48,8 +48,13 @@ export const envObject = z.object({
     .toLowerCase()
     .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, "doit être un nom de domaine (ex. croix-rouge.fr)")
     .default("croix-rouge.fr"),
-  /** Demo sign-in with the `@binivol.test` seed accounts. Never on Vercel. */
+  /** Demo sign-in with the `@binivol.test` seed accounts. Never on Vercel, unless the next flag. */
   AUTH_DEMO_LOGIN: booleanFlag,
+  /**
+   * Exception (ADR-035): allows the demo sign-in on a Vercel **test** deployment
+   * holding fictitious data only. The legacy import is then refused.
+   */
+  AUTH_DEMO_ON_VERCEL: booleanFlag,
   /** Set by Vercel on every deployment (production, preview, development). */
   VERCEL_ENV: z.string().optional(),
 
@@ -74,15 +79,16 @@ export const envObject = z.object({
 
 /**
  * Full schema. Refuses the demo sign-in on Vercel: if both are set, parsing
- * fails, so the server (and the Vercel build) refuses to start.
+ * fails, so the server (and the Vercel build) refuses to start — unless the
+ * explicit test exception `AUTH_DEMO_ON_VERCEL=true` is set (ADR-035).
  */
 export const envSchema = envObject.superRefine((env, ctx) => {
-  if (env.AUTH_DEMO_LOGIN && env.VERCEL_ENV !== undefined) {
+  if (env.AUTH_DEMO_LOGIN && env.VERCEL_ENV !== undefined && !env.AUTH_DEMO_ON_VERCEL) {
     ctx.addIssue({
       code: "custom",
       path: ["AUTH_DEMO_LOGIN"],
       message:
-        "la connexion de démonstration est interdite sur Vercel (VERCEL_ENV est défini) : retire AUTH_DEMO_LOGIN",
+        "la connexion de démonstration est interdite sur Vercel (VERCEL_ENV est défini) : retire AUTH_DEMO_LOGIN (exception de test : AUTH_DEMO_ON_VERCEL=true, ADR-035)",
     });
   }
   if (env.STORAGE_DRIVER === "s3") {
@@ -115,7 +121,15 @@ export type Env = z.infer<typeof envSchema>;
 
 /** True when the demo sign-in is enabled (and therefore allowed: see `envSchema`). */
 export function isDemoLoginEnabled(env: Env = getEnv()): boolean {
-  return env.AUTH_DEMO_LOGIN && env.VERCEL_ENV === undefined;
+  return env.AUTH_DEMO_LOGIN && (env.VERCEL_ENV === undefined || env.AUTH_DEMO_ON_VERCEL);
+}
+
+/**
+ * True on a hosted demo (demo sign-in allowed on Vercel by ADR-035): the
+ * database holds fictitious data only, so importing a workbook is refused.
+ */
+export function isHostedDemo(env: Env = getEnv()): boolean {
+  return env.AUTH_DEMO_LOGIN && env.VERCEL_ENV !== undefined && env.AUTH_DEMO_ON_VERCEL;
 }
 
 /** True when the Google provider is configured. */

@@ -97,3 +97,10 @@ adresses `@binivol.test`, qui n'existent pas en production.
 Elle ne passe pas par un fournisseur Auth.js : les fournisseurs « identifiants » d'Auth.js ne
 fonctionnent pas avec les sessions en base. Elle crée donc la session et le cookie elle-même
 (`src/server/auth/demo.ts`), avec le même nom, la même durée et les mêmes options.
+
+## Démo hébergée (test uniquement, ADR-035)
+
+Pour un déploiement Vercel **de test** à données fictives, sans Google : `AUTH_DEMO_LOGIN=true`
+et `AUTH_DEMO_ON_VERCEL=true`. La page `/connexion` propose alors les comptes `@binivol.test`,
+l'import de classeur est refusé, et la base ne doit contenir que le seed de démonstration.
+Jamais sur la base de production.

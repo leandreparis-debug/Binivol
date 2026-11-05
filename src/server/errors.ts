@@ -32,7 +32,8 @@ export type DomainErrorCode =
   | "TRANSITION_REFUSED"
   | "STALE_CANDIDACY"
   | "DUPLICATE_PERSON"
-  | "MENTOR_INVALID";
+  | "MENTOR_INVALID"
+  | "IMPORT_DISABLED";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {

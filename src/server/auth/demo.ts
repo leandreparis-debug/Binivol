@@ -13,7 +13,7 @@ import { evaluateSignIn } from "./signIn";
  * Auth.js credentials providers cannot use database sessions, so the demo
  * sign-in creates the session row and cookie itself, with exactly the same
  * name, lifetime and checks as a Google session. It exists only when
- * AUTH_DEMO_LOGIN=true and VERCEL_ENV is not set (the server refuses to start
+ * AUTH_DEMO_LOGIN=true and VERCEL_ENV is not set, or AUTH_DEMO_ON_VERCEL=true (ADR-035) (the server refuses to start
  * otherwise), and only for `@binivol.test` addresses.
  */
 export const DEMO_DOMAIN = "binivol.test";

@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { isHostedDemo } from "@/lib/env";
 import { defineAction } from "@/server/actions/defineAction";
+import { DomainError } from "@/server/errors";
+import { IMPORT_DISABLED_MESSAGE } from "@/server/messages";
 import { getDb } from "@/server/db";
 import { MAX_IMPORT_BYTES } from "@/server/import/file";
 import { runImport, type ImportOutcome } from "@/server/import/service";
@@ -20,6 +23,7 @@ async function run(
   actor: { userId: string; name: string },
   dryRun: boolean,
 ): Promise<ImportOutcome> {
+  if (isHostedDemo()) throw new DomainError("IMPORT_DISABLED", IMPORT_DISABLED_MESSAGE);
   const buffer = Buffer.from(await file.arrayBuffer());
   const outcome = await runImport(getDb(), {
     actor: { userId: actor.userId, label: actor.name },

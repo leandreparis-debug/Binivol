@@ -117,7 +117,10 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
 - Les profils se relisent en base à chaque requête (`getActor`) : ne jamais les mettre en
   cache dans un cookie ou une session.
 - La connexion démo (`AUTH_DEMO_LOGIN`) n'existe jamais sur Vercel ; le serveur refuse de
-  démarrer si `VERCEL_ENV` est défini.
+  démarrer si `VERCEL_ENV` est défini. **Seule exception** (ADR-035, décidée par le
+  responsable du projet) : un déploiement de **test** à données fictives, avec en plus
+  `AUTH_DEMO_ON_VERCEL=true` ; l'import de classeur y est alors refusé. Jamais en production
+  réelle.
 
 ## Workflow
 

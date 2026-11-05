@@ -488,3 +488,24 @@ tracé dans l'audit (`duplicateOverride`).
 
 **Conséquences.** Le réengagement garde l'historique sur la fiche existante au lieu d'en créer
 une seconde.
+
+## ADR-035 — Exception : connexion démo sur un déploiement Vercel de test
+
+**Contexte.** Le responsable du projet veut tester l'application en ligne (Vercel + Supabase)
+sans configurer la connexion Google. La connexion démo y était interdite (le serveur refusait de
+démarrer).
+
+**Décision.** Exception explicite, décidée par le responsable du projet le 05/11/2026 : la
+connexion démo est acceptée sur Vercel **seulement** si `AUTH_DEMO_ON_VERCEL=true` s'ajoute à
+`AUTH_DEMO_LOGIN=true`. Dans ce mode (« démo hébergée », `isHostedDemo()`) :
+
+- la base ne contient que le seed de démonstration (60 personnes fictives, 7 comptes
+  `@binivol.test`) ;
+- **l'import de classeur est refusé** (page et actions), pour qu'aucun vrai fichier ne puisse y
+  être déposé ;
+- les documents sont inactifs (pas de stockage S3 configuré) ;
+- l'adresse est protégée par la protection de déploiement de Vercel.
+
+**Conséquences.** Quiconque passe la protection Vercel entre comme TOPAZE, sur des données
+fictives. Cette exception ne doit jamais s'appliquer à la base de production : la mise en ligne
+réelle (étape 15) retire les deux variables et passe par Google.

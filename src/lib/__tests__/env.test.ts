@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDemoLoginEnabled, isGoogleConfigured, parseEnv } from "@/lib/env";
+import { isDemoLoginEnabled, isGoogleConfigured, isHostedDemo, parseEnv } from "@/lib/env";
 
 describe("parseEnv: storage", () => {
   it("defaults to the local driver in ./storage", () => {
@@ -125,5 +125,33 @@ describe("parseEnv", () => {
 
   it("rejects an unexpected ENABLE_DESIGN_PAGE value", () => {
     expect(() => parseEnv({ ENABLE_DESIGN_PAGE: "oui" })).toThrow(/ENABLE_DESIGN_PAGE/);
+  });
+});
+
+describe("demo sign-in on Vercel (ADR-035)", () => {
+  it("is refused on Vercel without the explicit exception", () => {
+    expect(() => parseEnv({ AUTH_DEMO_LOGIN: "true", VERCEL_ENV: "production" })).toThrow(
+      /AUTH_DEMO_LOGIN/,
+    );
+  });
+
+  it("is allowed with AUTH_DEMO_ON_VERCEL=true, which also marks a hosted demo", () => {
+    const env = parseEnv({
+      AUTH_DEMO_LOGIN: "true",
+      AUTH_DEMO_ON_VERCEL: "true",
+      VERCEL_ENV: "production",
+    });
+    expect(isDemoLoginEnabled(env)).toBe(true);
+    expect(isHostedDemo(env)).toBe(true);
+  });
+
+  it("is not a hosted demo locally, nor on Vercel without the demo", () => {
+    expect(isHostedDemo(parseEnv({ AUTH_DEMO_LOGIN: "true" }))).toBe(false);
+    expect(isHostedDemo(parseEnv({ AUTH_DEMO_ON_VERCEL: "true", VERCEL_ENV: "production" }))).toBe(
+      false,
+    );
+    expect(
+      isDemoLoginEnabled(parseEnv({ AUTH_DEMO_ON_VERCEL: "true", VERCEL_ENV: "production" })),
+    ).toBe(false);
   });
 });
