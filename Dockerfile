@@ -35,6 +35,8 @@ RUN addgroup --system --gid 1001 nodejs \
   && apk add --no-cache wget
 
 COPY --from=builder /app/public ./public
+# Official PDF templates and fonts (read at runtime, SHA-256 checked: docs/signature.md).
+COPY --from=builder /app/assets ./assets
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 

@@ -58,6 +58,14 @@ export const envObject = z.object({
   /** Set by Vercel on every deployment (production, preview, development). */
   VERCEL_ENV: z.string().optional(),
 
+  // --- Electronic signature (docs/signature.md) ----------------------------
+  /**
+   * Optional key (32 characters minimum) of the HMACs of the signature: the
+   * e-mailed code and the IP address fingerprint. Defaults to a key derived
+   * from AUTH_SECRET. Changing it invalidates the codes being typed.
+   */
+  SIGNATURE_HMAC_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
+
   // --- E-mail (MailService, docs/mail.md) ------------------------------------
   /** `log` (written to outbound_mails, encrypted: development, tests, demo) or `smtp`. */
   MAIL_DRIVER: z.enum(["log", "smtp"]).default("log"),

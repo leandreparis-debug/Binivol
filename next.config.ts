@@ -26,6 +26,11 @@ const dossierHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // The official PDF templates and fonts are read at runtime (step 8): ship them
+  // with every server function (Vercel) and the standalone output.
+  outputFileTracingIncludes: { "/**": ["./assets/modeles/**", "./assets/fonts/**"] },
+  // pdf-lib and its font kit run on the server only, as plain Node modules.
+  serverExternalPackages: ["pdf-lib", "@pdf-lib/fontkit"],
   poweredByHeader: false,
   reactStrictMode: true,
   // Metadata (the page <title>) is rendered in <head> before the content for every
