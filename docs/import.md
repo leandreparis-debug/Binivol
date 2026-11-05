@@ -61,10 +61,12 @@ Que corriger :
 | NIVOL invalide, NIVOL en double                   | corriger le NIVOL (11 chiffres suivis d'une lettre)       |
 | NIVOL inconnu, code inconnu (Sessions, Fonctions) | corriger la ligne, ou l'accepter rejetée                  |
 | Date illisible                                    | corriger au format `JJ/MM/AAAA`, ou laisser vide          |
+| Téléphone illisible, gardé tel quel               | corriger le numéro (10 chiffres), ou l'accepter tel quel  |
 | Parti(e) sans date de départ                      | renseigner la date si elle est connue                     |
 | Différent du référentiel de Binivol               | vérifier : le référentiel de Binivol n'est pas écrasé     |
 | Nomination d'un mineur à une fonction interdite   | vérifier l'historique ; la ligne est reprise              |
 | Paramètre non repris                              | rien à faire (dossiers Drive, version, éditeurs, alertes) |
+| Onglet « Listes » non repris                      | rien à faire (listes déroulantes de l'ancien classeur)    |
 
 Un rejet n'empêche pas l'import : la ligne rejetée n'est simplement pas reprise. Seules les
 erreurs bloquantes l'empêchent.
@@ -99,7 +101,10 @@ pnpm import:classeur chemin/vers/classeur.xlsx
 - [ ] Les périmètres : une personne titulaire du PSE est visible par ACTION et LASER, une
       personne « Formateur » par FORMAT GP (`/moi` des comptes concernés, ou l'annuaire à
       l'étape 5).
-- [ ] Le journal importé : quelques lignes, avec les valeurs sensibles masquées.
+- [ ] Les téléphones : affichés `06 12 34 56 78` sur les fiches (le 0 de tête a été rétabli).
+- [ ] Les nominations sans date de début apparaissent « actives » sur les fiches.
+- [ ] Le journal importé : quelques lignes, avec les valeurs sensibles masquées et les dates
+      lisibles.
 - [ ] Relancer la simulation du même fichier : tout doit être « inchangé ».
 - [ ] Supprimer le fichier `.xlsx` du poste.
 

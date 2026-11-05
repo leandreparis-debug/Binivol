@@ -17,7 +17,8 @@ import {
   journalHash,
   maskJournalRow,
   normalizeEmailCell,
-  normalizePhone,
+  parsePhoneCell,
+  journalValueText,
   parisMidnight,
   parseAptitude,
   parseCancellation,
@@ -214,13 +215,33 @@ const KIND_BY_KEY: Record<string, ReferenceKind> = {
   function: "FUNCTION",
   fonction: "FUNCTION",
 };
-const CATEGORY_BY_KEY = new Map<string, ReferenceCategory>(
-  (Object.keys(REFERENCE_CATEGORY_LABELS) as ReferenceCategory[]).flatMap((c) => [
-    [valueKey(c), c],
-    [valueKey(c.replace("_", " ")), c],
-    [valueKey(REFERENCE_CATEGORY_LABELS[c]), c],
+/** Labels of the real workbook (« Formation IS », « Tronc commun », « Secours »). */
+const LEGACY_CATEGORY_LABELS: Record<string, ReferenceCategory> = {
+  "Formation IS": "FORMATION_IS",
+  "Tronc commun": "TRONC_COMMUN",
+  Secours: "SECOURS",
+};
+const CATEGORY_BY_KEY = new Map<string, ReferenceCategory>([
+  ...(Object.keys(REFERENCE_CATEGORY_LABELS) as ReferenceCategory[]).flatMap(
+    (c): [string, ReferenceCategory][] => [
+      [valueKey(c), c],
+      [valueKey(c.replace("_", " ")), c],
+      [valueKey(REFERENCE_CATEGORY_LABELS[c]), c],
+    ],
+  ),
+  ...Object.entries(LEGACY_CATEGORY_LABELS).map(([label, c]): [string, ReferenceCategory] => [
+    valueKey(label),
+    c,
   ]),
-);
+]);
+
+/** Category and kind of a Referentiel row, from codes or legacy labels (exported for tests). */
+export function legacyCategory(text: string): ReferenceCategory | undefined {
+  return CATEGORY_BY_KEY.get(valueKey(text));
+}
+export function legacyKind(text: string): ReferenceKind | undefined {
+  return KIND_BY_KEY[valueKey(text)];
+}
 
 async function importReference(
   db: Tx,
@@ -488,7 +509,7 @@ async function importVolunteers(
       firstName,
       lastName,
       email: normalizeEmailCell(cell(cells, "E-mail")),
-      phone: normalizePhone(cell(cells, "Téléphone")),
+      phone: take("Téléphone", parsePhoneCell(cell(cells, "Téléphone"))),
       status: statusParsed.value,
       entryDate: take("Date d'entrée", parseDay(cell(cells, "Date d'entrée"))),
       leftAt,
@@ -729,7 +750,7 @@ async function importProspects(
       firstName,
       lastName,
       email: normalizeEmailCell(cell(cells, "E-mail")),
-      phone: normalizePhone(cell(cells, "Téléphone")),
+      phone: take("Téléphone", parsePhoneCell(cell(cells, "Téléphone"))),
       notes: txt(cells, "Notes"),
     };
     const desiredSensitive: ImportedSensitive = {
@@ -1184,8 +1205,8 @@ async function importJournal(db: Tx, rows: SheetRow[], out: Collector, ctx: Impo
       table: txt(cells, "Table"),
       key: txt(cells, "Clé"),
       field: txt(cells, "Champ"),
-      oldValue: txt(cells, "Ancienne valeur"),
-      newValue: txt(cells, "Nouvelle valeur"),
+      oldValue: journalValueText(cell(cells, "Ancienne valeur"), txt(cells, "Champ")),
+      newValue: journalValueText(cell(cells, "Nouvelle valeur"), txt(cells, "Champ")),
     };
     return { row, at, journal, hash: journalHash(journal) };
   });
@@ -1214,7 +1235,8 @@ async function importJournal(db: Tx, rows: SheetRow[], out: Collector, ctx: Impo
           actorLabel: masked.user ?? "Import",
           action: "IMPORT",
           legacyAction: masked.action,
-          entity: masked.table ?? "Journal",
+          // System actions (« Sauvegarde »…) have no table nor key: entity stays null.
+          entity: masked.table,
           entityId: masked.key,
           field: masked.field,
           oldValue: masked.oldValue ?? undefined,

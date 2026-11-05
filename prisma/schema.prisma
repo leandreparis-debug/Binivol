@@ -980,7 +980,8 @@ model AuditLog {
   /// « Import », « Système » when there is no user.
   actorLabel   String?     @map("actor_label")
   action       AuditAction
-  entity       String
+  /// Null only for imported legacy system actions (« Sauvegarde »…), which name no table.
+  entity       String?
   entityId     String?     @map("entity_id")
   field        String?
   oldValue     Json?       @map("old_value")

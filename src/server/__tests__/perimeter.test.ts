@@ -82,6 +82,23 @@ describe("computePerimeters", () => {
     }
   });
 
+  it("counts an appointment without a start date, not cancelled and without an end, as active", () => {
+    expect(
+      sorted(
+        computePerimeters(
+          { records: [], appointments: [appointment({ startDate: null, endDate: null })] },
+          day,
+        ),
+      ),
+    ).toEqual(["FORMAT_GP"]);
+    expect(
+      computePerimeters(
+        { records: [], appointments: [appointment({ startDate: null, endDate: d("2024-12-31") })] },
+        day,
+      ).size,
+    ).toBe(0);
+  });
+
   it("adds FORMAT_GP for a trainer, and only when the flag is true", () => {
     expect(
       sorted(computePerimeters({ records: [], appointments: [], isTrainer: true }, day)),

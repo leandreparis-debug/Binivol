@@ -48,6 +48,9 @@ const isEmptyRow = (cells: Record<string, Cell>) =>
  * spaces. A missing sheet or expected column is blocking; unknown sheets and
  * columns are warnings. Entirely empty rows are skipped silently.
  */
+/** The 8th sheet of the real v03: drop-down lists (statuses, aptitudes, results…). */
+export const LISTS_SHEET = "Listes";
+
 export async function readWorkbook(buffer: Buffer): Promise<ParsedWorkbook> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
@@ -61,7 +64,10 @@ export async function readWorkbook(buffer: Buffer): Promise<ParsedWorkbook> {
         row: null,
         key: sheet.name,
         level: "warning",
-        message: `Onglet « ${sheet.name} » non repris.`,
+        message:
+          normalizeHeader(sheet.name) === LISTS_SHEET
+            ? `Onglet « ${sheet.name} » non repris : listes de valeurs de l'ancien classeur, Binivol a les siennes.`
+            : `Onglet « ${sheet.name} » non repris.`,
       });
     }
   }

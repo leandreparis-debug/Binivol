@@ -71,7 +71,7 @@ test.describe("Import du classeur (TOPAZE)", () => {
     const file = await (await download).path();
     const csv = readFileSync(file, "utf8");
     expect(csv).toContain("Rapport d'import Binivol");
-    expect(csv).toContain("Bénévoles;20;0;0;0;2;3");
+    expect(csv).toContain("Bénévoles;20;0;0;0;2;4");
     expect(csv).toContain("NIVOL invalide");
 
     // Filter of the issues table.

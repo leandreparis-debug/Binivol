@@ -67,7 +67,7 @@ beforeEach(async () => {
 const EXPECTED_COUNTS = {
   Referentiel: { created: 0, updated: 0, unchanged: 21, conflicts: 0, rejected: 0, warnings: 1 },
   Parametres: { created: 0, updated: 0, unchanged: 5, conflicts: 0, rejected: 0, warnings: 6 },
-  Benevoles: { created: 20, updated: 0, unchanged: 0, conflicts: 0, rejected: 2, warnings: 3 },
+  Benevoles: { created: 20, updated: 0, unchanged: 0, conflicts: 0, rejected: 2, warnings: 4 },
   Prospects: { created: 5, updated: 0, unchanged: 0, conflicts: 0, rejected: 0, warnings: 1 },
   Sessions: { created: 58, updated: 0, unchanged: 0, conflicts: 0, rejected: 3, warnings: 1 },
   Fonctions: { created: 15, updated: 0, unchanged: 0, conflicts: 0, rejected: 0, warnings: 2 },
@@ -89,7 +89,13 @@ describe("simulation", () => {
     const report = (await simulate()).report;
     const has = (level: string, key: string | null, pattern: RegExp) =>
       issues(report, level).some((i) => (key === null || i.key === key) && pattern.test(i.message));
-    expect(has("warning", "Accueil", /Onglet « Accueil » non repris/)).toBe(true);
+    expect(has("warning", "Listes", /Onglet « Listes » non repris : listes de valeurs/)).toBe(true);
+    expect(has("warning", nivol(11), /Téléphone illisible « à demander », gardé tel quel/)).toBe(
+      true,
+    );
+    // Legacy labels « Formation IS », « Tronc commun », « Secours », « Formation », « Fonction »:
+    // translated, so only the OPR label differs.
+    expect(issues(report).filter((i) => i.sheet === "Referentiel")).toHaveLength(1);
     expect(has("warning", "Colonne perso", /Colonne inconnue/)).toBe(true);
     expect(has("warning", "OPR", /libellé « Opérateur radio \(OPR\) »/)).toBe(true);
     expect(has("warning", "EDITEURS", /comptes à créer depuis l'administration/)).toBe(true);
@@ -201,7 +207,25 @@ describe("real import", () => {
       true,
     );
     expect(journal.every((j) => j.action === "IMPORT" && j.legacyAction !== null)).toBe(true);
-    expect(journal.find((j) => j.field === "Téléphone")?.oldValue).toMatch(/^06 39 98/);
+    // Numbers of the journal become readable text before masking and hashing.
+    const phone = journal.find((j) => j.field === "Téléphone");
+    expect(phone?.oldValue).toMatch(/^063998\d{4}$/);
+    const entry = journal.find((j) => j.field === "Date d'entrée");
+    expect(entry?.newValue).toBe("05/09/2020");
+    expect(journal.find((j) => j.legacyAction === "Paramètre")).toMatchObject({
+      entity: "Parametres",
+      entityId: "DELAI_ALERTE_JOURS",
+      newValue: "60",
+    });
+    // Every kind of key, a cell range as field, and system actions without entity.
+    const keys = journal.map((j) => j.entityId ?? "");
+    for (const pattern of [/^00099\d{6}[A-Z]$/, /^S-\d{5}$/, /^F-\d{5}$/, /^P-\d{5}$/, /^OPR$/]) {
+      expect(keys.some((k) => pattern.test(k))).toBe(true);
+    }
+    expect(journal.some((j) => /^H\d+:J\d+$/.test(j.field ?? ""))).toBe(true);
+    const system = journal.filter((j) => j.legacyAction === "Sauvegarde");
+    expect(system.length).toBeGreaterThan(0);
+    expect(system.every((j) => j.entity === null && j.entityId === null)).toBe(true);
   });
 
   it("is idempotent: the same file again is entirely unchanged, with no business write", async () => {
@@ -234,7 +258,7 @@ describe("real import", () => {
       19, 57, 14,
     ]);
     expect((await db.person.findUniqueOrThrow({ where: { nivol: nivol(2) } })).phone).toBe(
-      "06 39 98 02 99",
+      "0639980299",
     );
     expect(
       (await db.trainingRecord.findUniqueOrThrow({ where: { legacyRef: "S-00004" } })).result,
@@ -265,6 +289,43 @@ describe("real import", () => {
     expect((await db.person.findUniqueOrThrow({ where: { id: person.id } })).phone).toBe(
       "01 99 00 00 01",
     );
+  });
+
+  it("restores the leading 0 of numeric phones and normalises +33 texts", async () => {
+    await simulateAndImport();
+    const phone = async (i: number) =>
+      (await db.person.findUniqueOrThrow({ where: { nivol: nivol(i) } })).phone;
+    expect(await phone(1)).toBe("0639980100");
+    expect(await phone(3)).toBe("0639980300");
+    expect(await phone(11)).toBe("à demander");
+    const prospect = await db.candidacy.findUniqueOrThrow({
+      where: { legacyRef: "P-00001" },
+      include: { person: { select: { phone: true } } },
+    });
+    expect(prospect.person.phone).toBe("0639989100");
+  });
+
+  it("imports appointments without a start date as active, and counts them in perimeters", async () => {
+    // No function of the reference list brings a perimeter today: give one to CH_TECH
+    // (perimeters are data) to check that an appointment without a start date counts.
+    await db.referenceItem.update({ where: { code: "CH_TECH" }, data: { perimeters: ["ACTION"] } });
+    await simulateAndImport();
+    const withoutStart = await db.appointment.count({
+      where: { legacyRef: { not: null }, startDate: null },
+    });
+    expect(withoutStart).toBe(14);
+    // F-00004: CH_TECH, no start, no end, not cancelled → active: brings its perimeter.
+    const f4 = await db.appointment.findUniqueOrThrow({
+      where: { legacyRef: "F-00004" },
+      include: { reference: true },
+    });
+    expect(f4).toMatchObject({ startDate: null, endDate: null, cancelledAt: null });
+    expect(f4.reference.perimeters.length).toBeGreaterThan(0);
+    const perimeters = await perimetersOf(db, f4.personId, new Date("2026-11-04T00:00:00.000Z"));
+    for (const p of f4.reference.perimeters) expect(perimeters.has(p)).toBe(true);
+    // F-00015 ended on 31/12/2024: no longer active.
+    const f15 = await db.appointment.findUniqueOrThrow({ where: { legacyRef: "F-00015" } });
+    expect(f15.endDate?.toISOString()).toBe("2024-12-31T00:00:00.000Z");
   });
 
   it("gives the right perimeters to imported people (PSE, TCAU, trainer)", async () => {

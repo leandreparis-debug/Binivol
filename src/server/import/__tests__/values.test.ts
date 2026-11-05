@@ -6,7 +6,6 @@ import {
   isSensitiveJournalField,
   journalHash,
   maskJournalRow,
-  normalizePhone,
   parisWallClock,
   parseAptitude,
   parseCancellation,
@@ -17,6 +16,9 @@ import {
   parseStatus,
   parseYesNo,
   type JournalRow,
+  isDateJournalField,
+  journalValueText,
+  parsePhoneCell,
 } from "@/server/import/values";
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
@@ -106,8 +108,8 @@ describe("value lists", () => {
     expect(parseStage("dossier en cours").value).toBe("FILE");
     expect(parseStage("Rencontre prévue").value).toBeNull();
   });
-  it("keeps phones as written, spaces normalised", () => {
-    expect(normalizePhone("  06 39  98 00 00 ")).toBe("06 39 98 00 00");
+  it("normalises phone texts to 10 digits", () => {
+    expect(parsePhoneCell(" 06 39 98 00 00 ")).toEqual({ value: "0639980000" });
     expect(cellText("   ")).toBeNull();
   });
 });
@@ -179,6 +181,59 @@ describe("journal masking and hash", () => {
     expect(journalHash(row)).not.toBe(journalHash({ ...row, key: "00099000002C" }));
     expect(journalHash({ ...row, field: "Téléphone" })).not.toBe(
       journalHash({ ...row, field: "Téléphone", oldValue: "x" }),
+    );
+  });
+});
+
+describe("phones and journal values", () => {
+  it("parses a phone cell: 9-digit number, +33 text, unreadable text", () => {
+    expect(parsePhoneCell(612345678)).toEqual({ value: "0612345678" });
+    expect(parsePhoneCell("+33 6 12 34 56 78")).toEqual({ value: "0612345678" });
+    expect(parsePhoneCell("à demander")).toEqual({
+      value: "à demander",
+      warning: "Téléphone illisible « à demander », gardé tel quel.",
+    });
+    expect(parsePhoneCell(null)).toEqual({ value: null });
+  });
+
+  it("detects date columns of the journal", () => {
+    expect(isDateJournalField("Date d'entrée")).toBe(true);
+    expect(isDateJournalField("Date de naissance")).toBe(true);
+    expect(isDateJournalField("Modifié le")).toBe(true);
+    expect(isDateJournalField("Téléphone")).toBe(false);
+    expect(isDateJournalField("H29:J29")).toBe(false);
+    expect(isDateJournalField(null)).toBe(false);
+  });
+
+  it("turns journal numbers and dates into readable text", () => {
+    expect(journalValueText(612345678, "Téléphone")).toBe("0612345678");
+    expect(journalValueText(44079, "Date d'entrée")).toBe("05/09/2020");
+    // A 5-digit number outside a date column stays a number.
+    expect(journalValueText(44079, "Commentaire")).toBe("44079");
+    expect(journalValueText(60, "Valeur")).toBe("60");
+    expect(journalValueText(new Date(Date.UTC(1990, 0, 2)), "Date de naissance")).toBe(
+      "02/01/1990",
+    );
+    expect(journalValueText(new Date(Date.UTC(2025, 2, 3, 14, 5)), "Modifié le")).toBe(
+      "03/03/2025 14:05",
+    );
+    expect(journalValueText("  texte  ", "Notes")).toBe("texte");
+    expect(journalValueText(null, "Notes")).toBeNull();
+  });
+
+  it("hashes the readable value: a serial and the same day typed as a date give one row", () => {
+    const row = (newValue: string | null) => ({
+      at: "2025-01-01T10:00:00.000Z",
+      user: "u",
+      action: "Modification",
+      table: "Benevoles",
+      key: "00099000001B",
+      field: "Date d'entrée",
+      oldValue: null,
+      newValue,
+    });
+    expect(journalHash(row(journalValueText(44079, "Date d'entrée")))).toBe(
+      journalHash(row(journalValueText(new Date(Date.UTC(2020, 8, 5)), "Date d'entrée"))),
     );
   });
 });

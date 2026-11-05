@@ -324,21 +324,24 @@ Intitulés exacts de la ligne 1 de chaque onglet du classeur v03 ; seule la stru
 décrite ici, jamais les données. L'import (`src/server/import/`, guide `docs/import.md`) compare
 les intitulés après suppression des espaces en trop : une colonne attendue absente est une
 erreur bloquante, une colonne inconnue un avertissement. Ordre : Referentiel, Parametres,
-Benevoles, Prospects, Sessions, Fonctions, Journal. Tout autre onglet est signalé « non repris ».
+Benevoles, Prospects, Sessions, Fonctions, Journal. Le 8e onglet du vrai classeur, « Listes »
+(Statut bénévole, Aptitude, Résultat session, Catégorie, Type, Oui/Non : les listes déroulantes),
+n'est pas repris : Binivol a ses propres listes. Tout autre onglet est signalé « non repris ».
 
 **Sort d'une colonne** : _importée_ (vers le champ indiqué), _audit_ (gardée dans l'entrée
 `IMPORT` du journal d'audit, pas dans un champ), _non reprise_ (avec la raison).
 
 ### Valeurs communes
 
-| Valeur              | Règle                                                                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Oui/Non             | « OUI » → vrai, « NON » → faux, **vide → `null`** (inconnu) ; autre texte → `null` + avertissement                                          |
-| Dates               | date Excel, nombre de série Excel ou texte `JJ/MM/AAAA` → jour calendaire ; illisible → `null` + avertissement, jamais un rejet de la ligne |
-| Horodatages         | date-heure Excel, série avec fraction ou `JJ/MM/AAAA HH:MM` → instant, heure de Paris                                                       |
-| NIVOL               | `normalizeNivol()` (espaces retirés, majuscules) ; invalide → **ligne rejetée**                                                             |
-| E-mails, téléphones | e-mails en minuscules ; téléphones gardés tels quels, espaces normalisés                                                                    |
-| Lignes vides        | ignorées sans bruit                                                                                                                         |
+| Valeur       | Règle                                                                                                                                                                                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Oui/Non      | « OUI » → vrai, « NON » → faux, **vide → `null`** (inconnu) ; autre texte → `null` + avertissement                                                                                                                                                                              |
+| Dates        | date Excel (cas du vrai classeur), nombre de série Excel ou texte `JJ/MM/AAAA` → jour calendaire ; illisible → `null` + avertissement, jamais un rejet de la ligne                                                                                                              |
+| Horodatages  | date-heure Excel, série avec fraction ou `JJ/MM/AAAA HH:MM` → instant, heure de Paris                                                                                                                                                                                           |
+| NIVOL        | `normalizeNivol()` (espaces retirés, majuscules) ; invalide → **ligne rejetée**                                                                                                                                                                                                 |
+| E-mails      | en minuscules                                                                                                                                                                                                                                                                   |
+| Téléphones   | stockés en **nombres à 9 chiffres** dans le classeur (0 de tête perdu) : `612345678` → `0612345678` ; texte avec espaces, points ou `+33` → 10 chiffres ; autre valeur gardée telle quelle + avertissement. Stockés en chiffres seuls, affichés par paires (`src/lib/phone.ts`) |
+| Lignes vides | ignorées sans bruit                                                                                                                                                                                                                                                             |
 
 Listes : Statut (Candidat → CANDIDATE, Actif → ACTIVE, Suspendu → SUSPENDED, Inactif → INACTIVE,
 Parti(e) → LEFT ; autre → rejet). Aptitude (Apte → FIT, Non apte → UNFIT, Retiré(e) → WITHDRAWN,
@@ -411,7 +414,7 @@ Toute personne importée porte `legacy_import = true`.
 | ID                         | importée → `legacy_ref`                                       | `ref` F- attribué par Binivol                                                                                                                                               |
 | NIVOL                      | importée → `person_id`                                        | inconnu ou invalide → ligne rejetée                                                                                                                                         |
 | Fonction                   | importée → `reference_id`                                     | doit être de type FUNCTION, sinon rejet                                                                                                                                     |
-| Date de début, Date de fin | importées → `start_date`, `end_date`                          |                                                                                                                                                                             |
+| Date de début, Date de fin | importées → `start_date`, `end_date`                          | début vide sur plus de 90 % des lignes : sans début, non annulée et sans fin, la nomination est **active** (et compte dans `perimetersOf`)                                  |
 | Autorisée par              | importée → `authorized_by`                                    |                                                                                                                                                                             |
 | Référence décision         | importée → `decision_ref`                                     |                                                                                                                                                                             |
 | Commentaire                | importée → `comment`                                          |                                                                                                                                                                             |
@@ -428,12 +431,12 @@ Comparé, **jamais écrasé** : une différence de libellé, de catégorie, de t
 ou d'interdiction aux mineurs est un avertissement. Un code absent de Binivol est créé **inactif**,
 avec un avertissement.
 
-| Colonne                                                                  | Sort                                                  |
-| ------------------------------------------------------------------------ | ----------------------------------------------------- |
-| Code, Libellé, Catégorie, Type, Interdite aux mineurs, Échéance au 31/12 | comparées (créées pour un code nouveau)               |
-| Ordre, Source / commentaire                                              | utilisées pour un code nouveau (`sort_order`, `note`) |
-| Validité (mois), Prérequis                                               | non reprises : vides pour tous les codes du classeur  |
-| Actif                                                                    | non reprise : l'activité se gère dans Binivol         |
+| Colonne                                                                  | Sort                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code, Libellé, Catégorie, Type, Interdite aux mineurs, Échéance au 31/12 | comparées (créées pour un code nouveau) ; Catégorie « Formation IS », « Tronc commun », « Secours » → `FORMATION_IS`, `TRONC_COMMUN`, `SECOURS` ; Type « Formation », « Fonction » → `TRAINING`, `FUNCTION` |
+| Ordre, Source / commentaire                                              | utilisées pour un code nouveau (`sort_order`, `note`)                                                                                                                                                       |
+| Validité (mois), Prérequis                                               | non reprises : vides pour tous les codes du classeur                                                                                                                                                        |
+| Actif                                                                    | non reprise : l'activité se gère dans Binivol                                                                                                                                                               |
 
 ### Onglet « Parametres » (Clé, Valeur, Description) → `settings`
 
@@ -454,13 +457,13 @@ La colonne Description sert de description à un paramètre créé.
 
 ### Onglet « Journal » → `audit_logs` (clé : SHA-256 de la ligne → `legacy_hash`)
 
-| Colonne                          | Sort                                       | Remarque                                                                        |
-| -------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
-| Horodatage                       | importée → `at`                            | illisible → jour de l'import + avertissement                                    |
-| Utilisateur                      | importée → `actor_label`                   |                                                                                 |
-| Action                           | importée → `legacy_action`                 | `action = IMPORT`                                                               |
-| Table, Clé, Champ                | importées → `entity`, `entity_id`, `field` |                                                                                 |
-| Ancienne valeur, Nouvelle valeur | importées → `old_value`, `new_value`       | **masquées** `"[sensible]"` pour naissance, B3, autorisation parentale, adresse |
+| Colonne                          | Sort                                       | Remarque                                                                                                                                                                                                                                                                       |
+| -------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Horodatage                       | importée → `at`                            | illisible → jour de l'import + avertissement                                                                                                                                                                                                                                   |
+| Utilisateur                      | importée → `actor_label`                   |                                                                                                                                                                                                                                                                                |
+| Action                           | importée → `legacy_action`                 | `action = IMPORT`                                                                                                                                                                                                                                                              |
+| Table, Clé, Champ                | importées → `entity`, `entity_id`, `field` | Clé : NIVOL, `S-…`, `F-…`, `P-…`, code ou clé de paramètre ; Table et Clé vides (actions système : « Sauvegarde »…) → `entity` et `entity_id` à `null` ; Champ peut être une plage (`H29:J29`)                                                                                 |
+| Ancienne valeur, Nouvelle valeur | importées → `old_value`, `new_value`       | converties en texte lisible **avant** masquage et empreinte : date Excel → `JJ/MM/AAAA`, nombre de 5 chiffres dans une colonne de date → `JJ/MM/AAAA`, nombre de 9 chiffres → téléphone `0…` ; **masquées** `"[sensible]"` pour naissance, B3, autorisation parentale, adresse |
 
 `legacy_hash` est l'empreinte de la ligne normalisée **masquée** : une ligne n'est jamais importée
 deux fois, et l'empreinte ne permet pas de retrouver une valeur sensible.

@@ -5,6 +5,7 @@ import type {
   PersonStatus,
   TrainingResult,
 } from "@/generated/prisma/enums";
+import { parsePhone } from "@/lib/phone";
 
 /**
  * Pure conversions of legacy cell values. Never throw: a value that cannot be
@@ -209,8 +210,67 @@ export function normalizeEmailCell(cell: Cell): string | null {
   return cellText(cell)?.toLowerCase() ?? null;
 }
 
-/** Phone kept as written, spaces normalised. */
-export function normalizePhone(cell: Cell): string | null {
+/**
+ * A phone cell. The workbook stores most numbers as 9-digit numbers (the
+ * leading 0 was lost): they get it back. Texts with spaces, dots or `+33`
+ * are normalised to 10 digits. Anything else is kept as written, with a warning.
+ */
+export function parsePhoneCell(cell: Cell): Parsed<string | null> {
+  if (cell === null || typeof cell === "boolean" || cell instanceof Date) {
+    const text = cell === null ? null : cellText(cell);
+    return text === null
+      ? { value: null }
+      : { value: text, warning: `Téléphone illisible « ${text} », gardé tel quel.` };
+  }
+  const parsed = parsePhone(cell);
+  if (parsed.normalized) return { value: parsed.value };
+  return {
+    value: parsed.value,
+    warning: `Téléphone illisible « ${parsed.value ?? ""} », gardé tel quel.`,
+  };
+}
+
+/** True when a journal « Champ » names a date column (« Date d'entrée », « Modifié le »…). */
+export function isDateJournalField(field: string | null): boolean {
+  if (!field) return false;
+  const key = valueKey(field);
+  return /\bdate\b/.test(key) || key.endsWith(" le") || key === "horodatage";
+}
+
+function frenchDay(day: Date): string {
+  const dd = String(day.getUTCDate()).padStart(2, "0");
+  const mm = String(day.getUTCMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${String(day.getUTCFullYear())}`;
+}
+
+/**
+ * Readable text of a journal value (« Ancienne valeur », « Nouvelle valeur »),
+ * computed **before** masking and hashing:
+ * - an Excel date → `JJ/MM/AAAA` (`JJ/MM/AAAA HH:MM` with a time);
+ * - a 5-digit number in a date column → the Excel serial as `JJ/MM/AAAA`;
+ * - a 9-digit number → the phone number with its leading 0;
+ * - any other value → its text.
+ */
+export function journalValueText(cell: Cell, field: string | null): string | null {
+  if (cell === null) return null;
+  if (cell instanceof Date) {
+    if (Number.isNaN(cell.getTime())) return null;
+    const time = cell.getUTCHours() * 60 + cell.getUTCMinutes();
+    if (time === 0) return frenchDay(cell);
+    const hh = String(cell.getUTCHours()).padStart(2, "0");
+    const mi = String(cell.getUTCMinutes()).padStart(2, "0");
+    return `${frenchDay(cell)} ${hh}:${mi}`;
+  }
+  if (typeof cell === "number") {
+    if (isDateJournalField(field) && Number.isInteger(cell) && cell >= 10_000 && cell <= 99_999) {
+      const day = excelSerialToDay(cell);
+      if (day) return frenchDay(day);
+    }
+    if (Number.isInteger(cell) && cell >= 100_000_000 && cell <= 999_999_999) {
+      return parsePhone(cell).value;
+    }
+    return String(cell);
+  }
   return cellText(cell);
 }
 

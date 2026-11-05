@@ -77,7 +77,8 @@ function volunteers(): { rows: (Row | null)[]; people: Volunteer[] } {
       "E-mail": `${first.toLowerCase()}.${i}@exemple.test`
         .normalize("NFD")
         .replace(/\p{Diacritic}/gu, ""),
-      Téléphone: `06 39 98 ${String(i).padStart(2, "0")} 00`,
+      // Stored as a number in the real workbook: the leading 0 is lost.
+      Téléphone: 639_980_000 + i * 100,
       "Date de naissance": d(1980 + (i % 20), 1 + (i % 12), 1 + (i % 27)),
       Statut: "Actif",
       "Date d'entrée": d(2015 + (i % 9), 1 + (i % 12), 10),
@@ -105,7 +106,13 @@ function volunteers(): { rows: (Row | null)[]; people: Volunteer[] } {
   };
   rows.push(base(1));
   rows.push(base(2, { NIVOL: "000 9900 0002 c" })); // spaces + lower case: accepted
-  rows.push(base(3, { "Date de naissance": serial(1990, 4, 12), "Date d'entrée": "05/09/2020" }));
+  rows.push(
+    base(3, {
+      "Date de naissance": serial(1990, 4, 12),
+      "Date d'entrée": "05/09/2020",
+      Téléphone: "+33 6 39 98 03 00", // text with +33: normalised
+    }),
+  );
   rows.push(base(4, { "Date d'entrée": "bientôt" })); // unreadable date
   rows.push(base(5, { Statut: "Parti(e)", "Date de départ": null, "Modifié le": d(2024, 6, 30) }));
   rows.push(base(6, { Adhérent: null, "Autre AASC": null })); // empty yes/no: unknown
@@ -121,7 +128,9 @@ function volunteers(): { rows: (Row | null)[]; people: Volunteer[] } {
     }),
   ); // minor
   rows.push(base(10, { Formateur: "OUI" }));
-  rows.push(base(11, { Statut: "Suspendu", "Aptitude (Pegass)": "Retiré(e)" }));
+  rows.push(
+    base(11, { Statut: "Suspendu", "Aptitude (Pegass)": "Retiré(e)", Téléphone: "à demander" }),
+  ); // unreadable phone: kept as written, warning
   rows.push(base(12, { Statut: "Inactif", "Aptitude (Pegass)": "Non apte" }));
   rows.push(base(13, { Statut: "Candidat", "Aptitude (Pegass)": "À vérifier" }));
   for (let i = 14; i <= 22; i += 1) rows.push(base(i));
@@ -140,7 +149,7 @@ function prospects(people: Volunteer[]): Row[] {
     Prénom: `Prospect${n}`,
     Nom: "Fictif",
     "E-mail": `prospect${n}@exemple.test`,
-    Téléphone: `06 39 98 9${n} 00`,
+    Téléphone: 639_989_000 + n * 100,
     "Date de naissance": d(1995 + n, n, 10),
     Source: "Site internet",
     Intérêt: "Postes de secours",
@@ -207,12 +216,20 @@ const CODES = [
   ["TCEO", "Tronc commun des encadrants opérationnels", "FORMATION_IS", "TRAINING", "NON", "NON"],
 ] as const;
 
+/** The real workbook writes labels, not codes. */
+const CATEGORY_LABEL: Record<string, string> = {
+  FORMATION_IS: "Formation IS",
+  TRONC_COMMUN: "Tronc commun",
+  SECOURS: "Secours",
+};
+const TYPE_LABEL: Record<string, string> = { TRAINING: "Formation", FUNCTION: "Fonction" };
+
 function reference(): Row[] {
   return CODES.map(([code, label, category, type, minors, endOfYear], i) => ({
     Code: code,
     Libellé: label,
-    Catégorie: category,
-    Type: type,
+    Catégorie: CATEGORY_LABEL[category] ?? category,
+    Type: TYPE_LABEL[type] ?? type,
     Ordre: i + 1,
     "Validité (mois)": null,
     Prérequis: null,
@@ -358,7 +375,8 @@ function appointments(): Row[] {
     ID: `F-${String(k + 1).padStart(5, "0")}`,
     NIVOL: fixtureNivol(i),
     Fonction: code,
-    "Date de début": d(2023 + (k % 3), 1 + (k % 12), 1),
+    // Empty on more than 90 % of the real rows: an active appointment without a start date.
+    "Date de début": null,
     "Date de fin": null,
     "Autorisée par": "DLUS (fictif)",
     "Référence décision": `DEC-FIX-${String(k + 1).padStart(3, "0")}`,
@@ -375,7 +393,7 @@ function appointments(): Row[] {
     ID: "F-00014",
     NIVOL: fixtureNivol(9), // the minor
     Fonction: "CHEF_PAPS",
-    "Date de début": d(2025, 9, 1),
+    "Date de début": null,
     "Autorisée par": "DLUS (fictif)",
     "Référence décision": "DEC-FIX-014",
     "Saisi le": dt(2025, 9, 1, 11, 0),
@@ -385,8 +403,8 @@ function appointments(): Row[] {
     ID: "F-00015",
     NIVOL: fixtureNivol(22),
     Fonction: "CH_FIXE",
-    "Date de début": "01/02/2022",
-    "Date de fin": serial(2024, 12, 31),
+    "Date de début": d(2022, 2, 1),
+    "Date de fin": d(2024, 12, 31),
     "Autorisée par": "DLUS (fictif)",
     "Référence décision": "DEC-FIX-015",
     "Saisi le": dt(2022, 2, 1, 11, 0),
@@ -410,47 +428,155 @@ const ACTIONS = [
   "Récapitulatif TCAU envoyé",
 ];
 
+/** System actions: « Table » and « Clé » are empty. */
+const SYSTEM_ACTIONS = new Set([
+  "Création de la base",
+  "Installation",
+  "Sauvegarde",
+  "Envoi des alertes",
+  "Récapitulatif TCAU envoyé",
+]);
+
+/** Table and key of a « Modification » row, cycling through every kind of key. */
+const MODIFIED_TARGETS: [string, (n: number) => string][] = [
+  ["Benevoles", (n) => fixtureNivol(1 + (n % 20))],
+  ["Sessions", (n) => `S-${String(1 + (n % 50)).padStart(5, "0")}`],
+  ["Fonctions", (n) => `F-${String(1 + (n % 13)).padStart(5, "0")}`],
+  ["Prospects", (n) => `P-${String(1 + (n % 5)).padStart(5, "0")}`],
+  ["Referentiel", () => "OPR"],
+];
+
+function journalRow(n: number): Row {
+  const action = ACTIONS[(n - 1) % ACTIONS.length] ?? "Modification";
+  const at: Value =
+    n % 4 === 0
+      ? `0${1 + (n % 9)}/03/2025 14:${String(n).padStart(2, "0")}`
+      : dt(2024 + (n % 2), 1 + (n % 12), 1 + (n % 27), 8 + (n % 10), n);
+  const row: Row = {
+    Horodatage: at,
+    Utilisateur: "editeur.fictif@exemple.test",
+    Action: action,
+    Table: null,
+    Clé: null,
+    Champ: null,
+    "Ancienne valeur": null,
+    "Nouvelle valeur": null,
+  };
+  if (SYSTEM_ACTIONS.has(action)) return row;
+  switch (action) {
+    case "Création":
+      if (n === 15) return { ...row, Table: "Prospects", Clé: "P-00002" };
+      if (n === 27) return { ...row, Table: "Referentiel", Clé: "OPR" };
+      return { ...row, Table: "Benevoles", Clé: fixtureNivol(1 + (n % 20)) };
+    case "Dossier Drive":
+      return { ...row, Table: "Benevoles", Clé: fixtureNivol(1 + (n % 20)) };
+    case "Modification": {
+      const [table, key] = MODIFIED_TARGETS[Math.floor(n / 12) % MODIFIED_TARGETS.length] ??
+        MODIFIED_TARGETS[0] ?? ["Benevoles", fixtureNivol];
+      return {
+        ...row,
+        Table: table,
+        Clé: key(n),
+        Champ: "Commentaire",
+        "Ancienne valeur": null,
+        "Nouvelle valeur": "Commentaire fictif",
+      };
+    }
+    case "Modification directe":
+      // Phone typed in the sheet: a 9-digit number.
+      return {
+        ...row,
+        Table: "Benevoles",
+        Clé: fixtureNivol(1 + (n % 20)),
+        Champ: "Téléphone",
+        "Ancienne valeur": 639_980_011 + n,
+        "Nouvelle valeur": 639_980_022 + n,
+      };
+    case "Modification directe (plage)":
+      return {
+        ...row,
+        Table: "Benevoles",
+        Clé: null,
+        Champ: `H${String(n + 23)}:J${String(n + 23)}`,
+        "Ancienne valeur": null,
+        "Nouvelle valeur": "Plage collée (fictif)",
+      };
+    case "Annulation":
+      return {
+        ...row,
+        Table: "Fonctions",
+        Clé: `F-${String(1 + (n % 13)).padStart(5, "0")}`,
+        Champ: "Annulée",
+        "Nouvelle valeur": "annulée (fictif)",
+      };
+    case "Paramètre":
+      return {
+        ...row,
+        Table: "Parametres",
+        Clé: "DELAI_ALERTE_JOURS",
+        Champ: "Valeur",
+        "Ancienne valeur": 45,
+        "Nouvelle valeur": 60,
+      };
+    default:
+      return row;
+  }
+}
+
 function journal(extra = 0): Row[] {
   const rows: Row[] = [];
-  for (let n = 1; n <= 30 + extra; n += 1) {
-    const action = ACTIONS[(n - 1) % ACTIONS.length] ?? "Modification";
-    const sensitive = n === 5 || n === 17 || n === 29;
-    const field =
-      n === 5
-        ? "Date de naissance"
-        : n === 17
-          ? "Date vérif. B3"
-          : n === 29
-            ? "Autorisation parentale"
-            : n % 3 === 0
-              ? "Téléphone"
-              : null;
-    rows.push({
-      Horodatage:
-        n % 4 === 0
-          ? `0${1 + (n % 9)}/03/2025 14:${String(n).padStart(2, "0")}`
-          : dt(2024 + (n % 2), 1 + (n % 12), 1 + (n % 27), 8 + (n % 10), n),
-      Utilisateur: "editeur.fictif@exemple.test",
-      Action: action,
-      Table: action.startsWith("Modification") || action === "Création" ? "Benevoles" : null,
-      Clé:
-        action.startsWith("Modification") || action === "Création"
-          ? fixtureNivol(1 + (n % 20))
-          : null,
-      Champ: field,
-      "Ancienne valeur": sensitive
-        ? "01/01/1990"
-        : field
-          ? `06 39 98 ${String(n).padStart(2, "0")} 11`
-          : null,
-      "Nouvelle valeur": sensitive
-        ? "02/01/1990"
-        : field
-          ? `06 39 98 ${String(n).padStart(2, "0")} 22`
-          : null,
-    });
-  }
+  for (let n = 1; n <= 30 + extra; n += 1) rows.push(journalRow(n));
+  // Sensitive fields (masked) and a date typed as an Excel serial number.
+  const set = (n: number, over: Row) => {
+    const row = rows[n - 1];
+    if (row) Object.assign(row, over);
+  };
+  const volunteer = { Action: "Modification", Table: "Benevoles" };
+  set(3, {
+    ...volunteer,
+    Clé: fixtureNivol(5),
+    Champ: "Date de naissance",
+    "Ancienne valeur": d(1990, 1, 1),
+    "Nouvelle valeur": serial(1990, 1, 2),
+  });
+  set(9, {
+    ...volunteer,
+    Clé: fixtureNivol(17),
+    Champ: "Date vérif. B3",
+    "Ancienne valeur": "01/01/2024",
+    "Nouvelle valeur": "02/01/2025",
+  });
+  set(21, {
+    ...volunteer,
+    Clé: fixtureNivol(9),
+    Champ: "Autorisation parentale",
+    "Ancienne valeur": "NON",
+    "Nouvelle valeur": "OUI",
+  });
+  set(19, {
+    ...volunteer,
+    Clé: fixtureNivol(3),
+    Champ: "Date d'entrée",
+    "Ancienne valeur": null,
+    "Nouvelle valeur": serial(2020, 9, 5),
+  });
   return rows;
+}
+
+/** The 8th sheet of the real v03: the drop-down lists. Not imported. */
+function addLists(workbook: ExcelJS.Workbook) {
+  const sheet = workbook.addWorksheet("Listes");
+  const columns: [string, string[]][] = [
+    ["Statut bénévole", ["Candidat", "Actif", "Suspendu", "Inactif", "Parti(e)"]],
+    ["Aptitude", ["Apte", "Non apte", "Retiré(e)", "À vérifier"]],
+    ["Résultat session", ["Validé", "Inscrit(e)", "À confirmer", "Non validé", "Absent"]],
+    ["Catégorie", ["Formation IS", "Tronc commun", "Secours"]],
+    ["Type", ["Formation", "Fonction"]],
+    ["Oui/Non", ["OUI", "NON"]],
+  ];
+  sheet.addRow(columns.map(([header]) => header));
+  const height = Math.max(...columns.map(([, values]) => values.length));
+  for (let i = 0; i < height; i += 1) sheet.addRow(columns.map(([, values]) => values[i] ?? null));
 }
 
 function addSheet(
@@ -509,13 +635,12 @@ async function build(variant: Variant) {
   workbook.creator = "Binivol (fixture fictive)";
   workbook.created = FIXED_DATE;
   workbook.modified = FIXED_DATE;
-  const accueil = workbook.addWorksheet("Accueil");
-  accueil.addRow(["Classeur fictif de test — aucune donnée réelle"]);
+  addLists(workbook);
 
   const { rows: volunteerRows, people } = volunteers();
   if (variant.modify) {
     const second = volunteerRows[1];
-    if (second) second.Téléphone = "06 39 98 02 99";
+    if (second) second.Téléphone = 639_980_299;
   }
   let volunteerHeaders: string[] = SHEET_COLUMNS.Benevoles.map((h) =>
     h === "Prénom" ? "  Prénom  " : h,
