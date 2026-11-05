@@ -266,7 +266,7 @@ describe("draft, submission and review", () => {
     });
     expect(ok.ok).toBe(true);
     const row = await db.dossierSubmission.findUniqueOrThrow({ where: { id: draft.submissionId } });
-    expect(row).toMatchObject({ status: "SUBMITTED", schemaVersion: 1 });
+    expect(row).toMatchObject({ status: "SUBMITTED", schemaVersion: 2 });
     expect(row.data).toMatchObject({
       crf: { nivol: "00099881111A" },
       contact: { phone: "0639981234" },
@@ -299,6 +299,7 @@ describe("draft, submission and review", () => {
       expect(refused.issues.map((i) => `${i.step}:${i.field}`).sort()).toEqual(
         [
           "pieces:PARENTAL_AUTH",
+          "representant:email",
           "representant:firstName",
           "representant:lastName",
           "representant:phone",
@@ -308,7 +309,13 @@ describe("draft, submission and review", () => {
     }
     await saveDraft(db, draft.submissionId, {
       ...completeDossier("2011-02-01"),
-      guardian: { lastName: "Fictif", firstName: "Anne", quality: "Mère", phone: "06 39 98 00 01" },
+      guardian: {
+        lastName: "Fictif",
+        firstName: "Anne",
+        quality: "Mère",
+        phone: "06 39 98 00 01",
+        email: "anne.fictif@exemple.test",
+      },
     });
     const storage = memoryStorage();
     await addAttachment(db, storage, {

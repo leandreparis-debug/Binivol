@@ -69,8 +69,9 @@ catégories de permis, et l'étape Pièces jointes le rappelle.
 
 L'âge se calcule à la date d'envoi (Europe/Paris) :
 
-- **moins de 18 ans** : l'étape « Représentant légal » apparaît ; nom, prénom, qualité et
-  téléphone sont obligatoires ;
+- **moins de 18 ans** : l'étape « Représentant légal » apparaît ; nom, prénom, qualité,
+  téléphone et **e-mail** sont obligatoires. L'e-mail doit être le sien (différent de celui du
+  candidat) : il y reçoit le code qui lui permet de signer la charte (étape 8) ;
 - **moins de 16 ans** : une pièce « Autorisation parentale » est aussi obligatoire.
 
 Un envoi incomplet est refusé, avec le message à l'étape concernée.

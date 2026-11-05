@@ -10,7 +10,11 @@ import { parsePhone } from "./phone";
  * (docs/dossier.md), which step 8 will fill.
  */
 
-export const DOSSIER_SCHEMA_VERSION = 1;
+/**
+ * Version of the stored JSON. 1: step 7. 2: e-mail of the legal guardian
+ * (step 8, she signs with her own code).
+ */
+export const DOSSIER_SCHEMA_VERSION = 2;
 
 export const DOSSIER_STEPS = [
   "accueil",
@@ -153,6 +157,7 @@ export const dossierDraftSchema = z.object({
       firstName: opt(LEN.name),
       quality: opt(LEN.quality),
       phone: opt(LEN.phone),
+      email: opt(LEN.email),
     })
     .partial()
     .optional(),
@@ -334,6 +339,17 @@ export function submissionIssues(draft: DossierDraft, ctx: SubmissionContext): D
     required("guardian", "firstName", g.firstName, "Le prénom du représentant légal");
     required("guardian", "quality", g.quality, "La qualité du représentant légal");
     phone("guardian", "phone", g.phone, true);
+    email("guardian", "email", g.email, true);
+    if (
+      !blank(g.email) &&
+      (g.email ?? "").trim().toLowerCase() === (draft.contact?.email ?? "").trim().toLowerCase()
+    ) {
+      add(
+        "guardian",
+        "email",
+        "L'e-mail du représentant légal doit être le sien, différent de celui du candidat.",
+      );
+    }
   }
   if (age !== null && age < 16 && !ctx.attachmentKinds.includes("PARENTAL_AUTH")) {
     add(
@@ -384,7 +400,16 @@ export function migrateDossierData(raw: unknown, version: number): MigratedDraft
     if (dropped.length > 0) {
       warnings.push(`Version ${String(version)} : champs ignorés (${dropped.join(", ")}).`);
     }
-  } else if (version > DOSSIER_SCHEMA_VERSION) {
+  }
+  if (version >= 0 && version < 2) {
+    // 1 → 2: the guardian gets an e-mail (her own signature code). Nothing to
+    // convert; a minor's dossier of version 1 has to be completed.
+    const g = source.guardian;
+    if (g !== null && typeof g === "object" && !("email" in g)) {
+      warnings.push("Version 1 : l'e-mail du représentant légal est à compléter.");
+    }
+  }
+  if (version > DOSSIER_SCHEMA_VERSION) {
     warnings.push(
       `Version ${String(version)} plus récente que l'application : champs inconnus ignorés.`,
     );
@@ -486,6 +511,7 @@ export function normalizeSubmission(draft: DossierDraft): DossierDraft {
       firstName: t(g.firstName),
       quality: t(g.quality),
       phone: p(g.phone),
+      email: m(g.email),
     },
     consent: { rgpd: draft.consent?.rgpd === true },
   };

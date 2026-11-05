@@ -172,12 +172,14 @@ describe("submission rules", () => {
       "guardian.firstName",
       "guardian.quality",
       "guardian.phone",
+      "guardian.email",
     ]);
     const guardian = {
       lastName: "Exemple",
       firstName: "Dominique",
       quality: "Mère",
       phone: "0639980003",
+      email: "dominique.exemple@exemple.test",
     };
     const fifteen = complete({ identity: { ...id, birthDate: "2011-09-01" }, guardian });
     expect(fields(fifteen)).toEqual(["attachments.PARENTAL_AUTH"]);
@@ -207,6 +209,30 @@ describe("schema versions", () => {
     expect(data.identity).toEqual({ firstName: "Camille", lastName: "Exemple" });
     expect(data.contact?.email).toBe("c@exemple.test");
     expect(warnings).toHaveLength(1);
+  });
+
+  it("version 1 → 2: a guardian without e-mail is kept, with a warning", () => {
+    const { data, warnings } = migrateDossierData(
+      { guardian: { lastName: "Exemple", firstName: "Dominique", quality: "Mère" } },
+      1,
+    );
+    expect(data.guardian?.lastName).toBe("Exemple");
+    expect(warnings).toEqual(["Version 1 : l'e-mail du représentant légal est à compléter."]);
+    expect(migrateDossierData({ guardian: { email: "a@exemple.test" } }, 2).warnings).toEqual([]);
+  });
+
+  it("refuses the candidate's own e-mail as the guardian's", () => {
+    const id = complete().identity;
+    const g = {
+      lastName: "Exemple",
+      firstName: "Dominique",
+      quality: "Mère",
+      phone: "0639980003",
+      email: "CAMILLE.exemple@exemple.test",
+    };
+    expect(fields(complete({ identity: { ...id, birthDate: "2009-06-01" }, guardian: g }))).toEqual(
+      ["guardian.email"],
+    );
   });
 
   it("drops an unreadable section instead of breaking the form", () => {

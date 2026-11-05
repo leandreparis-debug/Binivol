@@ -226,10 +226,10 @@ describe("seed", () => {
       include: { attachments: true, person: { select: { status: true } } },
     });
     expect(subs.map((s) => [s.id, s.status, s.schemaVersion])).toEqual([
-      ["seed_sub_adult", "SUBMITTED", 1],
-      ["seed_sub_draft", "DRAFT", 1],
-      ["seed_sub_minor", "SUBMITTED", 1],
-      ["seed_sub_signed", "SIGNED", 1],
+      ["seed_sub_adult", "SUBMITTED", 2],
+      ["seed_sub_draft", "DRAFT", 2],
+      ["seed_sub_minor", "SUBMITTED", 2],
+      ["seed_sub_signed", "SIGNED", 2],
     ]);
     for (const s of subs.filter((x) => x.status !== "DRAFT")) {
       const data = migrateDossierData(s.data, s.schemaVersion).data;
@@ -240,14 +240,14 @@ describe("seed", () => {
       expect(issues, s.id).toEqual([]);
     }
     const minor = subs.find((s) => s.id === "seed_sub_minor");
-    const data = migrateDossierData(minor?.data, 1).data;
+    const data = migrateDossierData(minor?.data, 2).data;
     expect(dossierAge(data, today)).toBe(15);
     expect(minor?.attachments.map((a) => [a.kind, Boolean(a.documentId)])).toEqual([
       ["PARENTAL_AUTH", true],
     ]);
     const draft = subs.find((s) => s.id === "seed_sub_draft");
     expect(
-      submissionIssues(migrateDossierData(draft?.data, 1).data, { day: today, attachmentKinds: [] })
+      submissionIssues(migrateDossierData(draft?.data, 2).data, { day: today, attachmentKinds: [] })
         .length,
     ).toBeGreaterThan(0);
   });
