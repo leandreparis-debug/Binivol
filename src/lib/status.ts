@@ -26,7 +26,19 @@ export type DossierStatusKey =
   | "mail-sent"
   | "mail-failed";
 
-export type Status = VolunteerStatus | DeadlineStatus | DossierStatusKey;
+/** State of a competence for a person (step 10, `src/server/qualification.ts`). */
+export type QualificationStatusKey =
+  | "qual-valid"
+  | "qual-valid_undated"
+  | "qual-expiring"
+  | "qual-expired"
+  | "qual-registered"
+  | "qual-to_confirm"
+  | "qual-function_active"
+  | "qual-function_ended"
+  | "qual-none";
+
+export type Status = VolunteerStatus | DeadlineStatus | DossierStatusKey | QualificationStatusKey;
 
 /** Colour tone, mapped to design tokens by the components. */
 export type Tone = "neutral" | "accent" | "ok" | "warn" | "danger" | "ink";
@@ -70,10 +82,28 @@ export const DOSSIER_STATUSES: Record<DossierStatusKey, StatusMeta> = {
   "mail-failed": { label: "E-mail en échec", tone: "danger" },
 };
 
+export const QUALIFICATION_STATUSES: Record<QualificationStatusKey, StatusMeta> = {
+  "qual-valid": { label: "Valide", tone: "ok" },
+  "qual-valid_undated": { label: "Valide (date inconnue)", tone: "ok" },
+  "qual-expiring": { label: "Expire bientôt", tone: "warn" },
+  "qual-expired": { label: "Expirée", tone: "danger" },
+  "qual-registered": { label: "Inscrit(e)", tone: "accent" },
+  "qual-to_confirm": { label: "À confirmer", tone: "warn" },
+  "qual-function_active": { label: "Fonction en cours", tone: "ok" },
+  "qual-function_ended": { label: "Fonction terminée", tone: "neutral" },
+  "qual-none": { label: "Aucune", tone: "neutral" },
+};
+
+/** `VALID` → `qual-valid` (the server state as a status of `StatusDot`). */
+export function qualificationKey(status: string): QualificationStatusKey {
+  return `qual-${status.toLowerCase()}` as QualificationStatusKey;
+}
+
 export const STATUSES: Record<Status, StatusMeta> = {
   ...VOLUNTEER_STATUSES,
   ...DEADLINE_STATUSES,
   ...DOSSIER_STATUSES,
+  ...QUALIFICATION_STATUSES,
 };
 
 export const STATUS_KEYS = Object.keys(STATUSES) as Status[];
