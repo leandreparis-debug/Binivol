@@ -10,6 +10,7 @@ import type {
   TrainingResult,
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
+import { DEFAULT_GAIA_CHECKLIST } from "../../src/lib/gaia";
 import { documentFileName } from "../../src/lib/fileNames";
 import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
 import { computeExpiresAt } from "../../src/server/reference";
@@ -385,7 +386,7 @@ async function listNonSeedPersons(db: PrismaClient | SeedTx) {
 
 async function seedBaseIn(tx: SeedTx): Promise<void> {
   // -- Settings -----------------------------------------------------------
-  const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = [
+  const settingRows: [string, Prisma.InputJsonValue, string][] = [
     ["ALERT_DAYS_BEFORE_EXPIRY", 60, "Nombre de jours avant échéance déclenchant une alerte."],
     ["RETENTION_YEARS_AFTER_LEAVE", 5, "Durée de conservation après le départ, en années (RGPD)."],
     ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
@@ -394,6 +395,11 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
     ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
     ["UL_CITY", "Versailles", "« Fait à » de la charte du bénévolat."],
+    [
+      "GAIA_CHECKLIST",
+      DEFAULT_GAIA_CHECKLIST as unknown as Prisma.InputJsonValue,
+      "Liste à cocher de la création dans Gaia (étape 9) : clé, libellé, adhésion seulement.",
+    ],
     [
       "FINAL_MAIL_TEXT",
       FINAL_MAIL_DEFAULT,
@@ -414,13 +420,16 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
       12,
       "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
     ],
-  ].map(([key, value, description]) => ({
-    id: `seed_setting_${String(key).toLowerCase()}`,
-    key: String(key),
-    value: value as Prisma.InputJsonValue,
-    description: String(description),
-    ...audit,
-  }));
+  ];
+  const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = settingRows.map(
+    ([key, value, description]) => ({
+      id: `seed_setting_${key.toLowerCase()}`,
+      key,
+      value,
+      description,
+      ...audit,
+    }),
+  );
   // Settings are edited by TOPAZE: a deployment only adds the missing ones.
   await saveMissing(tx.setting, settings);
 

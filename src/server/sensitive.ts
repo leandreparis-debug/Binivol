@@ -394,3 +394,16 @@ type AuditUpdated = (
   after: Record<string, unknown>,
   options?: { action?: "IMPORT" },
 ) => number;
+
+/**
+ * Does the person have a current document of this kind? Yes or no only: no
+ * name, no file (Gaia checklist: « Adhésion enregistrée » when a membership
+ * was asked). Not a consultation: no access log.
+ */
+export async function hasDocumentOfKind(
+  db: DbOrTx,
+  personId: string,
+  kind: DocumentKind,
+): Promise<boolean> {
+  return (await db.document.count({ where: { personId, kind, archivedAt: null } })) > 0;
+}

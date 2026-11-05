@@ -15,7 +15,10 @@ import { defineAction } from "@/server/actions/defineAction";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 import { loadPersonFacts } from "@/server/policy/facts";
+import { can } from "@/server/policy/can";
 import type { PolicyResource } from "@/server/policy/types";
+import { attestationState, completeAttestation } from "@/server/dossier/signing";
+import { getStorage } from "@/server/storage";
 import {
   assignMentor,
   candidacyPerson,
@@ -90,8 +93,32 @@ export const finalizeAction = defineAction({
   resource: async (input) => personResource(await candidacyPerson(getDb(), input.candidacyId)),
   handler: async ({ input, actor }) => {
     const result = await finalizeCandidacy(getDb(), actor, input);
+    // Step 9: the aptitude certificate is completed with the NIVOL. A missing
+    // storage (hosted demo) does not undo the closure: « Compléter l'attestation ».
+    let attestation: { completed: boolean; message: string | null } = {
+      completed: false,
+      message: null,
+    };
+    const facts = await loadPersonFacts(getDb(), result.personId, toParisDay());
+    if (facts && can(actor, "dossier.manage", { person: facts }).allowed) {
+      try {
+        const state = await attestationState(getDb(), result.personId);
+        if (state === "pending") {
+          await completeAttestation(getDb(), getStorage(), actor, result.personId);
+          attestation = { completed: true, message: null };
+        }
+      } catch (error) {
+        attestation = {
+          completed: false,
+          message:
+            error instanceof DomainError
+              ? error.message
+              : "L'attestation d'aptitude sera complétée plus tard (« Compléter l'attestation »).",
+        };
+      }
+    }
     refresh();
-    return result;
+    return { ...result, attestation };
   },
 });
 

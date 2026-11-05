@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { DEFAULT_GAIA_CHECKLIST } from "@/lib/gaia";
 import { NIVOL_PATTERN } from "@/lib/nivol";
 import { dossierAge, migrateDossierData, submissionIssues } from "@/lib/dossierSchema";
 import { linkState } from "@/server/services/dossiers";
@@ -297,6 +298,7 @@ describe("seed", () => {
       DOSSIER_LINK_DAYS: 7,
       UL_NAME: "Unité locale de Versailles",
       UL_CITY: "Versailles",
+      GAIA_CHECKLIST: DEFAULT_GAIA_CHECKLIST,
       FINAL_MAIL_TEXT: FINAL_MAIL_DEFAULT,
       RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });

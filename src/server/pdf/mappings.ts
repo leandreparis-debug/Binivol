@@ -28,6 +28,11 @@ export interface MappingContext {
   crf: { lastName: string; firstName: string; quality: string } | null;
   /** Under 18 on the submission day: the legal guardian signs the charte. */
   minor: boolean;
+  /**
+   * NIVOL of the person's page, given by Gaia (step 9): written on the
+   * aptitude certificate once known. Never the NIVOL declared in the dossier.
+   */
+  nivol?: string | null;
 }
 
 export interface TemplateMapping {
@@ -226,11 +231,13 @@ export function aptitudeMapping(ctx: MappingContext): TemplateMapping {
       "Année de naissance du bénévole": birth.annee,
       "Lieu de naissance du bénévole": department ? `${city} (${department})` : city,
       "Nom et ville de la structure": `Croix-Rouge française, ${structure}`,
+      ...(ctx.nivol ? { NIVOL: ctx.nivol } : {}),
     },
     signatures: { Signature: "VOLUNTEER" },
-    empty: {
-      NIVOL: "Le NIVOL n'existe pas encore : l'étape 9 (Gaia) le complète.",
-    },
+    // Before Gaia the NIVOL does not exist: the certificate is regenerated with it (step 9).
+    empty: ctx.nivol
+      ? {}
+      : { NIVOL: "Le NIVOL n'existe pas encore : l'étape 9 (Gaia) le complète." },
     // The « Date » line by the signature reuses the three birth-date fields
     // (second widget of each): it receives the signature date instead.
     widgetOverrides: [

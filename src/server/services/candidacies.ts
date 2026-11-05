@@ -57,7 +57,7 @@ import { numericSettings } from "../settings";
  */
 
 const auditActor = (actor: Actor) => ({ userId: actor.userId, label: actor.name });
-const STALE_MESSAGE = "La candidature a changé entre-temps : rechargez la page.";
+export const STALE_MESSAGE = "La candidature a changé entre-temps : rechargez la page.";
 
 // ---------------------------------------------------------------------------
 // Owners and sources
@@ -549,13 +549,36 @@ export async function finalizeCandidacy(
         );
       }
 
+      // The CRF e-mail is unique among the people present (step 9).
+      if (input.crfEmail) {
+        const owner = await tx.person.findFirst({
+          where: {
+            crfEmail: { equals: input.crfEmail, mode: "insensitive" },
+            id: { not: candidacy.personId },
+          },
+          select: { id: true, ref: true, firstName: true, lastName: true },
+        });
+        if (owner) {
+          const [ownerFacts] = [...(await loadPersonFactsMany(tx, [owner.id])).values()];
+          const visible =
+            ownerFacts !== undefined &&
+            can(actor, "person.directory.read", { person: ownerFacts }).allowed;
+          throw new DomainError(
+            "EMAIL_TAKEN",
+            visible
+              ? `Cet e-mail Croix-Rouge est déjà celui de ${owner.firstName} ${owner.lastName} (${owner.ref}).`
+              : "Cet e-mail Croix-Rouge est déjà attribué à une autre personne.",
+          );
+        }
+      }
+
       const before = await tx.person.findUniqueOrThrow({ where: { id: candidacy.personId } });
       const person = await tx.person.update({
         where: { id: candidacy.personId },
         data: {
           status: "ACTIVE",
           nivol: input.nivol,
-          ...(input.crfEmail ? { crfEmail: input.crfEmail } : {}),
+          ...(input.crfEmail ? { crfEmail: input.crfEmail.toLowerCase() } : {}),
           entryDate: input.entryDate,
           leftAt: null,
           leftReason: null,

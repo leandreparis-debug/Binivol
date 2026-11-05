@@ -4,8 +4,8 @@ import { toParisDay } from "@/lib/dates";
 import { dossierAge, migrateDossierData, type DossierDraft } from "@/lib/dossierSchema";
 import { contentDisposition, documentFileName } from "@/lib/fileNames";
 import { PROFILE_LABELS } from "@/lib/labels";
-import { withAudit, type Actor as AuditActor } from "../audit";
-import type { Db, DbOrTx } from "../db";
+import { withAudit, type Actor as AuditActor, type AuditRecorder } from "../audit";
+import type { Db, DbOrTx, Tx } from "../db";
 import { DomainError } from "../errors";
 import { finalDocumentsMail, signatureCodeMail } from "../mail/templates";
 import { MailUnavailableError, type MailService } from "../mail/types";
@@ -966,4 +966,201 @@ export async function signatureStatus(
           ? "COUNTERSIGN"
           : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Step 9: the aptitude certificate completed with the NIVOL
+// ---------------------------------------------------------------------------
+
+export type AttestationState = "none" | "pending" | "done";
+
+/** The latest complete dossier of a person, if any (id and completion date). */
+async function latestComplete(db: DbOrTx, personId: string) {
+  return db.dossierSubmission.findFirst({
+    where: { personId, status: "COMPLETE" },
+    orderBy: { completedAt: "desc" },
+    select: { id: true, completedAt: true },
+  });
+}
+
+/**
+ * Is the aptitude certificate still waiting for the NIVOL? `pending` when the
+ * person has a NIVOL and a complete dossier, but no certificate generated
+ * since the NIVOL was known (its version carries the NIVOL in the proof).
+ */
+export async function attestationState(db: DbOrTx, personId: string): Promise<AttestationState> {
+  const [person, submission] = await Promise.all([
+    db.person.findUniqueOrThrow({ where: { id: personId }, select: { nivol: true } }),
+    latestComplete(db, personId),
+  ]);
+  if (!person.nivol || !submission) return "none";
+  const signature = await db.signature.findFirst({
+    where: { submissionId: submission.id, signerRole: "VOLUNTEER" },
+    select: { documentHashes: true },
+  });
+  const hashes = (signature?.documentHashes ?? {}) as Record<string, unknown>;
+  return Object.keys(hashes).some((k) => k.endsWith(`(NIVOL ${person.nivol ?? ""})`))
+    ? "done"
+    : "pending";
+}
+
+/**
+ * Regenerates the aptitude certificate with the person's NIVOL (step 9): a
+ * new version of the UL copy, the previous one archived (never deleted), its
+ * SHA-256 added to the proof (`documentHashes` of every signature, under
+ * « <file> (NIVOL …) »). Storage down: nothing changes, clear message.
+ */
+export async function completeAttestation(
+  db: Db,
+  storage: StorageService,
+  actor: Actor,
+  personId: string,
+  now = new Date(),
+): Promise<{ documentId: string }> {
+  const person = await db.person.findUniqueOrThrow({
+    where: { id: personId },
+    select: { nivol: true },
+  });
+  if (!person.nivol) throw new DomainError("INVALID_DATA", "La fiche n'a pas encore de NIVOL.");
+  const submission = await latestComplete(db, personId);
+  if (!submission) {
+    throw new DomainError("INVALID_DATA", "Aucun dossier signé : pas d'attestation à compléter.");
+  }
+  const loaded = await loadSubmission(db, submission.id);
+  const settings = await dossierSettings(db);
+  const id = loaded.data.identity ?? {};
+  const crf = loaded.row.signatures.find((s) => s.signerRole === "CRF_REPRESENTATIVE");
+  const images = await imagesOf(storage, loaded.row.signatures);
+  const bytes = await renderTemplate({
+    template: await loadTemplate("aptitude"),
+    font: await loadFont(),
+    handwriting: await loadHandwriting(),
+    mapping: MAPPINGS.aptitude({
+      data: loaded.data,
+      ulName: settings.ulName,
+      ulCity: settings.ulCity,
+      signedAt: loaded.row.signatures.find((s) => s.signerRole === "VOLUNTEER")?.signedAt ?? now,
+      crf: crf ? { ...splitName(crf.signerName), quality: crf.signerQuality ?? "" } : null,
+      minor: loaded.minor,
+      nivol: person.nivol,
+    }),
+    images,
+    title: TEMPLATES.aptitude.label,
+    producedAt: now,
+  });
+  const fileName = documentFileName(
+    id.lastName ?? "",
+    id.firstName ?? "",
+    TEMPLATES.aptitude.suffix,
+  );
+  const hash = sha256(bytes);
+  const key = newStorageKey("pdf", "documents");
+  try {
+    await storage.put(key, Buffer.from(bytes), "application/pdf");
+  } catch (error) {
+    throw new DomainError(
+      "STORAGE_UNAVAILABLE",
+      "Le stockage des documents est indisponible : l'attestation sera complétée plus tard (« Compléter l'attestation »).",
+      { cause: error },
+    );
+  }
+  try {
+    return await withAudit(db, { userId: actor.userId, label: actor.name }, async (tx, audit) => {
+      const previous = await tx.document.findMany({
+        where: { personId, kind: "APTITUDE", copy: "UL", archivedAt: null },
+        select: { id: true, version: true },
+      });
+      for (const p of previous) {
+        await tx.document.update({
+          where: { id: p.id },
+          data: { archivedAt: now, updatedById: actor.userId },
+        });
+        audit.archived("Document", p.id);
+      }
+      const all = await tx.document.findMany({
+        where: { personId, kind: "APTITUDE", copy: "UL" },
+        select: { version: true },
+      });
+      const document = await tx.document.create({
+        data: {
+          personId,
+          kind: "APTITUDE",
+          copy: "UL",
+          storageKey: key,
+          fileName,
+          mimeType: "application/pdf",
+          sizeBytes: bytes.length,
+          sha256: hash,
+          version: Math.max(0, ...all.map((d) => d.version)) + 1,
+          submissionId: submission.id,
+          uploadedById: actor.userId,
+          createdById: actor.userId,
+          updatedById: actor.userId,
+        },
+      });
+      audit.created("Document", document.id, document);
+      for (const s of loaded.row.signatures) {
+        const hashes = { ...((s.documentHashes ?? {}) as Record<string, string>) };
+        hashes[`${fileName} (NIVOL ${person.nivol ?? ""})`] = hash;
+        await tx.signature.update({ where: { id: s.id }, data: { documentHashes: hashes } });
+      }
+      audit.log({
+        action: "UPDATE",
+        entity: "Document",
+        entityId: document.id,
+        field: "nivol",
+        newValue: "attestation complétée avec le NIVOL",
+      });
+      return { documentId: document.id };
+    });
+  } catch (error) {
+    await storage.delete(key).catch(() => undefined);
+    throw error;
+  }
+}
+
+/**
+ * Undo of a closure (step 9): the certificates generated with the NIVOL since
+ * `since` are archived, and the latest earlier version is active again (no
+ * file is deleted). Runs inside the caller's transaction.
+ */
+export async function revertNivolAttestation(
+  tx: Tx,
+  audit: AuditRecorder,
+  actorId: string,
+  personId: string,
+  since: Date,
+  now = new Date(),
+): Promise<number> {
+  const recent = await tx.document.findMany({
+    where: { personId, kind: "APTITUDE", copy: "UL", archivedAt: null, createdAt: { gte: since } },
+    select: { id: true },
+  });
+  if (recent.length === 0) return 0;
+  for (const d of recent) {
+    await tx.document.update({
+      where: { id: d.id },
+      data: { archivedAt: now, updatedById: actorId },
+    });
+    audit.archived("Document", d.id);
+  }
+  const earlier = await tx.document.findFirst({
+    where: { personId, kind: "APTITUDE", copy: "UL", createdAt: { lt: since } },
+    orderBy: { version: "desc" },
+    select: { id: true },
+  });
+  if (earlier) {
+    await tx.document.update({
+      where: { id: earlier.id },
+      data: { archivedAt: null, updatedById: actorId },
+    });
+    audit.log({
+      action: "UPDATE",
+      entity: "Document",
+      entityId: earlier.id,
+      field: "archivedAt",
+      newValue: "rétablie (clôture annulée)",
+    });
+  }
+  return recent.length;
 }
