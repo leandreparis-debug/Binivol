@@ -20,7 +20,7 @@ export function AppShell({ children, ...shell }: AppShellProps) {
       >
         {children}
       </main>
-      <BottomNav allowedHrefs={shell.allowedHrefs} />
+      <BottomNav allowedHrefs={shell.allowedHrefs} navBadges={shell.navBadges} />
       <SessionKeepAlive />
     </div>
   );

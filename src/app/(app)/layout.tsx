@@ -4,6 +4,7 @@ import { requireActor } from "@/server/auth/actor";
 import { getDb } from "@/server/db";
 import { canSome } from "@/server/policy/can";
 import { PROFILE_ORDER } from "@/server/services/accounts";
+import { overdueCandidacies } from "@/server/services/candidacies";
 import { countUnreadNotifications } from "@/server/services/notifications";
 
 /** Every page of the app requires a signed-in responsible (profiles re-read). */
@@ -12,7 +13,10 @@ export default async function AppLayout({ children }: Readonly<{ children: React
   const allowedHrefs: NavHref[] = NAV_ITEMS.filter(
     (item) => item.action === null || canSome(actor, item.action),
   ).map((item) => item.href);
-  const unreadNotifications = await countUnreadNotifications(getDb(), actor.userId);
+  const [unreadNotifications, overdue] = await Promise.all([
+    countUnreadNotifications(getDb(), actor.userId),
+    canSome(actor, "candidacy.manage") ? overdueCandidacies(getDb(), actor) : Promise.resolve(0),
+  ]);
   return (
     <AppShell
       user={{
@@ -24,6 +28,7 @@ export default async function AppLayout({ children }: Readonly<{ children: React
       }}
       allowedHrefs={allowedHrefs}
       unreadNotifications={unreadNotifications}
+      navBadges={{ "/candidats": overdue }}
     >
       {children}
     </AppShell>

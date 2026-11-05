@@ -9,7 +9,13 @@ import { NAV_ITEMS, type NavHref } from "./navigation";
 /**
  * Bottom navigation shown under 640 px, limited to the entries the policy allows.
  */
-export function BottomNav({ allowedHrefs }: { allowedHrefs: NavHref[] }) {
+export function BottomNav({
+  allowedHrefs,
+  navBadges,
+}: {
+  allowedHrefs: NavHref[];
+  navBadges?: Partial<Record<NavHref, number>>;
+}) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter((item) => allowedHrefs.includes(item.href));
   return (
@@ -36,13 +42,24 @@ export function BottomNav({ allowedHrefs }: { allowedHrefs: NavHref[] }) {
               >
                 <span
                   className={cn(
-                    "inline-flex h-7 w-11 items-center justify-center rounded-pill transition-colors motion-reduce:transition-none",
+                    "relative inline-flex h-7 w-11 items-center justify-center rounded-pill transition-colors motion-reduce:transition-none",
                     active && "bg-ink text-white",
                   )}
                 >
                   <Icon aria-hidden="true" className="size-5" />
+                  {(navBadges?.[href] ?? 0) > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-1.5 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-pill bg-danger px-1 text-[10px] font-semibold text-white"
+                    >
+                      {navBadges?.[href]}
+                    </span>
+                  )}
                 </span>
                 {label}
+                {(navBadges?.[href] ?? 0) > 0 && (
+                  <span className="sr-only">, {navBadges?.[href]} relance(s) en retard</span>
+                )}
               </Link>
             </li>
           );

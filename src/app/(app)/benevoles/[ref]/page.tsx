@@ -44,7 +44,10 @@ import {
   type ReducedHeader,
 } from "@/server/services/personProfile";
 import { timelineOf } from "@/server/timeline";
+import { defaultFollowUp } from "@/server/candidacy/rules";
+import { integrationTab } from "@/server/services/candidacies";
 import { DocumentsPanel } from "./DocumentsPanel";
+import { IntegrationPanel } from "./IntegrationPanel";
 import { ListEditor } from "./ListEditor";
 import { PersonActions } from "./PersonActions";
 import { SensitivePanel } from "./SensitivePanel";
@@ -57,6 +60,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const TABS = [
   { key: "apercu", label: "Aperçu" },
+  { key: "integration", label: "Intégration" },
   { key: "formations", label: "Formations" },
   { key: "fonctions", label: "Fonctions" },
   { key: "suivi", label: "Suivi" },
@@ -90,6 +94,8 @@ function allowedTabs(header: PersonHeader): TabKey[] {
   const p = header.permissions;
   return TABS.map((t) => t.key).filter((key) => {
     switch (key) {
+      case "integration":
+        return p.readCandidacy;
       case "formations":
         return p.readTrainings;
       case "fonctions":
@@ -708,6 +714,28 @@ async function DocumentsTab({
   );
 }
 
+async function IntegrationTabView({
+  actor,
+  header,
+  facts,
+  day,
+}: {
+  actor: Actor;
+  header: PersonHeader;
+  facts: PersonFacts;
+  day: Date;
+}) {
+  const tab = await integrationTab(getDb(), actor, header.person.id, facts, day);
+  return (
+    <IntegrationPanel
+      personId={header.person.id}
+      tab={tab}
+      today={day.toISOString().slice(0, 10)}
+      defaultFollowUpAt={defaultFollowUp(day, tab.followUpDays).toISOString().slice(0, 10)}
+    />
+  );
+}
+
 async function HistoryTab({
   actor,
   header,
@@ -779,17 +807,18 @@ export default async function Page({
   const header = await personHeader(getDb(), actor, lookup.personId, lookup.facts, day);
   const tabs = allowedTabs(header);
   const requested = (await searchParams).onglet;
+  // A candidate's page opens on « Intégration » when it is allowed.
+  const fallback: TabKey =
+    header.person.status === "CANDIDATE" && tabs.includes("integration") ? "integration" : "apercu";
   const active: TabKey =
     typeof requested === "string" && (tabs as string[]).includes(requested)
       ? (requested as TabKey)
-      : "apercu";
+      : fallback;
   const links: TabLink[] = TABS.filter((t) => tabs.includes(t.key)).map((t) => ({
     key: t.key,
     label: t.label,
-    href:
-      t.key === "apercu"
-        ? `/benevoles/${header.person.ref}`
-        : `/benevoles/${header.person.ref}?onglet=${t.key}`,
+    // Explicit even for « Aperçu »: a candidate's page opens on « Intégration » by default.
+    href: `/benevoles/${header.person.ref}?onglet=${t.key}`,
   }));
   const props = { actor, header, facts: lookup.facts, day };
   return (
@@ -799,6 +828,7 @@ export default async function Page({
         <TabNav tabs={links} active={active} label="Sections de la fiche" />
       </div>
       {active === "apercu" && <OverviewTab {...props} />}
+      {active === "integration" && <IntegrationTabView {...props} />}
       {active === "formations" && <TrainingsTab {...props} />}
       {active === "fonctions" && <AppointmentsTab {...props} />}
       {active === "suivi" && <FollowUpTab {...props} />}

@@ -14,9 +14,16 @@ import { UserMenu } from "./UserMenu";
  * sign-out. Under 1024 px the navigation drops below the bar; under 640 px it
  * is replaced by `BottomNav`.
  */
-export function TopBar({ user, allowedHrefs, unreadNotifications }: ShellProps) {
+export function TopBar({ user, allowedHrefs, unreadNotifications, navBadges }: ShellProps) {
   const items = NAV_ITEMS.filter((item) => allowedHrefs.includes(item.href)).map(
-    ({ href, label }) => ({ href, label }),
+    ({ href, label }) => {
+      const count = navBadges?.[href] ?? 0;
+      return {
+        href,
+        label,
+        badge: count > 0 ? { count, label: badgeLabel(count) } : undefined,
+      };
+    },
   );
   const badge = unreadNotifications > 9 ? "9+" : String(unreadNotifications);
   return (
@@ -70,4 +77,9 @@ export function TopBar({ user, allowedHrefs, unreadNotifications }: ShellProps) 
       </div>
     </header>
   );
+}
+
+/** Spoken meaning of the « Candidats » badge. */
+export function badgeLabel(count: number): string {
+  return `${String(count)} relance${count > 1 ? "s" : ""} en retard`;
 }

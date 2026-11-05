@@ -9,6 +9,8 @@ export interface NavPillItem {
   label: string;
   /** Optional icon shown before the label. */
   icon?: React.ReactNode;
+  /** Count shown as a danger pill after the label (0 hides it), with its spoken meaning. */
+  badge?: { count: number; label: string };
 }
 
 export interface NavPillsProps extends React.HTMLAttributes<HTMLElement> {
@@ -60,6 +62,17 @@ export function NavPills({
                   <span className="inline-flex shrink-0 [&>svg]:size-4">{item.icon}</span>
                 )}
                 {item.label}
+                {item.badge && item.badge.count > 0 && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex h-5 min-w-5 items-center justify-center rounded-pill bg-danger px-1.5 text-[11px] font-semibold text-white"
+                    >
+                      {item.badge.count > 99 ? "99+" : item.badge.count}
+                    </span>
+                    <span className="sr-only">, {item.badge.label}</span>
+                  </>
+                )}
               </Link>
             </li>
           );
