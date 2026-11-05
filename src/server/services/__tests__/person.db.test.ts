@@ -17,6 +17,7 @@ import {
   personAppointments,
   personHeader,
   personOverview,
+  personReducedHeader,
   personTrainings,
 } from "@/server/services/personProfile";
 import {
@@ -82,6 +83,62 @@ describe("lookupPerson", () => {
       checked += 1;
     }
     expect(checked).toBeGreaterThan(0);
+  });
+});
+
+describe("reduced person page (FORMAT)", () => {
+  it("opens with training.read only, header limited to the directory fields", async () => {
+    const person = await db.person.findFirstOrThrow({
+      where: { status: "ACTIVE" },
+      orderBy: { ref: "asc" },
+    });
+    const lookup = await lookupPerson(db, who("format"), person.ref);
+    expect(lookup).toMatchObject({ status: "ok", access: "trainings" });
+    if (lookup.status !== "ok") throw new Error("lookup");
+    const reduced = await personReducedHeader(db, who("format"), lookup.personId, lookup.facts);
+    expect(Object.keys(reduced.person).sort()).toEqual(
+      [
+        "email",
+        "firstName",
+        "id",
+        "isTrainer",
+        "lastName",
+        "nivol",
+        "phone",
+        "ref",
+        "status",
+        "usageName",
+        "view",
+      ].sort(),
+    );
+    // No full header, no other tab, no sensitive data for FORMAT.
+    await expect(
+      personHeader(db, who("format"), lookup.personId, lookup.facts, day),
+    ).rejects.toThrow();
+    await expect(
+      personOverview(db, who("format"), lookup.personId, lookup.facts, 60, day),
+    ).rejects.toThrow();
+    await expect(
+      personAppointments(db, who("format"), lookup.personId, lookup.facts, day),
+    ).rejects.toThrow();
+    await expect(timelineOf(db, who("format"), lookup.personId, lookup.facts)).rejects.toThrow();
+    await expect(
+      readPersonSensitive(db, who("format"), lookup.personId, "fiche"),
+    ).rejects.toThrow();
+    const trainings = await personTrainings(
+      db,
+      who("format"),
+      lookup.personId,
+      lookup.facts,
+      60,
+      day,
+    );
+    expect(trainings.groups.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("keeps candidates invisible to FORMAT (notFound)", async () => {
+    const candidate = await db.person.findFirstOrThrow({ where: { status: "CANDIDATE" } });
+    expect(await lookupPerson(db, who("format"), candidate.ref)).toEqual({ status: "notFound" });
   });
 });
 

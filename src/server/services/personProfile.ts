@@ -11,10 +11,17 @@ import { classifyDeadline, type DeadlineClass } from "@/lib/deadlines";
 import { toParisDay } from "@/lib/dates";
 import type { DbOrTx } from "../db";
 import { isAppointmentActive } from "../perimeter";
-import { authorize, can } from "../policy/can";
+import { authorize, can, personPageAccess } from "../policy/can";
 import { loadPersonFacts } from "../policy/facts";
 import type { Actor, PersonFacts } from "../policy/types";
-import { personFullSelect, toFullView, type FullView } from "../projections/person";
+import {
+  personFullSelect,
+  personReducedSelect,
+  toFullView,
+  toReducedView,
+  type FullView,
+  type ReducedView,
+} from "../projections/person";
 import { agesOf } from "../sensitive";
 import { numericSettings } from "../settings";
 import { deadlineCounts, qualificationsOf, type QualificationState } from "../trainingSummary";
@@ -28,14 +35,16 @@ import { deadlineCounts, qualificationsOf, type QualificationState } from "../tr
 export type PersonLookup =
   | { status: "notFound" }
   | { status: "forbidden"; reason: string }
-  | { status: "ok"; personId: string; facts: PersonFacts };
+  | { status: "ok"; personId: string; facts: PersonFacts; access: "full" | "trainings" };
 
 /**
  * Finds a person by readable number for the person page:
  * - unknown ref, **or a person the actor may not even see in the directory**
  *   (a candidate for ACTION, an archived person…) → `notFound`, so the page
  *   never reveals that she exists;
- * - visible in the directory but `person.full.read` refused → `forbidden`.
+ * - visible in the directory but neither `person.full.read` nor `training.read`
+ *   → `forbidden`;
+ * - `access` says whether the page is full or reduced to the trainings (FORMAT).
  */
 export async function lookupPerson(db: DbOrTx, actor: Actor, ref: string): Promise<PersonLookup> {
   const normalized = ref.trim().toUpperCase();
@@ -46,9 +55,14 @@ export async function lookupPerson(db: DbOrTx, actor: Actor, ref: string): Promi
   if (!facts) return { status: "notFound" };
   if (!can(actor, "person.directory.read", { person: facts }).allowed)
     return { status: "notFound" };
-  const decision = can(actor, "person.full.read", { person: facts });
-  if (!decision.allowed) return { status: "forbidden", reason: decision.reason };
-  return { status: "ok", personId: row.id, facts };
+  const access = personPageAccess(actor, facts);
+  if (!access) {
+    return {
+      status: "forbidden",
+      reason: can(actor, "person.full.read", { person: facts }).reason,
+    };
+  }
+  return { status: "ok", personId: row.id, facts, access };
 }
 
 /** What the actor may do on this person (buttons, tabs). From `can()` only. */
@@ -122,6 +136,35 @@ export async function personHeader(
     minor: age !== null && age < 18,
     perimeters: order.filter((p) => facts.perimeters.has(p)),
     permissions: permissionsOn(actor, facts),
+    alertDays: settings.alertDays,
+  };
+}
+
+export interface ReducedHeader {
+  person: ReducedView;
+  perimeters: Perimeter[];
+  alertDays: number;
+}
+
+/**
+ * Header of the reduced page (`training.read` only, FORMAT): the directory
+ * fields, the perimeters and the trainer flag. No age, no entry date, no action.
+ */
+export async function personReducedHeader(
+  db: DbOrTx,
+  actor: Actor,
+  personId: string,
+  facts: PersonFacts,
+): Promise<ReducedHeader> {
+  authorize(actor, "training.read", { person: facts });
+  const [row, settings] = await Promise.all([
+    db.person.findUniqueOrThrow({ where: { id: personId }, select: personReducedSelect }),
+    numericSettings(db),
+  ]);
+  const order: Perimeter[] = ["ACTION", "LASER", "FORMAT_GP"];
+  return {
+    person: toReducedView(row),
+    perimeters: order.filter((p) => facts.perimeters.has(p)),
     alertDays: settings.alertDays,
   };
 }

@@ -129,6 +129,11 @@ export function visibleSql(
   return parts.length === 0 ? FALSE : Prisma.sql`(${Prisma.join(parts, " OR ")})`;
 }
 
+/** Mirror of `personPageAccess() !== null`: the person page opens (full or reduced). */
+export function personPageSql(actor: Pick<Actor, "profiles">, ctx: VisibilityContext): Prisma.Sql {
+  return Prisma.sql`(${visibleSql(actor, "person.full.read", ctx)} OR ${visibleSql(actor, "training.read", ctx)})`;
+}
+
 /** The directory rule (`person.directory.read`), the one lists must apply. */
 export function directoryVisibilitySql(
   actor: Pick<Actor, "profiles">,

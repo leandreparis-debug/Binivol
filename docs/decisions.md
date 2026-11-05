@@ -433,3 +433,18 @@ archivé. Aucun test de profil n'est permis hors de la politique.
 `document.archived.read`, toutes deux TOPAZE. `docs/permissions.md` est régénéré.
 
 **Conséquences.** Les écrans demandent `can()`, jamais le profil.
+
+## ADR-031 — Fiche réduite pour FORMAT
+
+**Contexte.** FORMAT gère les formations de tous (`training.read`) sans avoir accès à la fiche
+complète (`person.full.read`). À l'étape 5, il ne voyait les formations que résumées dans
+l'annuaire.
+
+**Décision.** La fiche s'ouvre avec `person.full.read` **ou** `training.read`
+(`personPageAccess()` dans la politique, et son miroir SQL `personPageSql()`, testé contre lui).
+Avec `training.read` seul, elle montre un en-tête limité aux champs de l'annuaire (projection
+`toReducedView`) et le seul onglet Formations ; aucun autre onglet, aucun bloc sensible, aucune
+action. Les candidats restent invisibles pour FORMAT (404).
+
+**Conséquences.** Dans l'annuaire, FORMAT ouvre les 54 fiches non candidates du seed, en version
+réduite. `docs/permissions.md` décrit les deux fiches.

@@ -3,10 +3,10 @@ import { Prisma } from "@/generated/prisma/client";
 import type { PolicyAction } from "@/lib/actions";
 import { seedDemo, seedUserEmail, USERS } from "../../../../prisma/seed/index";
 import { loadActor } from "@/server/auth/loadActor";
-import { can } from "@/server/policy/can";
+import { can, personPageAccess } from "@/server/policy/can";
 import { loadPersonFacts, loadPersonFactsMany } from "@/server/policy/facts";
 import type { Actor, PersonFacts } from "@/server/policy/types";
-import { visibleSql, type VisibilityContext } from "@/server/policy/visibility";
+import { personPageSql, visibleSql, type VisibilityContext } from "@/server/policy/visibility";
 import { numericSettings } from "@/server/settings";
 import { getTestDb } from "@/test/db/testDatabase";
 
@@ -91,6 +91,22 @@ describe("visibility in SQL mirrors can()", () => {
           ids: expected,
         });
       }
+    },
+  );
+
+  it.each(USERS.map((u) => [u.key]))(
+    "%s: the person page opens (full or reduced) for the same people as personPageAccess()",
+    async (key) => {
+      const actor = actors.get(key);
+      if (!actor) throw new Error(key);
+      const rows = await db.$queryRaw<{ id: string }[]>(
+        Prisma.sql`SELECT p.id FROM persons p WHERE ${personPageSql(actor, ctx)} ORDER BY p.id`,
+      );
+      const expected = [...facts.values()]
+        .filter((person) => personPageAccess(actor, person) !== null)
+        .map((p) => p.personId)
+        .sort();
+      expect(rows.map((r) => r.id)).toEqual(expected);
     },
   );
 

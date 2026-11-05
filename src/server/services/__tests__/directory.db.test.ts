@@ -3,7 +3,7 @@ import { seedDemo, seedUserEmail } from "../../../../prisma/seed/index";
 import { isMinorOn } from "@/lib/age";
 import { loadActor } from "@/server/auth/loadActor";
 import { createDb } from "@/server/db";
-import { can } from "@/server/policy/can";
+import { can, personPageAccess } from "@/server/policy/can";
 import { loadPersonFactsMany } from "@/server/policy/facts";
 import type { Actor } from "@/server/policy/types";
 import {
@@ -121,7 +121,7 @@ describe("directory: visibility, count and pagination", () => {
     expect(diamant.total).toBe(6);
   });
 
-  it("links a line to the person page only with person.full.read, and hides trainings without training.read", async () => {
+  it("links a line to the person page only with person.full.read or training.read, and hides trainings without training.read", async () => {
     const flags: { open: boolean; training: boolean }[] = [];
     for (const key of ["action", "laser", "format", "format-gp", "diamant"]) {
       const actor = who(key);
@@ -130,7 +130,7 @@ describe("directory: visibility, count and pagination", () => {
       for (const row of rows) {
         const person = facts.get(row.id);
         if (!person) throw new Error(row.id);
-        expect(row.canOpen).toBe(can(actor, "person.full.read", { person }).allowed);
+        expect(row.canOpen).toBe(personPageAccess(actor, person) !== null);
         expect(row.training !== null).toBe(can(actor, "training.read", { person }).allowed);
         flags.push({ open: row.canOpen, training: row.training !== null });
       }

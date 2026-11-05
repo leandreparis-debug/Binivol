@@ -117,6 +117,24 @@ export function describeGrant(action: PolicyAction, profile: Profile): string {
   return condition ? CONDITION_LABELS[condition] : "—";
 }
 
+/**
+ * How much of the person page the actor may open:
+ * - `full`: `person.full.read` (every tab the other rights allow);
+ * - `trainings`: `training.read` without `person.full.read` (FORMAT): a header
+ *   reduced to the directory fields and the Formations tab only;
+ * - `null`: no person page (403, or 404 when the directory hides the person).
+ */
+export type PersonPageAccess = "full" | "trainings" | null;
+
+export function personPageAccess(
+  actor: Pick<Actor, "profiles">,
+  person: PersonFacts,
+): PersonPageAccess {
+  if (can(actor, "person.full.read", { person }).allowed) return "full";
+  if (can(actor, "training.read", { person }).allowed) return "trainings";
+  return null;
+}
+
 /** Raised by `authorize` when the policy refuses. Pages turn it into a 403. */
 export class ForbiddenError extends Error {
   readonly action: PolicyAction;

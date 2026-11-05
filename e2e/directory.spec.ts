@@ -13,7 +13,8 @@ const EXPECTED: Record<string, { visible: number; openable: number }> = {
   topaze: { visible: 60, openable: 60 },
   action: { visible: 54, openable: 54 },
   laser: { visible: 54, openable: 54 },
-  format: { visible: 54, openable: 0 },
+  // FORMAT opens every visible page, reduced to the Formations tab.
+  format: { visible: 54, openable: 54 },
   "format-gp": { visible: 54, openable: 13 },
   diamant: { visible: 60, openable: 11 },
   "format-diamant": { visible: 60, openable: 11 },
@@ -73,17 +74,43 @@ test.describe("Annuaire et fiche (bureau)", () => {
     });
   }
 
+  test("FORMAT ouvre une fiche réduite à l'onglet Formations", async ({ page }) => {
+    await loginAs(page, "format");
+    const [first] = await directoryLinks(page, "statut=ACTIVE");
+    expect(first).toBeTruthy();
+    expect((await page.goto(first ?? "/"))?.status()).toBe(200);
+    const tabs = page.getByRole("navigation", { name: "Sections de la fiche" });
+    await expect(tabs.getByRole("link")).toHaveText(["Formations"]);
+    await expect(page.getByRole("heading", { name: "Qualifications détenues" })).toBeVisible();
+    await expect(page.getByText("Fiche réduite aux formations (profil FORMAT).")).toBeVisible();
+    for (const hidden of ["Modifier", "Changer le statut", "Afficher les données sensibles"]) {
+      await expect(page.getByRole("button", { name: hidden })).toHaveCount(0);
+    }
+    // Another tab in the URL still shows the trainings only.
+    await page.goto(`${first ?? ""}?onglet=documents`);
+    await expect(page.getByRole("heading", { name: "Documents" })).toHaveCount(0);
+    await expectNoSeriousViolation(page);
+  });
+
   test("une fiche hors périmètre répond 403, un candidat est introuvable (404) pour ACTION", async ({
     page,
   }) => {
     await loginAs(page, "topaze");
     const [candidate] = await directoryLinks(page, "statut=CANDIDATE");
-    const [volunteer] = await directoryLinks(page, "statut=ACTIVE");
+    const volunteers = await directoryLinks(page, "statut=ACTIVE");
     expect(candidate).toBeTruthy();
     await page.context().clearCookies();
 
+    // DIAMANT sees every volunteer in the directory but opens only its scope.
+    await loginAs(page, "diamant");
+    const openable = new Set(await directoryLinks(page, "statut=ACTIVE"));
+    const outOfScope = volunteers.find((href) => !openable.has(href));
+    expect(outOfScope).toBeTruthy();
+    expect((await page.goto(outOfScope ?? "/"))?.status()).toBe(403);
+    await page.context().clearCookies();
+
     await loginAs(page, "format");
-    expect((await page.goto(volunteer ?? "/"))?.status()).toBe(403);
+    expect((await page.goto(candidate ?? "/"))?.status()).toBe(404);
     await page.context().clearCookies();
 
     await loginAs(page, "action");

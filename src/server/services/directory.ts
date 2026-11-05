@@ -3,7 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { Perimeter, PersonStatus } from "@/generated/prisma/enums";
 import { toParisDay } from "@/lib/dates";
 import type { DbOrTx } from "../db";
-import { can } from "../policy/can";
+import { can, personPageAccess } from "../policy/can";
 import { loadPersonFactsMany } from "../policy/facts";
 import type { Actor } from "../policy/types";
 import { directoryVisibilitySql, perimeterSql, type VisibilityContext } from "../policy/visibility";
@@ -116,7 +116,7 @@ export interface DirectoryRow {
   email: string | null;
   phone: string | null;
   archived: boolean;
-  /** `person.full.read`: the line links to the person page. */
+  /** The line links to the person page (full, or reduced to the trainings for FORMAT). */
   canOpen: boolean;
   /** Present only with `training.read` on this person. */
   training: DirectoryTrainingSummary | null;
@@ -319,7 +319,7 @@ export async function listDirectory(
         email: person.email,
         phone: person.phone,
         archived: person.archivedAt !== null,
-        canOpen: can(actor, "person.full.read", resource).allowed,
+        canOpen: personPageAccess(actor, personFacts) !== null,
         training,
       },
     ];

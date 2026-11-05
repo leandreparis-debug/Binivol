@@ -21,6 +21,12 @@ export const DIRECTORY_FIELDS = [
   "phone",
 ] as const;
 
+/**
+ * The reduced person page of FORMAT (`training.read` without `person.full.read`):
+ * the directory fields and the « Formateur » flag, nothing else.
+ */
+export const REDUCED_FIELDS = [...DIRECTORY_FIELDS, "isTrainer"] as const;
+
 export const FULL_FIELDS = [
   ...DIRECTORY_FIELDS,
   "civility",
@@ -65,6 +71,19 @@ function pick<K extends keyof PersonRow>(row: PersonRow, keys: readonly K[]): Pi
 
 export function toDirectoryView(row: PersonRow): DirectoryView {
   return { ...pick(row, DIRECTORY_FIELDS), view: "directory" };
+}
+
+export type ReducedView = Pick<PersonRow, (typeof REDUCED_FIELDS)[number]> & { view: "reduced" };
+
+/** Prisma `select` of the reduced view. */
+export const personReducedSelect = Object.fromEntries(
+  REDUCED_FIELDS.map((f) => [f, true]),
+) as Record<(typeof REDUCED_FIELDS)[number], true> satisfies Prisma.PersonSelect;
+
+export function toReducedView(row: Pick<PersonRow, (typeof REDUCED_FIELDS)[number]>): ReducedView {
+  const out = {} as Pick<PersonRow, (typeof REDUCED_FIELDS)[number]>;
+  for (const key of REDUCED_FIELDS) (out as Record<string, unknown>)[key] = row[key];
+  return { ...out, view: "reduced" };
 }
 
 export function toFullView(row: PersonRow): FullView {

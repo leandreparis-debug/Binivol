@@ -36,10 +36,12 @@ import {
   personAppointments,
   personFollowUp,
   personHeader,
+  personReducedHeader,
   personOverview,
   personTrainings,
   type AppointmentLine,
   type PersonHeader,
+  type ReducedHeader,
 } from "@/server/services/personProfile";
 import { timelineOf } from "@/server/timeline";
 import { DocumentsPanel } from "./DocumentsPanel";
@@ -100,6 +102,46 @@ function allowedTabs(header: PersonHeader): TabKey[] {
         return true;
     }
   });
+}
+
+/** Header of the reduced page (FORMAT): directory fields, perimeters, trainer. */
+function ReducedPersonHeader({ header }: { header: ReducedHeader }) {
+  const { person } = header;
+  return (
+    <header className="mb-6 flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href="/benevoles"
+          className="inline-flex min-h-11 w-max items-center gap-2 rounded-pill text-small text-ink-2 focus-ring hover:text-ink"
+        >
+          <ArrowLeft aria-hidden="true" className="size-4" /> Annuaire
+        </Link>
+        {getEnv().AUTH_DEMO_LOGIN && <FakeDataBanner />}
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <h1 className="text-title text-ink sm:text-display">{personDisplayName(person)}</h1>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body text-ink-2">
+          <Mono>{person.ref}</Mono>
+          <span aria-hidden="true">·</span>
+          {person.nivol ? (
+            <span>
+              NIVOL <Mono>{person.nivol}</Mono>
+            </span>
+          ) : (
+            <span className="text-muted">Sans NIVOL</span>
+          )}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusDot status={toVolunteerStatus(person.status)} />
+          {person.isTrainer === true && <Chip tone="ink">Formateur</Chip>}
+          {header.perimeters.map((p) => (
+            <Chip key={p}>{PERIMETER_LABELS[p]}</Chip>
+          ))}
+        </div>
+        <p className="text-small text-muted">Fiche réduite aux formations (profil FORMAT).</p>
+      </div>
+    </header>
+  );
 }
 
 function Header({ header, day }: { header: PersonHeader; day: Date }) {
@@ -369,7 +411,7 @@ async function TrainingsTab({
   day,
 }: {
   actor: Actor;
-  header: PersonHeader;
+  header: { person: { id: string }; alertDays: number };
   facts: PersonFacts;
   day: Date;
 }) {
@@ -706,6 +748,34 @@ export default async function Page({
   if (lookup.status === "notFound") notFound();
   if (lookup.status === "forbidden") forbidden();
   const day = toParisDay();
+  if (lookup.access === "trainings") {
+    // FORMAT: header reduced to the directory fields, Formations tab only.
+    const reduced = await personReducedHeader(getDb(), actor, lookup.personId, lookup.facts);
+    return (
+      <>
+        <ReducedPersonHeader header={reduced} />
+        <div className="mb-6">
+          <TabNav
+            tabs={[
+              {
+                key: "formations",
+                label: "Formations",
+                href: `/benevoles/${reduced.person.ref}?onglet=formations`,
+              },
+            ]}
+            active="formations"
+            label="Sections de la fiche"
+          />
+        </div>
+        <TrainingsTab
+          actor={actor}
+          header={{ person: { id: reduced.person.id }, alertDays: reduced.alertDays }}
+          facts={lookup.facts}
+          day={day}
+        />
+      </>
+    );
+  }
   const header = await personHeader(getDb(), actor, lookup.personId, lookup.facts, day);
   const tabs = allowedTabs(header);
   const requested = (await searchParams).onglet;

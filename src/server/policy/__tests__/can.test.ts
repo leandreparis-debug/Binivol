@@ -2,7 +2,14 @@
 import { describe, expect, it } from "vitest";
 import type { Perimeter, Profile } from "@/generated/prisma/enums";
 import { POLICY_ACTIONS, type PolicyAction } from "@/lib/actions";
-import { authorize, can, canSome, ForbiddenError, relevesOf } from "@/server/policy/can";
+import {
+  authorize,
+  can,
+  canSome,
+  ForbiddenError,
+  personPageAccess,
+  relevesOf,
+} from "@/server/policy/can";
 import type { PersonFacts } from "@/server/policy/types";
 
 /*
@@ -334,5 +341,36 @@ describe("canSome and authorize", () => {
     expect(() => {
       authorize(actor("TOPAZE"), "user.manage");
     }).not.toThrow();
+  });
+});
+
+describe("personPageAccess (full or reduced person page)", () => {
+  const expected: Record<Profile, Partial<Record<Case, "full" | "trainings">>> = {
+    TOPAZE: {
+      releve: "full",
+      neReleve: "full",
+      candidat: "full",
+      archivee: "full",
+      nouveau: "full",
+    },
+    ACTION: { releve: "full" },
+    LASER: { releve: "full" },
+    FORMAT: { releve: "trainings", neReleve: "trainings", nouveau: "trainings" },
+    FORMAT_GP: { releve: "full" },
+    DIAMANT: { releve: "full", candidat: "full", nouveau: "full" },
+  };
+  it.each(PROFILES)("profile %s alone", (profile) => {
+    for (const c of CASES) {
+      expect(personPageAccess(actor(profile), facts(c, profile)), `${profile} · ${c}`).toBe(
+        expected[profile][c] ?? null,
+      );
+    }
+  });
+
+  it("is full as soon as one cumulated profile gives person.full.read", () => {
+    expect(personPageAccess(actor("FORMAT", "DIAMANT"), facts("nouveau", "DIAMANT"))).toBe("full");
+    expect(personPageAccess(actor("FORMAT", "DIAMANT"), facts("neReleve", "DIAMANT"))).toBe(
+      "trainings",
+    );
   });
 });
