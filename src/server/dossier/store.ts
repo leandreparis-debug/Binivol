@@ -331,7 +331,7 @@ export interface DossierStatus {
 /** State of the person's dossier, without its content (Intégration tab). */
 export async function dossierStatus(db: DbOrTx, personId: string): Promise<DossierStatus> {
   const row = await db.dossierSubmission.findFirst({
-    where: { personId, status: { in: ["DRAFT", "SUBMITTED", "SIGNED"] } },
+    where: { personId, status: { in: ["DRAFT", "SUBMITTED", "SIGNED", "COMPLETE"] } },
     orderBy: { updatedAt: "desc" },
     select: { id: true, status: true, updatedAt: true, submittedAt: true },
   });
@@ -429,7 +429,7 @@ async function currentValues(db: DbOrTx, personId: string): Promise<CurrentValue
 /** The latest submitted dossier of a person (SUBMITTED or SIGNED), migrated, or null. */
 async function latestSubmitted(db: DbOrTx, personId: string) {
   const row = await db.dossierSubmission.findFirst({
-    where: { personId, status: { in: ["SUBMITTED", "SIGNED"] } },
+    where: { personId, status: { in: ["SUBMITTED", "SIGNED", "COMPLETE"] } },
     orderBy: { submittedAt: "desc" },
     include: { attachments: { where: { archivedAt: null } } },
   });
@@ -507,7 +507,7 @@ export async function applyDossier(
       where: {
         id: input.submissionId,
         personId: input.personId,
-        status: { in: ["SUBMITTED", "SIGNED"] },
+        status: { in: ["SUBMITTED", "SIGNED", "COMPLETE"] },
       },
     });
     if (!submission)

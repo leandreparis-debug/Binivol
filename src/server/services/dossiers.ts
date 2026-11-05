@@ -5,6 +5,7 @@ import { withAudit, type Actor as AuditActor } from "../audit";
 import { changeStage } from "./candidacies";
 import type { Db, DbOrTx } from "../db";
 import { getEnv } from "@/lib/env";
+import { signatureStatus, type SignatureStatus } from "../dossier/signing";
 import {
   dossierStatus,
   ensureDraft,
@@ -369,6 +370,8 @@ export async function dossierLinks(
 export interface DossierBlock {
   links: DossierLinkView[];
   status: DossierStatus;
+  /** Signatures of the sent dossier (step 8), null before the submission. */
+  signature: SignatureStatus | null;
   hasEmail: boolean;
   linkDays: number;
   mailDriver: "log" | "smtp";
@@ -388,15 +391,17 @@ export async function dossierBlock(
   now: Date = new Date(),
 ): Promise<DossierBlock> {
   authorize(actor, "dossier.manage", { person: facts });
-  const [links, status, person, settings] = await Promise.all([
+  const [links, status, signature, person, settings] = await Promise.all([
     dossierLinks(db, personId, now),
     dossierStatus(db, personId),
+    signatureStatus(db, personId),
     db.person.findUniqueOrThrow({ where: { id: personId }, select: { email: true } }),
     dossierSettings(db),
   ]);
   return {
     links,
     status,
+    signature,
     hasEmail: Boolean(person.email),
     linkDays: settings.linkDays,
     mailDriver: getEnv().MAIL_DRIVER,

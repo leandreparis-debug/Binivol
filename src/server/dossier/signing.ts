@@ -316,8 +316,6 @@ export async function signAsParty(
     challengeId = challenge.id;
     verifiedEmail = challenge.email;
   } else {
-    if (loaded.row.linkId === null)
-      throw new DomainError("SIGNATURE_STATE", "Mode sur place introuvable.");
     if (!input.verification.confirmed) {
       throw new DomainError(
         "SIGNATURE_INVALID",

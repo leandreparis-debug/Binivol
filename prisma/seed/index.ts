@@ -10,6 +10,7 @@ import type {
   TrainingResult,
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
+import { documentFileName } from "../../src/lib/fileNames";
 import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
 import { computeExpiresAt } from "../../src/server/reference";
 import { FINAL_MAIL_DEFAULT } from "../../src/server/settings";
@@ -659,15 +660,18 @@ export async function seedDemo(
         p: PersonPlan,
         kind: Prisma.DocumentUncheckedCreateInput["kind"],
         copy: Prisma.DocumentUncheckedCreateInput["copy"],
+        extra: { fileName?: string; submissionId?: string; suffix?: string } = {},
       ) => {
-        const key = `seed/${p.id}/${kind.toLowerCase()}.pdf`;
+        const name = extra.suffix ?? kind.toLowerCase();
+        const key = `seed/${p.id}/${name}.pdf`;
         documents.push({
-          id: `seed_doc_${pad(p.index)}_${kind.toLowerCase()}`,
+          id: `seed_doc_${pad(p.index)}_${name}`,
           personId: p.id,
           kind,
           copy,
           storageKey: key,
-          fileName: `${kind.toLowerCase()}-fictif.pdf`,
+          fileName: extra.fileName ?? `${kind.toLowerCase()}-fictif.pdf`,
+          submissionId: extra.submissionId ?? null,
           mimeType: "application/pdf",
           sizeBytes: 0,
           sha256: sha256(key),
@@ -907,8 +911,17 @@ export async function seedDemo(
         if (p.minor) doc(p, "PARENTAL_AUTH", "UL");
         if (!isCandidate && p.index % 12 === 0) doc(p, "B3_ATTESTATION", "UL");
         if (p.stage === "GAIA") {
-          doc(p, "DOSSIER", "UL");
-          doc(p, "CHARTE", "VOLUNTEER");
+          // The complete dossier (step 8): the UL copy of the 3 PDF and the proof.
+          const name = (suffix: string) => documentFileName(p.lastName, p.firstName, suffix);
+          const from = { submissionId: "seed_sub_signed" };
+          doc(p, "DOSSIER", "UL", { ...from, fileName: name("Dossier-Bénévole") });
+          doc(p, "CHARTE", "UL", { ...from, fileName: name("Charte-du-Bénévolat") });
+          doc(p, "APTITUDE", "UL", { ...from, fileName: name("Attestation-d_Aptitude") });
+          doc(p, "OTHER", "UL", {
+            ...from,
+            suffix: "proof",
+            fileName: name("Preuve-de-signature"),
+          });
         }
       }
 
@@ -1221,8 +1234,9 @@ export async function seedDemo(
           personId: minorFile.id,
           mode: "ON_SITE" as const,
           createdAt: addDays(today, -2),
+          // On site, one day: expired; the guardian signs through a new link or on site.
           expiresAt: addDays(today, -1),
-          usedAt: addDays(today, -2),
+          usedAt: null,
           revokedAt: null,
         },
       ];
@@ -1259,10 +1273,12 @@ export async function seedDemo(
           id: "seed_sub_adult",
           personId: adultFile.id,
           linkId: "seed_link_adult",
-          status: "SUBMITTED",
+          // Signed by the volunteer: to countersign.
+          status: "SIGNED",
           data: seedDossierData(adultFile, today, "complete", declaredNivol),
           schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -1),
+          signedAt: addDays(today, -1),
           ...audit,
         },
         {
@@ -1279,11 +1295,14 @@ export async function seedDemo(
           id: "seed_sub_signed",
           personId: gaiaCandidate.id,
           linkId: null,
-          status: "SIGNED",
+          // Countersigned: complete, documents in the UL copy (fileMissing).
+          status: "COMPLETE",
           data: seedDossierData(gaiaCandidate, today, "complete"),
           schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -6),
           signedAt: addDays(today, -6),
+          completedAt: addDays(today, -5),
+          finalMailSentAt: addDays(today, -5),
           ...audit,
         },
       ]);
@@ -1299,6 +1318,12 @@ export async function seedDemo(
           ...audit,
         },
       ]);
+      const gaiaHashes = Object.fromEntries(
+        ["Dossier-Bénévole", "Charte-du-Bénévolat", "Attestation-d_Aptitude"].map((suffix) => [
+          documentFileName(gaiaCandidate.lastName, gaiaCandidate.firstName, suffix),
+          sha256(`seed/${gaiaCandidate.id}/${suffix}`),
+        ]),
+      );
       await save<Prisma.SignatureUncheckedCreateInput>(tx.signature, [
         {
           id: "seed_sig_volunteer",
@@ -1306,12 +1331,59 @@ export async function seedDemo(
           signerRole: "VOLUNTEER",
           signerName: `${gaiaCandidate.firstName} ${gaiaCandidate.lastName}`,
           signerQuality: "Bénévole",
-          imageKey: `seed/${gaiaCandidate.id}/signature.png`,
+          imageKey: null,
+          typedName: `${gaiaCandidate.firstName} ${gaiaCandidate.lastName}`,
+          method: "OTP_EMAIL",
+          verifiedEmail: seedDossierData(gaiaCandidate, today, "complete").contact?.email ?? null,
           signedAt: addDays(today, -6),
           otpChallengeId: "seed_otp_signed",
           userAgent: "Seed/1.0 (fictif)",
           ipHash: sha256("seed-ip"),
-          documentHashes: { "dossier-fictif.pdf": sha256(`seed/${gaiaCandidate.id}/dossier.pdf`) },
+          documentHashes: gaiaHashes,
+          ...audit,
+        },
+        {
+          id: "seed_sig_crf",
+          submissionId: "seed_sub_signed",
+          signerRole: "CRF_REPRESENTATIVE",
+          signerName: "Maé Démo",
+          signerQuality: "DIAMANT · Animation des équipes",
+          imageKey: null,
+          typedName: "Maé Démo",
+          method: "SESSION",
+          verifiedEmail: seedUserEmail("diamant"),
+          verifiedById: userId("diamant"),
+          signedAt: addDays(today, -5),
+          documentHashes: gaiaHashes,
+          ...audit,
+        },
+        // Signed by the volunteer, to countersign (typed: no file to read).
+        {
+          id: "seed_sig_adult",
+          submissionId: "seed_sub_adult",
+          signerRole: "VOLUNTEER",
+          signerName: `${adultFile.firstName} ${adultFile.lastName}`,
+          imageKey: null,
+          typedName: `${adultFile.firstName} ${adultFile.lastName}`,
+          method: "OTP_EMAIL",
+          verifiedEmail: seedDossierData(adultFile, today, "complete").contact?.email ?? null,
+          signedAt: addDays(today, -1),
+          userAgent: "Seed/1.0 (fictif)",
+          ipHash: sha256("seed-ip-adult"),
+          ...audit,
+        },
+        // The minor signed on site; her legal guardian has not signed yet.
+        {
+          id: "seed_sig_minor",
+          submissionId: "seed_sub_minor",
+          signerRole: "VOLUNTEER",
+          signerName: `${minorFile.firstName} ${minorFile.lastName}`,
+          imageKey: null,
+          typedName: `${minorFile.firstName} ${minorFile.lastName}`,
+          method: "IN_PERSON",
+          verifiedById: userId("diamant"),
+          signedAt: addDays(today, -2),
+          userAgent: "Seed/1.0 (fictif)",
           ...audit,
         },
       ]);

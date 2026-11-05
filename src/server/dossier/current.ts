@@ -2,7 +2,13 @@ import { cookies } from "next/headers";
 import { shouldUseSecureCookies } from "../auth/cookies";
 import type { Db } from "../db";
 import { DomainError } from "../errors";
-import { linkState, resolveDossierLink, type DossierSessionContext } from "../services/dossiers";
+import {
+  linkState,
+  resolveDossierLink,
+  resolveSigningLink,
+  type DossierSessionContext,
+  type SigningSessionContext,
+} from "../services/dossiers";
 import {
   DOSSIER_COOKIE,
   dossierCookieOptions,
@@ -16,11 +22,16 @@ import {
  * `/dossier/ouvrir`.
  *
  * - `none`: no cookie, expired cookie, or a link revoked / expired since;
- * - `submitted`: the dossier was sent through this link (it is used);
- * - `active`: the draft can be read and written.
+ * - `active`: the draft can be read and written;
+ * - `signing`: the dossier is sent and waits for its signatures (the form is
+ *   closed, the link only opens the signature screens, ADR-044);
+ * - `submitted`: the dossier is signed (the link is used).
  */
 export type CandidateSession =
-  { state: "none" } | { state: "submitted" } | { state: "active"; context: DossierSessionContext };
+  | { state: "none" }
+  | { state: "submitted" }
+  | { state: "active"; context: DossierSessionContext }
+  | { state: "signing"; context: SigningSessionContext };
 
 export async function candidateSession(db: Db, now = new Date()): Promise<CandidateSession> {
   const store = await cookies();
@@ -28,6 +39,8 @@ export async function candidateSession(db: Db, now = new Date()): Promise<Candid
   if (!payload) return { state: "none" };
   const context = await resolveDossierLink(db, payload.linkId, now);
   if (context?.mode === "REMOTE") return { state: "active", context };
+  const signing = await resolveSigningLink(db, payload.linkId, now);
+  if (signing?.mode === "REMOTE") return { state: "signing", context: signing };
   const link = await db.dossierLink.findUnique({
     where: { id: payload.linkId },
     select: { expiresAt: true, usedAt: true, revokedAt: true },
@@ -54,10 +67,26 @@ export const SESSION_EXPIRED_MESSAGE =
  */
 export async function requireCandidate(db: Db): Promise<DossierSessionContext> {
   const session = await candidateSession(db);
-  if (session.state === "submitted") {
-    throw new DomainError("INVALID_DATA", "Votre dossier a déjà été envoyé.");
+  if (session.state === "submitted" || session.state === "signing") {
+    throw new DomainError(
+      "INVALID_DATA",
+      "Votre dossier a déjà été envoyé : il ne se modifie plus.",
+    );
   }
   if (session.state === "none") {
+    throw new DomainError("DOSSIER_SESSION_EXPIRED", SESSION_EXPIRED_MESSAGE);
+  }
+  await setDossierCookie(session.context.linkId);
+  return session.context;
+}
+
+/** The candidate of a signature action (dossier sent, not signed yet), cookie renewed. */
+export async function requireSigningCandidate(db: Db): Promise<SigningSessionContext> {
+  const session = await candidateSession(db);
+  if (session.state === "submitted") {
+    throw new DomainError("SIGNATURE_STATE", "Ton dossier est déjà signé.");
+  }
+  if (session.state !== "signing") {
     throw new DomainError("DOSSIER_SESSION_EXPIRED", SESSION_EXPIRED_MESSAGE);
   }
   await setDossierCookie(session.context.linkId);

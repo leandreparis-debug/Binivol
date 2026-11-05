@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Copy, FileText, Link2, Mail, Smartphone, X } from "lucide-react";
+import { Copy, FileText, Link2, Mail, PenLine, Smartphone, X } from "lucide-react";
 import { FormMessage, useFormAction } from "@/components/person/useFormAction";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -11,10 +11,12 @@ import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/
 import { Field, Input } from "@/components/ui/Field";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { formatDate, formatDateTime } from "@/lib/dates";
+import type { SignatureStatus } from "@/server/dossier/signing";
 import type { DossierBlock as DossierBlockData } from "@/server/services/dossiers";
 import {
   createDossierLinkAction,
   openOnSiteAction,
+  resendFinalMailAction,
   revokeDossierLinkAction,
   sendDossierLinkAction,
 } from "./dossierActions";
@@ -230,6 +232,96 @@ function RevokeButton({ linkId }: { linkId: string }) {
   );
 }
 
+function Step({ done, label, date }: { done: boolean; label: string; date: Date | null }) {
+  return (
+    <li className="flex items-center gap-2 text-small">
+      <span
+        aria-hidden="true"
+        className={
+          done ? "size-2.5 shrink-0 rounded-pill bg-ok" : "size-2.5 shrink-0 rounded-pill bg-muted"
+        }
+      />
+      <span className="text-ink">
+        {label}
+        <span className="text-muted">
+          {done && date ? ` · ${formatDateTime(date)}` : done ? "" : " · en attente"}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+/** States of the signature: volunteer, guardian, countersignature, e-mail. */
+function SignatureSteps({ signature }: { signature: SignatureStatus }) {
+  return (
+    <section aria-labelledby="dossier-signature-title" className="flex flex-col gap-2">
+      <h3 id="dossier-signature-title" className="text-small font-medium text-muted">
+        Signature
+      </h3>
+      <div className="flex flex-wrap gap-3" data-testid="dossier-signature-state">
+        {signature.status === "SIGNED" && <StatusDot status="dossier-to-countersign" />}
+        {signature.status === "COMPLETE" && <StatusDot status="dossier-complete" />}
+        {signature.status === "COMPLETE" && (
+          <StatusDot status={signature.finalMailError ? "mail-failed" : "mail-sent"} />
+        )}
+      </div>
+      <ul className="flex flex-col gap-1">
+        <Step
+          done={signature.volunteerSignedAt !== null}
+          label="Signé par le bénévole"
+          date={signature.volunteerSignedAt}
+        />
+        {signature.minor && (
+          <Step
+            done={signature.parentSignedAt !== null}
+            label="Signé par le représentant légal"
+            date={signature.parentSignedAt}
+          />
+        )}
+        <Step
+          done={signature.countersignedAt !== null}
+          label="Contresigné pour la Croix-Rouge"
+          date={signature.countersignedAt}
+        />
+        {signature.status === "COMPLETE" && (
+          <Step
+            done={signature.finalMailSentAt !== null}
+            label="Documents envoyés par e-mail"
+            date={signature.finalMailSentAt}
+          />
+        )}
+      </ul>
+      {signature.finalMailError && (
+        <p role="alert" className="text-small font-medium text-danger-ink">
+          {signature.finalMailError}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ResendMail({ personId }: { personId: string }) {
+  const { pending, feedback, run } = useFormAction<{
+    mailSent: boolean;
+    mailError: string | null;
+  }>();
+  return (
+    <>
+      <Button
+        variant="outline"
+        leftIcon={<Mail aria-hidden="true" />}
+        loading={pending}
+        onClick={() => {
+          run(() => resendFinalMailAction({ personId }), { success: "E-mail renvoyé." });
+        }}
+      >
+        Renvoyer l&apos;e-mail
+      </Button>
+      <FormMessage feedback={feedback} />
+    </>
+  );
+}
+
 /**
  * « Dossier » block of the Intégration tab (`dossier.manage`): state of the
  * dossier, its links, and the ways to have it filled (remote link, on site).
@@ -247,6 +339,7 @@ export function DossierBlock({
   const [opening, startOpening] = useTransition();
   const [onSiteError, setOnSiteError] = useState<string | null>(null);
   const submitted = block.status.state === "submitted";
+  const sig = block.signature;
   const hasActive = block.links.some((l) => l.state === "active" && l.mode === "REMOTE");
   return (
     <Card>
@@ -269,9 +362,36 @@ export function DossierBlock({
         </div>
         <div className="flex flex-wrap gap-2">
           {submitted ? (
-            <Button asChild leftIcon={<FileText aria-hidden="true" />}>
-              <Link href={`/benevoles/${personRef}/dossier`}>Voir le dossier</Link>
-            </Button>
+            <>
+              <Button
+                asChild
+                variant={sig?.status === "SIGNED" ? "outline" : "primary"}
+                leftIcon={<FileText aria-hidden="true" />}
+              >
+                <Link href={`/benevoles/${personRef}/dossier`}>Voir le dossier</Link>
+              </Button>
+              {sig?.status === "SIGNED" && (
+                <Button asChild leftIcon={<PenLine aria-hidden="true" />}>
+                  <Link href={`/benevoles/${personRef}/dossier/contresigner`}>Contresigner</Link>
+                </Button>
+              )}
+              {sig?.status === "SUBMITTED" && (
+                <>
+                  <Button asChild variant="outline" leftIcon={<Smartphone aria-hidden="true" />}>
+                    <Link href={`/benevoles/${personRef}/dossier/sur-place`}>Signer sur place</Link>
+                  </Button>
+                  <CreateLinkDialog
+                    personId={personId}
+                    linkDays={block.linkDays}
+                    hasEmail={block.hasEmail}
+                    replaces={hasActive}
+                  />
+                </>
+              )}
+              {sig?.status === "COMPLETE" && sig.finalMailError && (
+                <ResendMail personId={personId} />
+              )}
+            </>
           ) : (
             <>
               <CreateLinkDialog
@@ -298,6 +418,7 @@ export function DossierBlock({
             </>
           )}
         </div>
+        {sig && <SignatureSteps signature={sig} />}
         {onSiteError && (
           <p role="alert" className="text-small font-medium text-danger-ink">
             {onSiteError}

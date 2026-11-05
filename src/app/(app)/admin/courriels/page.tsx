@@ -76,6 +76,20 @@ export default async function OutboundMailsPage() {
                   ) : (
                     <Linkified text={mail.text} />
                   )}
+                  {mail.attachments.length > 0 && (
+                    <div className="flex flex-col gap-1" data-testid="mail-attachments">
+                      <p className="text-small font-medium text-ink">
+                        Pièces jointes ({mail.attachments.length}), non conservées :
+                      </p>
+                      <ul className="flex flex-col gap-0.5">
+                        {mail.attachments.map((a) => (
+                          <li key={a.filename} className="text-small text-ink-2">
+                            {a.filename} · {(a.size / 1024).toFixed(0)} Ko
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </li>

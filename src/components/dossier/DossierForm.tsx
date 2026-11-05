@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, CircleCheck, RotateCw, Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -70,6 +71,7 @@ const OFFLINE = "Connexion perdue : vos réponses seront enregistrées dès le r
  * the server's (`submissionIssues`), shown here as the candidate goes.
  */
 export function DossierForm({ view, actions, personId, exitHref }: DossierFormProps) {
+  const router = useRouter();
   const today = useMemo(() => new Date(`${view.today}T00:00:00Z`), [view.today]);
   const scope = useMemo(() => (personId ? { personId } : {}), [personId]);
   const [draft, setDraft] = useState<DossierDraft>(view.data);
@@ -272,7 +274,16 @@ export function DossierForm({ view, actions, personId, exitHref }: DossierFormPr
     }
   };
 
-  if (submitted) return <DossierSubmitted exitHref={exitHref} />;
+  if (submitted) {
+    return (
+      <DossierSubmitted
+        exitHref={exitHref}
+        onContinue={() => {
+          router.refresh();
+        }}
+      />
+    );
+  }
 
   const fields = STEP_FIELDS[current];
   const attachmentKinds: DossierAttachmentKind[] =
@@ -535,24 +546,42 @@ function Welcome({
   );
 }
 
-/** Confirmation shown once the dossier is sent (also the page of a used link). */
-export function DossierSubmitted({ exitHref }: { exitHref?: string }) {
+/**
+ * Confirmation once the dossier is sent (the signature follows), or once it
+ * is signed (the page of a used link).
+ */
+export function DossierSubmitted({
+  exitHref,
+  signed = false,
+  onContinue,
+}: {
+  exitHref?: string;
+  signed?: boolean;
+  onContinue?: () => void;
+}) {
   return (
     <Card>
       <CardContent className="flex flex-col items-start gap-4 pt-6">
         <CircleCheck className="size-10 text-ok" aria-hidden="true" />
         <h2 className="text-title text-ink" data-testid="dossier-step-title">
-          Votre dossier a bien été envoyé
+          {signed ? "Votre dossier est signé" : "Votre dossier a bien été envoyé"}
         </h2>
         <p className="text-body text-ink-2">
-          Merci. L&apos;unité locale va le relire, puis vous recontactera pour la suite : les
-          documents à signer et votre accueil.
+          {signed
+            ? "Merci. L'unité locale contresigne la charte, puis vous recevrez vos documents par e-mail."
+            : "Merci. Il reste une étape : signer les documents, avec un code reçu par e-mail."}
         </p>
-        <p className="text-small text-muted">
-          Le lien ne permet plus de modifier le dossier. Pour une correction, contactez l&apos;unité
-          locale.
-        </p>
-        {exitHref && (
+        {!signed && (
+          <p className="text-small text-muted">
+            Le dossier ne se modifie plus. Pour une correction, contactez l&apos;unité locale.
+          </p>
+        )}
+        {onContinue && (
+          <Button size="lg" onClick={onContinue}>
+            Signer mon dossier
+          </Button>
+        )}
+        {exitHref && !onContinue && (
           <Button asChild size="lg">
             <Link href={exitHref}>Rendre l&apos;appareil au responsable</Link>
           </Button>

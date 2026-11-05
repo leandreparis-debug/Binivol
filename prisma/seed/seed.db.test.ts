@@ -215,10 +215,33 @@ describe("seed", () => {
       ["seed_link_active", "active"],
       ["seed_link_adult", "used"],
       ["seed_link_expired", "expired"],
-      ["seed_link_minor", "used"],
+      ["seed_link_minor", "expired"],
       ["seed_link_revoked", "revoked"],
     ]);
     expect(links.every((l) => /^[0-9a-f]{64}$/.test(l.tokenHash))).toBe(true);
+  });
+
+  it("step 8: to countersign, complete (documents fileMissing), minor waiting for the guardian", async () => {
+    const signatures = await db.signature.findMany({ orderBy: { id: "asc" } });
+    expect(signatures.map((s) => [s.submissionId, s.signerRole, s.method])).toEqual([
+      ["seed_sub_adult", "VOLUNTEER", "OTP_EMAIL"],
+      ["seed_sub_signed", "CRF_REPRESENTATIVE", "SESSION"],
+      ["seed_sub_minor", "VOLUNTEER", "IN_PERSON"],
+      ["seed_sub_signed", "VOLUNTEER", "OTP_EMAIL"],
+    ]);
+    // Typed signatures: nothing to read in the storage.
+    expect(signatures.every((s) => s.imageKey === null && s.typedName)).toBe(true);
+    const complete = await db.document.findMany({
+      where: { submissionId: "seed_sub_signed" },
+      orderBy: { kind: "asc" },
+    });
+    expect(complete.map((d) => [d.kind, d.copy, d.fileMissing])).toEqual([
+      ["DOSSIER", "UL", true],
+      ["CHARTE", "UL", true],
+      ["APTITUDE", "UL", true],
+      ["OTHER", "UL", true],
+    ]);
+    expect(complete[0]?.fileName).toMatch(/^[A-ZÀ-Ý'-]+_\p{Lu}[\p{L}-]*_Dossier-Bénévole\.pdf$/u);
   });
 
   it("stores a half-filled draft and complete submitted dossiers (one of a minor of 15)", async () => {
@@ -227,10 +250,10 @@ describe("seed", () => {
       include: { attachments: true, person: { select: { status: true } } },
     });
     expect(subs.map((s) => [s.id, s.status, s.schemaVersion])).toEqual([
-      ["seed_sub_adult", "SUBMITTED", 2],
+      ["seed_sub_adult", "SIGNED", 2],
       ["seed_sub_draft", "DRAFT", 2],
       ["seed_sub_minor", "SUBMITTED", 2],
-      ["seed_sub_signed", "SIGNED", 2],
+      ["seed_sub_signed", "COMPLETE", 2],
     ]);
     for (const s of subs.filter((x) => x.status !== "DRAFT")) {
       const data = migrateDossierData(s.data, s.schemaVersion).data;

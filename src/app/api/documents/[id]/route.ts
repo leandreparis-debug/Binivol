@@ -1,3 +1,4 @@
+import { contentDisposition } from "@/lib/fileNames";
 import { getActor } from "@/server/auth/actor";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
@@ -38,7 +39,7 @@ export async function GET(
         ...NO_STORE,
         "Content-Type": meta.mimeType,
         "Content-Length": String(body.length),
-        "Content-Disposition": `attachment; filename="${meta.fileName.replace(/["\\\r\n]/g, "_")}"`,
+        "Content-Disposition": contentDisposition(meta.fileName),
       },
     });
   } catch (error) {

@@ -4,7 +4,13 @@ import { z } from "zod";
 import { attachmentFormInput, removeAttachmentInput, saveDossierInput } from "@/lib/dossierForms";
 import { definePublicAction } from "@/server/actions/defineAction";
 import { getDb } from "@/server/db";
-import { requireCandidate, setDossierCookie } from "@/server/dossier/current";
+import { DomainError } from "@/server/errors";
+import { requestCodeInput, signFormInput } from "@/lib/signatureForms";
+import {
+  requireCandidate,
+  requireSigningCandidate,
+  setDossierCookie,
+} from "@/server/dossier/current";
 import {
   addDossierFormAttachment,
   formActor,
@@ -13,6 +19,7 @@ import {
   submitDossierForm,
 } from "@/server/services/dossierForm";
 import { openDossierLink } from "@/server/services/dossiers";
+import { requestSignatureCode, submitSignature } from "@/server/services/signatureForm";
 import { getStorage } from "@/server/storage";
 
 /*
@@ -65,5 +72,29 @@ export const submitDossierAction = definePublicAction({
   handler: async ({ input }) => {
     const context = await requireCandidate(getDb());
     return submitDossierForm(getDb(), context, input.data, formActor(context));
+  },
+});
+
+/** Sends the signature code of the next signer to her own e-mail. */
+export const requestSignatureCodeAction = definePublicAction({
+  input: requestCodeInput,
+  handler: async ({ input }) => {
+    const context = await requireSigningCandidate(getDb());
+    return requestSignatureCode(getDb(), context.submissionId, input.role);
+  },
+});
+
+/** Signs (code checked, trace or typed name) for the next signer. */
+export const signDossierAction = definePublicAction({
+  input: signFormInput,
+  handler: async ({ input }) => {
+    const context = await requireSigningCandidate(getDb());
+    if (input.verification !== "code") {
+      throw new DomainError(
+        "SIGNATURE_STATE",
+        "La vérification en présence n'existe que sur place.",
+      );
+    }
+    return submitSignature(getDb(), context.submissionId, input);
   },
 });

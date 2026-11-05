@@ -20,7 +20,11 @@ export type DossierStatusKey =
   | "link-revoked"
   | "dossier-none"
   | "dossier-draft"
-  | "dossier-submitted";
+  | "dossier-submitted"
+  | "dossier-to-countersign"
+  | "dossier-complete"
+  | "mail-sent"
+  | "mail-failed";
 
 export type Status = VolunteerStatus | DeadlineStatus | DossierStatusKey;
 
@@ -60,6 +64,10 @@ export const DOSSIER_STATUSES: Record<DossierStatusKey, StatusMeta> = {
   "dossier-none": { label: "Pas commencé", tone: "neutral" },
   "dossier-draft": { label: "En cours de saisie", tone: "warn" },
   "dossier-submitted": { label: "Envoyé", tone: "accent" },
+  "dossier-to-countersign": { label: "À contresigner", tone: "warn" },
+  "dossier-complete": { label: "Complet", tone: "ok" },
+  "mail-sent": { label: "E-mail envoyé", tone: "ok" },
+  "mail-failed": { label: "E-mail en échec", tone: "danger" },
 };
 
 export const STATUSES: Record<Status, StatusMeta> = {

@@ -7,7 +7,11 @@ import { attachmentFormInput, removeAttachmentInput, saveDossierInput } from "@/
 import { defineAction } from "@/server/actions/defineAction";
 import { appBaseUrl } from "@/server/baseUrl";
 import { REPORT_KEYS, type ReportKey } from "@/server/dossier/compare";
-import { applyDossier, readDossierForReview } from "@/server/dossier/store";
+import { countersignInput, requestCodeInput, signFormInput } from "@/lib/signatureForms";
+import { countersign, resendFinalMail, signatureStatus } from "@/server/dossier/signing";
+import { applyDossier, readDossierForReview, submissionToSign } from "@/server/dossier/store";
+import { getMail } from "@/server/mail";
+import { requestSignatureCode, submitSignature } from "@/server/services/signatureForm";
 import { dossierLinkUrl } from "@/server/dossier/token";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
@@ -182,6 +186,80 @@ export const submitOnSiteDossierAction = defineAction({
   handler: async ({ input, actor }) => {
     const { context, audit } = await onSite(input.personId, actor);
     const result = await submitDossierForm(getDb(), context, input.data, audit);
+    refresh();
+    return result;
+  },
+});
+
+// --- Signature (step 8) ---------------------------------------------------
+
+async function toSign(personId: string | undefined): Promise<string> {
+  const found = personId ? await submissionToSign(getDb(), personId) : null;
+  if (!found) {
+    throw new DomainError("SIGNATURE_STATE", "Aucun dossier à signer pour cette personne.");
+  }
+  return found.submissionId;
+}
+
+/** On site: the code of the next signer, sent to her own e-mail. */
+export const requestOnSiteCodeAction = defineAction({
+  action: "dossier.manage",
+  input: requestCodeInput,
+  resource: (input) => personResource(input.personId),
+  handler: async ({ input }) =>
+    requestSignatureCode(getDb(), await toSign(input.personId), input.role),
+});
+
+/** On site: signature, with the code or with the identity checked in person. */
+export const signOnSiteAction = defineAction({
+  action: "dossier.manage",
+  input: signFormInput,
+  resource: (input) => personResource(input.personId),
+  handler: async ({ input, actor }) => {
+    const state = await submitSignature(getDb(), await toSign(input.personId), input, actor);
+    refresh();
+    return state;
+  },
+});
+
+/** Countersignature of the charte, then documents, proof, e-mail and GAIA. */
+export const countersignAction = defineAction({
+  action: "dossier.manage",
+  input: countersignInput,
+  resource: (input) => personResource(input.personId),
+  handler: async ({ input, actor }) => {
+    const status = await signatureStatus(getDb(), input.personId);
+    if (!status) throw new DomainError("SIGNATURE_STATE", "Aucun dossier à contresigner.");
+    const result = await countersign(getDb(), getStorage(), getMail(getDb(), actor.userId), actor, {
+      submissionId: status.submissionId,
+      quality: input.quality,
+      signature:
+        input.kind === "drawn" && input.png
+          ? { kind: "drawn", png: new Uint8Array(await input.png.arrayBuffer()) }
+          : { kind: "typed", name: input.typedName ?? "" },
+    });
+    refresh();
+    return { mailSent: result.mailSent, mailError: result.mailError };
+  },
+});
+
+/** « Renvoyer l'e-mail » of the final documents (the stored UL copy). */
+export const resendFinalMailAction = defineAction({
+  action: "dossier.manage",
+  input: z.object({ personId: id }),
+  resource: (input) => personResource(input.personId),
+  handler: async ({ input, actor }) => {
+    const status = await signatureStatus(getDb(), input.personId);
+    if (status?.status !== "COMPLETE") {
+      throw new DomainError("SIGNATURE_STATE", "Le dossier n'est pas encore complet.");
+    }
+    const result = await resendFinalMail(
+      getDb(),
+      getStorage(),
+      getMail(getDb(), actor.userId),
+      actor,
+      status.submissionId,
+    );
     refresh();
     return result;
   },

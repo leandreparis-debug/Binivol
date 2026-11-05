@@ -3,11 +3,18 @@ import { openMail } from "../mail";
 import { authorize } from "../policy/can";
 import type { Actor } from "../policy/types";
 
+/** An attachment of a logged e-mail: its name and size only. */
+export interface MailAttachmentInfo {
+  filename: string;
+  size: number;
+}
+
 export interface OutboundMailView {
   id: string;
   to: string;
   subject: string;
   text: string | null;
+  attachments: MailAttachmentInfo[];
   createdAt: Date;
   createdBy: string | null;
 }
@@ -36,6 +43,12 @@ export async function listOutboundMails(
     to: r.to,
     subject: r.subject,
     text: openMail(r.payload)?.text ?? null,
+    attachments: Array.isArray(r.attachments)
+      ? (r.attachments as { filename?: unknown; size?: unknown }[]).map((a) => ({
+          filename: typeof a.filename === "string" ? a.filename : "",
+          size: typeof a.size === "number" ? a.size : 0,
+        }))
+      : [],
     createdAt: r.createdAt,
     createdBy: r.createdById ? (authors.get(r.createdById) ?? null) : null,
   }));

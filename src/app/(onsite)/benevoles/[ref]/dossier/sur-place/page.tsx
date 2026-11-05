@@ -2,17 +2,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Smartphone } from "lucide-react";
 import { DossierForm, DossierSubmitted } from "@/components/dossier/DossierForm";
+import { SigningFlow } from "@/components/signature/SigningFlow";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { getDb } from "@/server/db";
 import { requireDossierPage } from "@/server/dossier/page";
-import { dossierStatus } from "@/server/dossier/store";
+import { signingState } from "@/server/dossier/signing";
+import { dossierStatus, submissionToSign } from "@/server/dossier/store";
 import { dossierFormView, onSiteContext } from "@/server/services/dossierForm";
 import { dossierPerson } from "@/server/services/dossiers";
 import {
   addOnSiteAttachmentAction,
   removeOnSiteAttachmentAction,
+  requestOnSiteCodeAction,
+  signOnSiteAction,
   saveOnSiteDossierAction,
   submitOnSiteDossierAction,
 } from "@/app/(app)/benevoles/[ref]/dossierActions";
@@ -29,7 +33,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function OnSitePage({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
-  const { personId } = await requireDossierPage(ref);
+  const { personId, actor } = await requireDossierPage(ref);
   const db = getDb();
   const person = await dossierPerson(db, personId);
   const exitHref = `/benevoles/${person.ref}?onglet=integration`;
@@ -51,6 +55,22 @@ export default async function OnSitePage({ params }: { params: Promise<{ ref: st
       </Button>
     </div>
   );
+  const toSign = context ? null : await submissionToSign(db, personId);
+  if (toSign) {
+    const state = await signingState(db, toSign.submissionId);
+    return (
+      <div className="flex flex-col gap-4">
+        {banner}
+        <h1 className="text-title text-ink">Signature du dossier</h1>
+        <SigningFlow
+          initial={state}
+          actions={{ requestCode: requestOnSiteCodeAction, sign: signOnSiteAction }}
+          previewBase={`/benevoles/${person.ref}/dossier/apercu/`}
+          onSite={{ personId, responsibleName: actor.name, exitHref }}
+        />
+      </div>
+    );
+  }
   if (!context) {
     const status = await dossierStatus(db, personId);
     return (

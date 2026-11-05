@@ -20,6 +20,10 @@ describe("status registry", () => {
       "dossier-none",
       "dossier-draft",
       "dossier-submitted",
+      "dossier-to-countersign",
+      "dossier-complete",
+      "mail-sent",
+      "mail-failed",
     ]);
   });
 
