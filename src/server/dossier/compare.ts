@@ -294,7 +294,7 @@ export function buildComparison(
     [
       "guardian",
       v([g.firstName, g.lastName].filter(Boolean).join(" ")) &&
-        `${[g.firstName, g.lastName].filter(Boolean).join(" ")}${g.quality ? ` (${g.quality})` : ""}${g.phone ? ` · ${formatPhone(g.phone)}` : ""}`,
+        `${[g.firstName, g.lastName].filter(Boolean).join(" ")}${g.quality ? ` (${g.quality})` : ""}${g.phone ? ` · ${formatPhone(g.phone)}` : ""}${g.email ? ` · ${g.email}` : ""}`,
       undefined,
     ],
   ];

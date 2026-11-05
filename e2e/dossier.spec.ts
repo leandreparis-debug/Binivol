@@ -231,6 +231,7 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     await candidate.page.locator("#dossier-guardian-firstName").fill("Dominique");
     await candidate.page.locator("#dossier-guardian-quality").selectOption("Mère");
     await candidate.page.locator("#dossier-guardian-phone").fill("06 39 98 00 03");
+    await candidate.page.locator("#dossier-guardian-email").fill(`parent.${who.email}`);
     await next(candidate.page, "Pièces jointes");
     await candidate.page.getByRole("button", { name: "Continuer" }).click();
     await expect(candidate.page.getByText(/autorisation parentale est obligatoire/)).toBeVisible();

@@ -308,7 +308,13 @@ describe("draft, submission and review", () => {
     }
     await saveDraft(db, draft.submissionId, {
       ...completeDossier("2011-02-01"),
-      guardian: { lastName: "Fictif", firstName: "Anne", quality: "Mère", phone: "06 39 98 00 01" },
+      guardian: {
+        lastName: "Fictif",
+        firstName: "Anne",
+        quality: "Mère",
+        phone: "06 39 98 00 01",
+        email: "anne.fictif@exemple.test",
+      },
     });
     const storage = memoryStorage();
     await addAttachment(db, storage, {

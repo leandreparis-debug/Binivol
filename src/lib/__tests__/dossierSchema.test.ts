@@ -172,13 +172,20 @@ describe("submission rules", () => {
       "guardian.firstName",
       "guardian.quality",
       "guardian.phone",
+      "guardian.email",
     ]);
     const guardian = {
       lastName: "Exemple",
       firstName: "Dominique",
       quality: "Mère",
       phone: "0639980003",
+      email: "dominique.exemple@exemple.test",
     };
+    const badMail = complete({
+      identity: { ...id, birthDate: "2009-06-01" },
+      guardian: { ...guardian, email: "pas-un-mail" },
+    });
+    expect(fields(badMail)).toEqual(["guardian.email"]);
     const fifteen = complete({ identity: { ...id, birthDate: "2011-09-01" }, guardian });
     expect(fields(fifteen)).toEqual(["attachments.PARENTAL_AUTH"]);
     expect(fields(fifteen, ["PARENTAL_AUTH"])).toEqual([]);
@@ -217,6 +224,26 @@ describe("schema versions", () => {
     expect(data.identity).toBeUndefined();
     expect(data.contact?.city).toBe("Versailles");
     expect(warnings).toHaveLength(2);
+  });
+
+  it("reads a version 1 dossier as is: version 2 only adds the guardian's e-mail", () => {
+    const v1 = {
+      identity: { firstName: "Camille" },
+      guardian: {
+        lastName: "Exemple",
+        firstName: "Dominique",
+        quality: "Mère",
+        phone: "0639980003",
+      },
+    };
+    const { data, warnings } = migrateDossierData(v1, 1);
+    expect(DOSSIER_SCHEMA_VERSION).toBe(2);
+    expect(data).toEqual(v1);
+    expect(data.guardian?.email).toBeUndefined();
+    expect(warnings).toEqual([]);
+    expect(
+      normalizeSubmission({ guardian: { email: " Dominique@Exemple.TEST " } }).guardian?.email,
+    ).toBe("dominique@exemple.test");
   });
 
   it("reads garbage as an empty draft", () => {

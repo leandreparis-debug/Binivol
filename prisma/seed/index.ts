@@ -10,7 +10,7 @@ import type {
   TrainingResult,
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
-import type { DossierDraft } from "../../src/lib/dossierSchema";
+import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
 import { computeExpiresAt } from "../../src/server/reference";
 import { REFERENCE_ITEMS } from "./referenceData";
 
@@ -156,7 +156,7 @@ async function save<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
 const isoDay = (date: Date) => date.toISOString().slice(0, 10);
 
 /**
- * Online dossier of a seed candidate (schemaVersion 1), invented like the
+ * Online dossier of a seed candidate (current schemaVersion), invented like the
  * rest. `half`: identity and part of the contact details (a draft being
  * typed); `complete`: everything a submission requires (minors included).
  */
@@ -224,6 +224,7 @@ export function seedDossierData(
             firstName: "Dominique",
             quality: "Mère",
             phone: fictionalMobile(7000 + p.index),
+            email: `dominique.parent.${slug(p.lastName)}${p.index}@exemple.test`,
           },
         }
       : {}),
@@ -1244,7 +1245,7 @@ export async function seedDemo(
           linkId: "seed_link_active",
           status: "DRAFT",
           data: seedDossierData(fileCandidate, today, "half"),
-          schemaVersion: 1,
+          schemaVersion: DOSSIER_SCHEMA_VERSION,
           ...audit,
         },
         {
@@ -1253,7 +1254,7 @@ export async function seedDemo(
           linkId: "seed_link_adult",
           status: "SUBMITTED",
           data: seedDossierData(adultFile, today, "complete", declaredNivol),
-          schemaVersion: 1,
+          schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -1),
           ...audit,
         },
@@ -1263,7 +1264,7 @@ export async function seedDemo(
           linkId: "seed_link_minor",
           status: "SUBMITTED",
           data: seedDossierData(minorFile, today, "complete"),
-          schemaVersion: 1,
+          schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -2),
           ...audit,
         },
@@ -1273,7 +1274,7 @@ export async function seedDemo(
           linkId: null,
           status: "SIGNED",
           data: seedDossierData(gaiaCandidate, today, "complete"),
-          schemaVersion: 1,
+          schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -6),
           signedAt: addDays(today, -6),
           ...audit,

@@ -10,7 +10,7 @@ import { parsePhone } from "./phone";
  * (docs/dossier.md), which step 8 will fill.
  */
 
-export const DOSSIER_SCHEMA_VERSION = 1;
+export const DOSSIER_SCHEMA_VERSION = 2;
 
 export const DOSSIER_STEPS = [
   "accueil",
@@ -153,6 +153,8 @@ export const dossierDraftSchema = z.object({
       firstName: opt(LEN.name),
       quality: opt(LEN.quality),
       phone: opt(LEN.phone),
+      /** Version 2 (step 8): the legal guardian receives the signature code. */
+      email: opt(LEN.email),
     })
     .partial()
     .optional(),
@@ -334,6 +336,7 @@ export function submissionIssues(draft: DossierDraft, ctx: SubmissionContext): D
     required("guardian", "firstName", g.firstName, "Le prénom du représentant légal");
     required("guardian", "quality", g.quality, "La qualité du représentant légal");
     phone("guardian", "phone", g.phone, true);
+    email("guardian", "email", g.email, true);
   }
   if (age !== null && age < 16 && !ctx.attachmentKinds.includes("PARENTAL_AUTH")) {
     add(
@@ -384,6 +387,10 @@ export function migrateDossierData(raw: unknown, version: number): MigratedDraft
     if (dropped.length > 0) {
       warnings.push(`Version ${String(version)} : champs ignorés (${dropped.join(", ")}).`);
     }
+  } else if (version === 1) {
+    // Version 2 only adds `guardian.email` (optional in a draft): the data
+    // reads as is. A dossier submitted in version 1 has no guardian e-mail;
+    // its guardian signs in person (docs/signature.md).
   } else if (version > DOSSIER_SCHEMA_VERSION) {
     warnings.push(
       `Version ${String(version)} plus récente que l'application : champs inconnus ignorés.`,
@@ -486,6 +493,7 @@ export function normalizeSubmission(draft: DossierDraft): DossierDraft {
       firstName: t(g.firstName),
       quality: t(g.quality),
       phone: p(g.phone),
+      email: m(g.email),
     },
     consent: { rgpd: draft.consent?.rgpd === true },
   };
