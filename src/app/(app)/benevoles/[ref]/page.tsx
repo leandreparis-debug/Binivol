@@ -49,9 +49,17 @@ import { can } from "@/server/policy/can";
 import { integrationTab } from "@/server/services/candidacies";
 import { dossierBlock } from "@/server/services/dossiers";
 import { gaiaBlock } from "@/server/services/gaia";
+import { appointableFunctions, referenceOptions } from "@/server/services/trainings";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { DossierBlock } from "./DossierBlock";
 import { GaiaBlock } from "./GaiaBlock";
+import {
+  AddTrainingDialog,
+  AddWishDialog,
+  AppointDialog,
+  AppointmentLineTools,
+} from "./TrainingTabTools";
+import { CancelDialog } from "../../formations/TrainingForms";
 import { IntegrationPanel } from "./IntegrationPanel";
 import { ListEditor } from "./ListEditor";
 import { PersonActions } from "./PersonActions";
@@ -426,16 +434,25 @@ async function TrainingsTab({
   facts: PersonFacts;
   day: Date;
 }) {
-  const data = await personTrainings(
-    getDb(),
-    actor,
-    header.person.id,
-    facts,
-    header.alertDays,
-    day,
-  );
+  const db = getDb();
+  const [data, options] = await Promise.all([
+    personTrainings(db, actor, header.person.id, facts, header.alertDays, day),
+    referenceOptions(db, { kind: "TRAINING" }),
+  ]);
+  const canWrite = can(actor, "training.write", { person: facts }).allowed;
+  const canWish = can(actor, "trainingWish.manage", { person: facts }).allowed;
+  const trainings = options.map((o) => ({ id: o.id, code: o.code, label: o.label }));
+  const todayIso = day.toISOString().slice(0, 10);
   return (
     <div className="flex flex-col gap-6">
+      {(canWrite || canWish) && (
+        <div className="flex flex-wrap gap-2">
+          {canWrite && (
+            <AddTrainingDialog personId={header.person.id} trainings={trainings} today={todayIso} />
+          )}
+          {canWish && <AddWishDialog personId={header.person.id} trainings={trainings} />}
+        </div>
+      )}
       <Card>
         <CardHeader>
           <CardTitle as="h2">Qualifications détenues</CardTitle>
@@ -473,12 +490,21 @@ async function TrainingsTab({
                       {line.place && ` · ${line.place}`}
                     </span>
                   </span>
-                  {line.deadline &&
-                    (line.deadline === "none" && line.date ? (
-                      <span className="text-small text-ink-2">Sans échéance</span>
-                    ) : (
-                      <DeadlineDot deadline={line.deadline} date={line.expiresAt} />
-                    ))}
+                  <span className="flex flex-wrap items-center gap-2">
+                    {line.deadline &&
+                      (line.deadline === "none" && line.date ? (
+                        <span className="text-small text-ink-2">Sans échéance</span>
+                      ) : (
+                        <DeadlineDot deadline={line.deadline} date={line.expiresAt} />
+                      ))}
+                    {canWrite && !line.cancelled && (
+                      <CancelDialog
+                        id={line.id}
+                        what="record"
+                        label={`${line.code}${line.date ? ` du ${formatDate(line.date)}` : ""}`}
+                      />
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -516,10 +542,15 @@ function AppointmentList({
   title,
   lines,
   empty,
+  editable = [],
+  today = "",
 }: {
   title: string;
   lines: AppointmentLine[];
   empty: string;
+  /** Codes of the functions the actor may appoint to (end, cancel). */
+  editable?: string[];
+  today?: string;
 }) {
   return (
     <Card>
@@ -564,6 +595,9 @@ function AppointmentList({
                     {a.cancelReason && ` : ${a.cancelReason}`}
                   </span>
                 )}
+                {!a.cancelledAt && editable.includes(a.code) && (
+                  <AppointmentLineTools id={a.id} label={`${a.code} — ${a.label}`} today={today} />
+                )}
               </li>
             ))}
           </ul>
@@ -584,18 +618,35 @@ async function AppointmentsTab({
   facts: PersonFacts;
   day: Date;
 }) {
-  const data = await personAppointments(getDb(), actor, header.person.id, facts, day);
+  const db = getDb();
+  const [data, functions] = await Promise.all([
+    personAppointments(db, actor, header.person.id, facts, day),
+    appointableFunctions(db, actor, facts),
+  ]);
+  const todayIso = day.toISOString().slice(0, 10);
+  const editable = functions.map((f) => f.code);
   return (
     <div className="flex flex-col gap-6">
+      {functions.length > 0 && (
+        <AppointDialog
+          personId={header.person.id}
+          functions={functions.map((f) => ({ id: f.id, code: f.code, label: f.label }))}
+          today={todayIso}
+        />
+      )}
       <AppointmentList
         title="Fonctions actives"
         lines={data.active}
         empty="Aucune fonction active."
+        editable={editable}
+        today={todayIso}
       />
       <AppointmentList
         title="Fonctions passées"
         lines={data.past}
         empty="Aucune fonction passée."
+        editable={editable}
+        today={todayIso}
       />
       <AppointmentList
         title="Nominations annulées"

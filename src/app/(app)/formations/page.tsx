@@ -1,21 +1,11 @@
-import type { Metadata } from "next";
-import { GraduationCap } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { redirect } from "next/navigation";
 import { requirePageAccess } from "@/server/auth/page";
+import { canSome } from "@/server/policy/can";
 
-export const metadata: Metadata = { title: "Formations" };
-
+/** /formations opens on Sessions (FORMAT, TOPAZE), on Trouver otherwise. */
 export default async function Page() {
-  await requirePageAccess("training.read");
-  return (
-    <>
-      <PageHeader title="Formations" subtitle="Formations, recyclages et nominations." />
-      <EmptyState
-        icon={<GraduationCap />}
-        title="Arrive à l'étape 10"
-        description="Cette section sera disponible lors d'une prochaine étape du projet."
-      />
-    </>
+  const actor = await requirePageAccess("training.read");
+  redirect(
+    canSome(actor, "trainingSession.manage") ? "/formations/sessions" : "/formations/trouver",
   );
 }

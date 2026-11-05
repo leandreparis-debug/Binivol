@@ -39,7 +39,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Déposer et archiver des documents (`document.upload`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Consulter les documents archivés (`document.archived.read`) | une personne | Oui | — | — | — | — | — |
 | Gérer les comptes et leurs profils (`user.manage`) | — | Oui | — | — | — | — | — |
-| Gérer le référentiel des formations et fonctions (`reference.manage`) | — | Oui | — | — | — | — | — |
+| Gérer le référentiel des formations et fonctions (`reference.manage`) | — | Oui | — | — | Oui | — | — |
 | Gérer les paramètres (`setting.manage`) | — | Oui | — | — | — | — | — |
 | Gérer les règles de rappel (`reminderRule.manage`) | — | Oui | — | — | — | — | — |
 | Consulter le journal d'audit (`audit.read`) | — | Oui | — | — | — | — | — |

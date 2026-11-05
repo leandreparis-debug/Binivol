@@ -1062,3 +1062,29 @@ export async function appointableFunctions(
       }).allowed,
   );
 }
+
+/** People the actor may enter a training for (group entry), directory fields only. */
+export async function entryCandidates(
+  db: DbOrTx,
+  actor: Actor,
+  day: Date = toParisDay(),
+): Promise<{ id: string; ref: string; firstName: string; lastName: string; status: string }[]> {
+  const ctx = { day, newVolunteerMonths: await newVolunteerMonths(db) };
+  return db.$queryRaw<
+    { id: string; ref: string; firstName: string; lastName: string; status: string }[]
+  >`
+    SELECT p.id, p.ref, p.first_name AS "firstName", p.last_name AS "lastName", p.status::text AS status
+    FROM persons p
+    WHERE ${visibleSql(actor, "training.write", ctx)} AND p.archived_at IS NULL
+    ORDER BY p.last_name, p.first_name
+    LIMIT 500`;
+}
+
+/** Policy resource of an existing appointment (its person and its function). */
+export async function appointmentResourceOf(
+  db: DbOrTx,
+  appointmentId: string,
+  today: Date = toParisDay(),
+): Promise<{ person: PersonFacts; function: { code: string; managedBy: readonly Profile[] } }> {
+  return (await appointmentResource(db, appointmentId, today)).resource;
+}

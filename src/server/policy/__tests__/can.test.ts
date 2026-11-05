@@ -116,7 +116,7 @@ const PERSON_TABLE: Partial<Record<PolicyAction, Expected>> = {
 const GLOBAL_TABLE: Partial<Record<PolicyAction, Profile[]>> = {
   "trainingSession.manage": ["TOPAZE", "FORMAT"],
   "user.manage": ["TOPAZE"],
-  "reference.manage": ["TOPAZE"],
+  "reference.manage": ["TOPAZE", "FORMAT"],
   "setting.manage": ["TOPAZE"],
   "reminderRule.manage": ["TOPAZE"],
   "audit.read": ["TOPAZE"],

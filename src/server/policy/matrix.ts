@@ -116,7 +116,11 @@ export const MATRIX = {
   "document.upload": diamantInScope("person"),
   "document.archived.read": topazeOnly("person"),
   "user.manage": topazeOnly("none"),
-  "reference.manage": topazeOnly("none"),
+  // The reference list (step 10): TOPAZE and FORMAT (internal training).
+  "reference.manage": {
+    target: "none",
+    grants: [TOPAZE, { profiles: ["FORMAT"], when: "always" }],
+  },
   "setting.manage": topazeOnly("none"),
   "reminderRule.manage": topazeOnly("none"),
   "audit.read": topazeOnly("none"),
