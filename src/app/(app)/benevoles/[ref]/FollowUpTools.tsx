@@ -91,7 +91,7 @@ export function CompleteFollowUpDialog({
           <Field
             label="Compte rendu"
             htmlFor={`fu-sum-${followUpId}`}
-            hint="Court, 2 000 caractères au plus. Il n'apparaît dans aucune liste."
+            hint="Court, 2 000 caractères au plus, sans donnée de santé ni de casier. Il n'apparaît dans aucune liste."
             error={errorOf("summary")}
           >
             <Textarea id={`fu-sum-${followUpId}`} name="summary" rows={5} maxLength={2000} />

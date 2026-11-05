@@ -27,7 +27,7 @@
 | 8   | Signature électronique et PDF officiels            | terminée (version `main`) |
 | 9   | Assistant Gaia et passage au statut bénévole       | terminée                  |
 | 10  | Formations, compétences et nominations             | terminée                  |
-| 11  | Points de suivi, parrainage, B3, pauses et départs | à faire                   |
+| 11  | Points de suivi, parrainage, B3, pauses et départs | terminée                  |
 | 12  | Alertes, rappels et e-mails automatiques           | à faire                   |
 | 13  | Tableaux de bord, matrice et exports               | à faire                   |
 | 14  | RGPD et administration                             | à faire                   |
@@ -108,3 +108,31 @@ verts, 38 ignorés (ignorés par projet). `pnpm db:fresh` passe.
   `docs/permissions.md` régénéré.
 - Le lien entre deux entrées du référentiel (prérequis) est une ligne de configuration sans
   historique : retirer un prérequis la supprime, l'opération est auditée.
+
+## Étape 11 — terminée
+
+**Commits** : `c98b4ad` (migration, règles pures des statuts, pause, départ qui clôt nominations
+et parrainages, retour d'un ancien), `2b99737` (points de suivi, tableau `/candidats/suivi`,
+parrainages, B3 réservé à TOPAZE, seed), puis e2e, captures, documentation.
+
+**Migration** : `20261109090000_pause_and_b3_checker` (`persons.paused_at`, `pause_until`,
+`pause_reason` + CHECK `persons_pause_dates` ; `person_sensitive.b3_checked_by_id`).
+
+**Résultats** : `pnpm verify` 769 tests unitaires ; `pnpm test:db` 270 ; `pnpm test:e2e` 95
+verts, 38 ignorés (ignorés par projet). `pnpm db:fresh` passe.
+
+**Captures** : `docs/captures/fiche-suivi-1440.png`, `suivi-liste-1440.png`, `depart-1440.png`.
+
+**Documentation** : `docs/suivi.md`, ADR-054 (pas de copie du casier, rétention), ADR-055
+(compte rendu non sensible, liste dans `/candidats/suivi`), `docs/permissions.md` régénéré
+(`person.return`, `b3.manage`).
+
+**Écarts, justifiés** :
+
+- Liste des points : section `/candidats/suivi` (choix laissé par le cahier).
+- Le retour d'un ancien par DIAMANT passe par un bouton dédié (`person.return`) : DIAMANT n'a pas
+  `person.status.change`.
+- Correction annexe : les actions d'un `PageHeader` débordaient à 390 px quand elles sont
+  nombreuses (`max-w-full`), relevé par l'e2e de navigation mobile.
+- Les schémas Zod des actions de suivi sont dans `src/lib/followUpForms.ts` (un fichier
+  `"use server"` ne peut exporter que des fonctions asynchrones).

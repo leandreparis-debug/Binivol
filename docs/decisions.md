@@ -747,3 +747,33 @@ avertissements affichés avant l'enregistrement, calculés pour tout un groupe �
 
 **Conséquences.** Les données peuvent contenir des situations signalées mais acceptées ; les
 rappels (étape 12) et la matrice (étape 13) les font ressortir.
+
+## ADR-054 — Aucune copie du casier judiciaire (B3)
+
+**Contexte.** Les encadrants réguliers de mineurs (`regularMinorSupervisor`) doivent avoir un
+bulletin n° 3 vérifié chaque année. Une copie du casier est une donnée d'infraction (RGPD,
+art. 10) : la conserver n'apporte rien à l'UL et crée un risque.
+
+**Décision.** Binivol n'enregistre que la **date** de vérification, l'**issue** (`CLEAR` ou
+`FLAGGED`) et **qui** a vérifié, dans `PersonSensitive` ; lecture par `sensitive.ts`
+(journalisée). Une vérification par année civile. L'issue `FLAGGED` n'est lisible que par TOPAZE
+(`b3.manage`) ; les autres profils voient « issue réservée à TOPAZE ». L'audit ne retient que la
+date. Le dépôt d'un document `B3_ATTESTATION` est refusé, comme la copie de diplôme (ADR-049).
+
+**Conséquences.** Pas de preuve documentaire dans Binivol : la preuve reste le bulletin montré
+par la personne. Rétention : ces champs suivent la fiche, purgée `RETENTION_YEARS_AFTER_LEAVE`
+ans (5 par défaut, paramètre) après le départ (`purgeEligibleAt`, étape 14).
+
+## ADR-055 — Le compte rendu d'un point de suivi n'est pas une donnée sensible
+
+**Contexte.** Le compte rendu d'un point de suivi (2 000 caractères au plus) décrit l'intégration
+d'un bénévole. Le classer sensible imposerait un journal à chaque ouverture de l'onglet Suivi.
+
+**Décision.** Le compte rendu est une donnée ordinaire de la fiche (onglet Suivi, profils
+`followUp.manage`), **jamais affichée dans une liste** (tableau de suivi, exports) ni écrite dans
+un e-mail. L'aide du champ rappelle de ne pas y écrire de donnée de santé ou d'infraction. La
+liste des points est une section de `/candidats` (`/candidats/suivi`) : mêmes responsables
+(DIAMANT, TOPAZE), pas de nouvelle entrée dans la navigation principale.
+
+**Conséquences.** Si l'usage révèle des comptes rendus sensibles, il faudra les déplacer dans
+`PersonSensitive` (nouvelle migration) et les lire par `sensitive.ts`.

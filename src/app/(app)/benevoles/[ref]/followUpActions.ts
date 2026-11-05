@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { b3CheckSchema, completeFollowUpSchema } from "@/lib/followUpForms";
 import { toParisDay } from "@/lib/dates";
 import { defineAction } from "@/server/actions/defineAction";
 import { getDb } from "@/server/db";
@@ -11,17 +11,6 @@ import { recordB3Check } from "@/server/sensitive";
 import { completeFollowUp, followUpPerson } from "@/server/services/followUps";
 
 /* Follow-ups and B3 (step 11). */
-
-const id = z.string().min(1).max(40);
-const isoDay = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.")
-  .transform((v) => new Date(`${v}T00:00:00.000Z`));
-const optionalDay = z
-  .string()
-  .optional()
-  .transform((v) => (v ?? "").trim())
-  .pipe(z.union([z.literal("").transform(() => null), isoDay]));
 
 const refresh = () => {
   revalidatePath("/benevoles/[ref]", "page");
@@ -36,16 +25,7 @@ async function personResource(personId: string | null) {
 
 export const completeFollowUpAction = defineAction({
   action: "followUp.manage",
-  input: z.object({
-    followUpId: id,
-    doneAt: isoDay,
-    summary: z
-      .string()
-      .max(2000, "Le compte rendu fait 2 000 caractères au plus.")
-      .optional()
-      .transform((v) => (v ?? "").trim() || null),
-    nextDate: optionalDay,
-  }),
+  input: completeFollowUpSchema,
   resource: async (input) => personResource(await followUpPerson(getDb(), input.followUpId)),
   handler: async ({ input, actor }) => {
     const result = await completeFollowUp(getDb(), actor, { ...input, conductedById: null });
@@ -56,11 +36,7 @@ export const completeFollowUpAction = defineAction({
 
 export const recordB3Action = defineAction({
   action: "b3.manage",
-  input: z.object({
-    personId: id,
-    checkedAt: isoDay,
-    status: z.enum(["CLEAR", "FLAGGED"], { error: "Choisissez l'issue." }),
-  }),
+  input: b3CheckSchema,
   resource: (input) => personResource(input.personId),
   handler: async ({ input, actor }) => {
     await recordB3Check(getDb(), actor, input);

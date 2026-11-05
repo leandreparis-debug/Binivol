@@ -710,6 +710,12 @@ async function FollowUpTab({
                     )}
                     {f.conductedBy && ` · par ${f.conductedBy}`}
                   </span>
+                  {!f.doneAt &&
+                    !f.cancelledAt &&
+                    f.scheduledAt &&
+                    f.scheduledAt.getTime() < day.getTime() && (
+                      <StatusDot status="expired" label="En retard" />
+                    )}
                   {f.cancelledAt && (
                     <span className="text-small text-danger-ink">
                       Annulé{f.cancelReason ? ` : ${f.cancelReason}` : ""}

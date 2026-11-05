@@ -31,3 +31,19 @@ Chaque point : la question, le choix fait, comment le changer.
 8. **`seed:base`** ne crée plus que les paramètres manquants (il les écrasait à chaque
    déploiement) : une valeur par défaut changée dans le code ne s'applique plus à une base
    existante ; elle se change dans les paramètres (étape 14).
+
+## Étape 11 — Suivi
+
+9. **Liste des points dans `/candidats/suivi`** (pas de nouvelle entrée `/suivi` dans la
+   navigation) : mêmes responsables que les candidats (DIAMANT, TOPAZE). **Pour une entrée
+   dédiée** : déplacer la page sous `src/app/(app)/suivi/` et l'ajouter à `NAV_ITEMS`.
+10. **Compte rendu de suivi non sensible** (ADR-055), jamais dans une liste. **Pour le rendre
+    sensible** : le déplacer dans `PersonSensitive` (migration) et le lire par `sensitive.ts`.
+11. **B3 saisi par TOPAZE seul** (`b3.manage`), issue `FLAGGED` visible par TOPAZE seul.
+    **Pour l'ouvrir à DIAMANT** : ajouter DIAMANT à `b3.manage` dans `matrix.ts` (et
+    `visibility.ts` si une liste en dépend), puis `pnpm docs:permissions`.
+12. **Retour d'un ancien** : TOPAZE par « Changer le statut », DIAMANT par le bouton dédié
+    « Retour d'un ancien » (`person.return`), motif obligatoire dans les deux cas.
+13. **Départ** : les points de suivi prévus ne sont pas annulés (la liste n'affiche que les
+    personnes actives ou en pause, et un retour les retrouve). **Pour les annuler** : ajouter
+    une case « Annuler les points prévus » au départ.

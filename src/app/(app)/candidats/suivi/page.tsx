@@ -45,7 +45,11 @@ function FollowUpList({ rows }: { rows: BoardFollowUp[] }) {
               {f.owner ? ` · ${f.owner}` : ""}
             </span>
           </span>
-          {f.bucket === "overdue" ? <StatusDot status="expired" /> : <StatusDot status="soon" />}
+          {f.bucket === "overdue" ? (
+            <StatusDot status="expired" label="En retard" />
+          ) : (
+            <StatusDot status="soon" label="À venir" />
+          )}
         </li>
       ))}
     </ul>
