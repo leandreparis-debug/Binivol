@@ -348,6 +348,7 @@ export function DossierForm({ view, actions, personId, exitHref }: DossierFormPr
 
           {current === "croix-rouge" && (
             <CrfStep
+              ulName={view.ulName}
               draft={draft}
               errorOf={errorOf}
               onChange={(value) => {
@@ -372,6 +373,7 @@ export function DossierForm({ view, actions, personId, exitHref }: DossierFormPr
               onAdd={addAttachment}
               onRemove={removeAttachment}
               errorOf={errorOf}
+              enabled={view.attachmentsEnabled}
             />
           )}
           {current === "relecture" && (

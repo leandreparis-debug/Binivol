@@ -9,6 +9,8 @@ import { expectNoHorizontalScroll, isMobileProject, loginAs } from "./helpers";
  */
 
 async function expectNoSeriousViolation(page: Page) {
+  // Next streams the metadata after the content: wait for the title.
+  await expect(page).toHaveTitle(/.+/);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();

@@ -25,6 +25,8 @@ export default defineConfig({
     locale: "fr-FR",
     timezoneId: "Europe/Paris",
     trace: "on-first-retry",
+    // No colour transitions while axe measures contrast (prefers-reduced-motion is honoured).
+    contextOptions: { reducedMotion: "reduce" },
     screenshot: "only-on-failure",
   },
   projects: [

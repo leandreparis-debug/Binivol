@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  // Metadata (the page <title>) is rendered in <head> before the content for every
+  // client, not streamed after it: screen readers and axe always find the title.
+  htmlLimitedBots: /.*/,
   // Enables `forbidden()` and `forbidden.tsx`: refused pages answer with a real 403.
   experimental: {
     authInterrupts: true,

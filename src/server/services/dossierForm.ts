@@ -1,4 +1,5 @@
 import { toParisDay } from "@/lib/dates";
+import { getEnv, isHostedDemo } from "@/lib/env";
 import type { DossierAttachmentKind } from "@/lib/dossierForms";
 import type { DossierDraft, DossierIssue } from "@/lib/dossierSchema";
 import type { Actor as AuditActor } from "../audit";
@@ -68,6 +69,8 @@ export interface DossierFormView {
   savedAt: string;
   ulName: string;
   rgpdNotice: string;
+  /** False on a hosted demo without document storage (ADR-035): the step says so upfront. */
+  attachmentsEnabled: boolean;
 }
 
 export async function dossierFormView(
@@ -88,6 +91,7 @@ export async function dossierFormView(
     today: toParisDay().toISOString().slice(0, 10),
     savedAt: context.draft.updatedAt.toISOString(),
     ulName,
+    attachmentsEnabled: !(isHostedDemo() && getEnv().STORAGE_DRIVER === "local"),
     rgpdNotice,
   };
 }

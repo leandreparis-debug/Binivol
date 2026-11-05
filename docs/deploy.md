@@ -24,7 +24,9 @@ peut s'exécuter ailleurs ; il ne fait que lire le code (et, en production seule
 **Une prévisualisation de branche ne touche jamais au schéma ni aux données.** Conséquence
 voulue : une prévisualisation qui contient une nouvelle migration peut ne pas fonctionner tant
 que la migration n'est pas passée en production (fusion dans `main`). Le seed démo (ADR-035) a un
-second garde-fou dans `scripts/hosted-demo-seed.ts`.
+second garde-fou dans `scripts/hosted-demo-seed.ts`. Si la base contient des personnes saisies hors seed (par exemple un candidat créé
+pendant les tests de la démo), le seed ne mélange pas : il est ignoré avec un message, et le build
+continue (les migrations sont déjà appliquées).
 
 ## Règles
 

@@ -37,12 +37,20 @@ export function CrfStep({
   draft,
   errorOf,
   onChange,
-}: StepProps & { onChange: (patch: Partial<Crf>) => void }) {
+  ulName,
+}: StepProps & { onChange: (patch: Partial<Crf>) => void; ulName: string }) {
   const crf = draft.crf ?? {};
   const activities = crf.activities ?? [];
   const full = activities.length >= LIMITS.activities;
   return (
     <div className="flex flex-col gap-5">
+      <Field
+        label="Structure de rattachement"
+        htmlFor={fieldId("crf", "structure")}
+        hint="Renseignée par l'unité locale."
+      >
+        <Input value={ulName} readOnly aria-readonly="true" className="bg-veil" />
+      </Field>
       <YesNo
         legend="Êtes-vous déjà bénévole à la Croix-Rouge française ?"
         name="alreadyVolunteer"
@@ -425,7 +433,9 @@ export function AttachmentsStep({
   onAdd,
   onRemove,
   errorOf,
+  enabled = true,
 }: {
+  enabled?: boolean;
   kinds: DossierAttachmentKind[];
   requiredKinds: DossierAttachmentKind[];
   attachments: AttachmentView[];
@@ -443,6 +453,12 @@ export function AttachmentsStep({
   };
   return (
     <div className="flex flex-col gap-5">
+      {!enabled && (
+        <p role="status" className="rounded-inner bg-warn-soft p-3 text-small text-warn-ink">
+          L&apos;envoi de pièces jointes n&apos;est pas disponible sur cette démonstration. Le reste
+          du dossier fonctionne : remettez les pièces à l&apos;unité locale.
+        </p>
+      )}
       <p className="text-small text-muted">
         PDF, JPEG ou PNG, 10 Mo au plus par fichier. Ne joignez ni extrait de casier judiciaire, ni
         permis de conduire : ils ne sont pas demandés.
@@ -523,7 +539,7 @@ export function AttachmentsStep({
               variant="outline"
               leftIcon={<FileUp className="size-4" />}
               loading={busy === kind}
-              disabled={busy !== null && busy !== kind}
+              disabled={!enabled || (busy !== null && busy !== kind)}
               className="self-start"
               onClick={() => inputs.current[kind]?.click()}
             >

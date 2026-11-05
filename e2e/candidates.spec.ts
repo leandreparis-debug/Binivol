@@ -68,7 +68,9 @@ test.describe("Candidats (mobile 390 px)", () => {
     const finalize = page.getByRole("dialog", { name: "Finaliser l'intégration" });
     await finalize.getByLabel("NIVOL").fill(` ${who.nivol.slice(0, 5)} ${who.nivol.slice(5)} `);
     await finalize.getByRole("button", { name: "Finaliser" }).click();
-    await expect(page.getByText(/Intégration finalisée/)).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: /Intégration finalisée/ }),
+    ).toBeVisible();
     await expect(page.getByText("Actif", { exact: true }).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Attribuer un parrain" }).first().click();
