@@ -13,13 +13,6 @@ import { listOutboundMails } from "@/server/services/outboundMails";
 export const metadata: Metadata = { title: "Courriels" };
 export const dynamic = "force-dynamic";
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${String(bytes)} o`;
-  if (bytes < 1024 * 1024)
-    return `${(bytes / 1024).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} ko`;
-  return `${(bytes / 1024 / 1024).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} Mo`;
-}
-
 /** Text with its http(s) links clickable. */
 function Linkified({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s<>"]+)/g);
@@ -86,12 +79,12 @@ export default async function OutboundMailsPage() {
                   {mail.attachments.length > 0 && (
                     <div className="flex flex-col gap-1" data-testid="mail-attachments">
                       <p className="text-small font-medium text-ink">
-                        Pièces jointes ({mail.attachments.length})
+                        Pièces jointes ({mail.attachments.length}), non conservées :
                       </p>
                       <ul className="flex flex-col gap-0.5">
                         {mail.attachments.map((a) => (
                           <li key={a.filename} className="text-small text-ink-2">
-                            {a.filename} · {formatSize(a.size)}
+                            {a.filename} · {(a.size / 1024).toFixed(0)} Ko
                           </li>
                         ))}
                       </ul>

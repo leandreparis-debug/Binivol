@@ -20,14 +20,10 @@ describe("status registry", () => {
       "dossier-none",
       "dossier-draft",
       "dossier-submitted",
-      "signature-submitted",
-      "signature-volunteer_signed",
-      "signature-parent_signed",
-      "signature-to_countersign",
-      "signature-complete",
-      "signature-mail-sent",
-      "signature-mail-failed",
-      "signature-mail-pending",
+      "dossier-to-countersign",
+      "dossier-complete",
+      "mail-sent",
+      "mail-failed",
     ]);
   });
 

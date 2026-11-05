@@ -20,9 +20,10 @@ export function looksLikeDossierToken(value: string): boolean {
 }
 
 /**
- * The address handed to the candidate: the token is in the **fragment**
- * (ADR-043), which browsers never send to the server.
+ * The address of a dossier link. The token is in the **fragment** (after `#`):
+ * browsers never send it to the server, so it reaches no access log; the
+ * `/dossier/ouvrir` page posts it to the exchange action (ADR-043).
  */
-export function dossierOpenUrl(baseUrl: string, token: string): string {
+export function dossierLinkUrl(baseUrl: string, token: string): string {
   return `${baseUrl.replace(/\/$/, "")}/dossier/ouvrir#${token}`;
 }

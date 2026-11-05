@@ -1,54 +1,39 @@
 import { getDb } from "@/server/db";
 import { candidateSession } from "@/server/dossier/current";
+import { previewDocument } from "@/server/dossier/signing";
 import { DomainError } from "@/server/errors";
-import { DOCUMENTS, previewDocument, type DocumentKey } from "@/server/signature/service";
-
-export const dynamic = "force-dynamic";
-
-const NO_STORE = {
-  "Cache-Control": "no-store",
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
-  "X-Robots-Tag": "noindex, nofollow",
-};
-
-function text(status: number, message: string): Response {
-  return new Response(message, {
-    status,
-    headers: { ...NO_STORE, "Content-Type": "text/plain; charset=utf-8" },
-  });
-}
+import { TEMPLATES, type TemplateKey } from "@/server/pdf/templates";
 
 /**
- * The candidate's preview of a document **before signature** (step 8):
- * generated on the fly from her own sent dossier, marked « Aperçu », never
- * stored. Behind the dossier cookie, while the signatures are expected.
+ * Preview of a document before signature (dossier cookie, dossier sent and
+ * not signed yet): generated on the fly, marked « Aperçu », never stored.
  */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ document: string }> },
 ): Promise<Response> {
   const { document } = await params;
-  if (!DOCUMENTS.some((d) => d.key === document)) return text(404, "Document inconnu.");
-  const db = getDb();
-  const session = await candidateSession(db);
-  if (session.state !== "signing") return text(403, "Ce lien n'est plus valable.");
+  if (!(document in TEMPLATES)) return new Response("Document inconnu.", { status: 404 });
+  const session = await candidateSession(getDb());
+  if (session.state !== "signing") {
+    return new Response("Ce lien n'est plus valable. Contactez l'unité locale.", { status: 403 });
+  }
   try {
     const preview = await previewDocument(
-      db,
-      { personId: session.personId, candidate: true },
-      document as DocumentKey,
+      getDb(),
+      session.context.submissionId,
+      document as TemplateKey,
     );
-    return new Response(new Uint8Array(preview.bytes), {
-      status: 200,
+    return new Response(Buffer.from(preview.bytes), {
       headers: {
-        ...NO_STORE,
         "Content-Type": "application/pdf",
         "Content-Disposition": preview.disposition,
+        "Cache-Control": "no-store",
+        "X-Robots-Tag": "noindex, nofollow",
       },
     });
   } catch (error) {
-    if (error instanceof DomainError) return text(503, error.message);
+    if (error instanceof DomainError) return new Response(error.message, { status: 503 });
     throw error;
   }
 }

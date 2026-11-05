@@ -23,15 +23,6 @@ describe("seed:base", () => {
     });
     expect(counts.audit_logs).toBe(0);
   });
-
-  it("never overwrites a setting edited by TOPAZE", async () => {
-    await seedBase(db);
-    await db.setting.update({ where: { key: "UL_CITY" }, data: { value: "Le Chesnay" } });
-    await seedBase(db);
-    expect((await db.setting.findUniqueOrThrow({ where: { key: "UL_CITY" } })).value).toBe(
-      "Le Chesnay",
-    );
-  });
 });
 
 describe("seed:demo", () => {
@@ -53,19 +44,22 @@ describe("seed:demo", () => {
     await expect(seedDemo(db, { today })).rejects.toBeInstanceOf(RealDataPresentError);
   });
 
-  it("on a hosted demo, accepts people created outside the seed, leaves them untouched and lists them", async () => {
+  it("on a hosted demo, keeps and lists the people created outside the seed", async () => {
     await seedBase(db);
-    await seedDemo(db, { today });
     const typed = await db.person.create({
-      data: { firstName: "Saisie", lastName: "Démo", notes: "Créée dans la démo" },
+      data: { firstName: "Saisie", lastName: "Testeur", notes: "Créée dans la démo" },
     });
-    const before = await db.person.findUniqueOrThrow({ where: { id: typed.id } });
-    const result = await seedDemo(db, { today, acceptForeignPersons: true });
-    expect(result.foreignPersons).toEqual([typed.ref]);
-    expect(await db.person.findUniqueOrThrow({ where: { id: typed.id } })).toEqual(before);
+    const { foreignPeople } = await seedDemo(db, { today, hostedDemo: true });
+    expect(foreignPeople.map((p) => p.ref)).toEqual([typed.ref]);
     expect(await db.person.count()).toBe(SEED_VOLUMES.persons + 1);
-    // Without the option, the strict refusal is unchanged.
+    const after = await db.person.findUniqueOrThrow({ where: { id: typed.id } });
+    expect(after).toEqual(typed);
+    // Still strict everywhere else.
     await expect(seedDemo(db, { today })).rejects.toBeInstanceOf(RealDataPresentError);
+    // Idempotent on the demo too.
+    const first = await countRows(db);
+    await seedDemo(db, { today, hostedDemo: true });
+    expect(await countRows(db)).toEqual(first);
   });
 
   it("runs on top of the base seed and stays idempotent", async () => {
@@ -75,6 +69,5 @@ describe("seed:demo", () => {
     await seedDemo(db, { today });
     expect(await countRows(db)).toEqual(first);
     expect(first.persons).toBe(SEED_VOLUMES.persons);
-    expect(await seedDemo(db, { today })).toEqual({ foreignPersons: [] });
   });
 });

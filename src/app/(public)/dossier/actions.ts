@@ -1,22 +1,16 @@
 "use server";
 
-import {
-  attachmentFormInput,
-  openDossierInput,
-  removeAttachmentInput,
-  saveDossierInput,
-} from "@/lib/dossierForms";
-import { pngFromDataUrl, requestCodeInput, signWithCodeInput } from "@/lib/signatureForms";
+import { z } from "zod";
+import { attachmentFormInput, removeAttachmentInput, saveDossierInput } from "@/lib/dossierForms";
 import { definePublicAction } from "@/server/actions/defineAction";
 import { getDb } from "@/server/db";
+import { DomainError } from "@/server/errors";
+import { requestCodeInput, signFormInput } from "@/lib/signatureForms";
 import {
-  clearDossierCookie,
   requireCandidate,
   requireSigningCandidate,
   setDossierCookie,
 } from "@/server/dossier/current";
-import { requestMeta } from "@/server/signature/request";
-import { requestSignatureCode, signWithCode } from "@/server/signature/service";
 import {
   addDossierFormAttachment,
   formActor,
@@ -25,6 +19,7 @@ import {
   submitDossierForm,
 } from "@/server/services/dossierForm";
 import { openDossierLink } from "@/server/services/dossiers";
+import { requestSignatureCode, submitSignature } from "@/server/services/signatureForm";
 import { getStorage } from "@/server/storage";
 
 /*
@@ -34,17 +29,17 @@ import { getStorage } from "@/server/storage";
  */
 
 /**
- * Exchange of a link token (read from the fragment of `/dossier/ouvrir`) for
- * the dossier cookie. A refused token gets `{ opened: false }`, whatever the
- * reason (audited without the token).
+ * Exchange of the link token (read by `/dossier/ouvrir` from the address
+ * fragment, sent in the POST body) for the dossier cookie. The answer never
+ * says why a token is refused.
  */
-export const openDossierAction = definePublicAction({
-  input: openDossierInput,
+export const openDossierLinkAction = definePublicAction({
+  input: z.object({ token: z.string().max(200) }),
   handler: async ({ input }) => {
     const outcome = await openDossierLink(getDb(), input.token);
-    if (outcome.ok) await setDossierCookie(outcome.linkId);
-    else await clearDossierCookie();
-    return { opened: outcome.ok };
+    if (!outcome.ok) return { ok: false as const };
+    await setDossierCookie(outcome.linkId);
+    return { ok: true as const };
   },
 });
 
@@ -80,34 +75,26 @@ export const submitDossierAction = definePublicAction({
   },
 });
 
-/** E-mails a signature code to the next signer (the candidate, then her legal guardian). */
+/** Sends the signature code of the next signer to her own e-mail. */
 export const requestSignatureCodeAction = definePublicAction({
   input: requestCodeInput,
   handler: async ({ input }) => {
-    const { personId } = await requireSigningCandidate(getDb());
-    const sent = await requestSignatureCode(getDb(), { personId, role: input.role });
-    return { sentTo: sent.sentTo, expiresAt: sent.expiresAt.toISOString() };
+    const context = await requireSigningCandidate(getDb());
+    return requestSignatureCode(getDb(), context.submissionId, input.role);
   },
 });
 
-/** Signs with the trace (or typed name) and the code; the person comes from the cookie. */
+/** Signs (code checked, trace or typed name) for the next signer. */
 export const signDossierAction = definePublicAction({
-  input: signWithCodeInput,
+  input: signFormInput,
   handler: async ({ input }) => {
-    const { personId, linkId } = await requireSigningCandidate(getDb());
-    const view = await signWithCode(
-      getDb(),
-      getStorage(),
-      {
-        personId,
-        linkId,
-        role: input.role,
-        inputKind: input.inputKind,
-        png: pngFromDataUrl(input.image),
-        code: input.code,
-      },
-      await requestMeta(),
-    );
-    return { next: view.next };
+    const context = await requireSigningCandidate(getDb());
+    if (input.verification !== "code") {
+      throw new DomainError(
+        "SIGNATURE_STATE",
+        "La vérification en présence n'existe que sur place.",
+      );
+    }
+    return submitSignature(getDb(), context.submissionId, input);
   },
 });

@@ -1,60 +1,45 @@
 import { getActor } from "@/server/auth/actor";
 import { getDb } from "@/server/db";
+import { previewDocument, signatureStatus } from "@/server/dossier/signing";
 import { DomainError } from "@/server/errors";
-import { ForbiddenError } from "@/server/policy/can";
+import { TEMPLATES, type TemplateKey } from "@/server/pdf/templates";
+import { can } from "@/server/policy/can";
 import { lookupPerson } from "@/server/services/personProfile";
-import { DOCUMENTS, previewDocument, type DocumentKey } from "@/server/signature/service";
-
-export const dynamic = "force-dynamic";
-
-const NO_STORE = {
-  "Cache-Control": "no-store",
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
-};
-
-function text(status: number, message: string): Response {
-  return new Response(message, {
-    status,
-    headers: { ...NO_STORE, "Content-Type": "text/plain; charset=utf-8" },
-  });
-}
 
 /**
- * A responsible's preview of a document before counter-signature
- * (`dossier.manage`): generated on the fly, never stored, the read of the
- * dossier journaled (context « aperçu des documents »). 404 when the person
- * is not visible, 403 when out of scope.
+ * Preview of a document of the person's sent dossier (`dossier.manage`):
+ * generated on the fly, marked « Aperçu », never stored. Used on site and
+ * before the countersignature.
  */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ ref: string; document: string }> },
 ): Promise<Response> {
-  const actor = await getActor();
-  if (!actor) return text(401, "Connexion requise.");
   const { ref, document } = await params;
-  if (!DOCUMENTS.some((d) => d.key === document)) return text(404, "Document inconnu.");
-  const db = getDb();
-  const lookup = await lookupPerson(db, actor, ref);
-  if (lookup.status === "notFound") return text(404, "Personne introuvable.");
-  if (lookup.status === "forbidden") return text(403, "Vous n'avez pas accès à ce dossier.");
+  if (!(document in TEMPLATES)) return new Response("Document inconnu.", { status: 404 });
+  const actor = await getActor();
+  if (!actor) return new Response("Session expirée.", { status: 401 });
+  const lookup = await lookupPerson(getDb(), actor, ref);
+  if (lookup.status === "notFound") return new Response("Introuvable.", { status: 404 });
+  if (
+    lookup.status === "forbidden" ||
+    !can(actor, "dossier.manage", { person: lookup.facts }).allowed
+  ) {
+    return new Response("Accès refusé.", { status: 403 });
+  }
+  const status = await signatureStatus(getDb(), lookup.personId);
+  if (!status) return new Response("Aucun dossier envoyé.", { status: 404 });
   try {
-    const preview = await previewDocument(
-      db,
-      { personId: lookup.personId, actor, facts: lookup.facts },
-      document as DocumentKey,
-    );
-    return new Response(new Uint8Array(preview.bytes), {
-      status: 200,
+    const preview = await previewDocument(getDb(), status.submissionId, document as TemplateKey);
+    return new Response(Buffer.from(preview.bytes), {
       headers: {
-        ...NO_STORE,
         "Content-Type": "application/pdf",
         "Content-Disposition": preview.disposition,
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {
-    if (error instanceof ForbiddenError) return text(403, "Vous n'avez pas accès à ce dossier.");
-    if (error instanceof DomainError) return text(409, error.message);
+    if (error instanceof DomainError) return new Response(error.message, { status: 503 });
     throw error;
   }
 }

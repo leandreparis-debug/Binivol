@@ -538,7 +538,8 @@ serveur sera aussi hébergé en France.
 finirait dans l'historique, les favoris, l'en-tête `Referer` et les captures d'écran.
 
 **Décision.** Le jeton (32 octets aléatoires, base64url) n'est stocké que par son empreinte
-SHA-256. `GET /dossier/[token]` le vérifie, pose un cookie de session de dossier (`HttpOnly`,
+SHA-256. L'ouverture du lien (route `/dossier/[token]`, remplacée par `/dossier/ouvrir#<jeton>`,
+ADR-043) le vérifie, pose un cookie de session de dossier (`HttpOnly`,
 `SameSite=Lax`, chemin `/dossier`, `Secure` en HTTPS, 2 h glissantes, signé HMAC avec une clé
 dérivée d'`AUTH_SECRET`, contenant seulement l'identifiant du lien), puis redirige vers
 `/dossier`. Les pages `/dossier*` envoient `Referrer-Policy: no-referrer`,
@@ -588,93 +589,93 @@ en test, relais du VPS ensuite) et `log` (par défaut), qui écrit le message ch
 **Conséquences.** Changer de fournisseur ne demande que les variables `SMTP_*`. Le pilote `log`
 sert aux tests e2e (le lien y est récupéré) sans jamais stocker un jeton en clair.
 
-## ADR-042 — Le seed de la démo hébergée accepte les personnes saisies dans la démo
+## ADR-042 — Seed de la démo hébergée : les personnes saisies hors seed sont conservées
 
-**Contexte.** Sur la démo hébergée (ADR-035), les testeurs créent des candidats. Ces personnes
-n'ont pas la note du seed : `seed:demo` refusait alors toute la base et le déploiement suivant ne
-mettait plus à jour les données de démonstration.
+**Contexte.** `seed:demo` refuse toute base contenant une personne sans la note du seed, pour ne
+jamais mêler données fictives et réelles. Sur la démo hébergée, des testeurs créent des
+candidats : le seed de l'étape 7 a donc été ignoré en production.
 
-**Décision.** Quand la démo hébergée est active (`isHostedDemo()`, production Vercel), le script
-de build appelle `seedDemo` avec `acceptForeignPersons` : la base est fictive par définition. Les
-personnes créées hors seed ne sont **jamais modifiées** ; leurs références (jamais leurs noms)
-sont listées dans le journal de build ; le seed ajoute ou met à jour ses propres données comme
-d'habitude. Partout ailleurs (`pnpm db:seed:demo`, `db:fresh`, tests), le refus strict reste.
+**Décision.** Quand `AUTH_DEMO_ON_VERCEL=true` (démo hébergée, ADR-035), la base est fictive par
+définition : `seedDemo({ hostedDemo: true })` conserve les personnes créées hors seed sans les
+modifier, les liste par référence dans le journal de build, et ajoute ou met à jour ses propres
+données. Partout ailleurs, le refus strict reste inchangé.
 
-**Conséquences.** La démo se met à jour à chaque déploiement de `main`, même après des essais.
-Ce chemin n'existe que derrière `isHostedDemo()` et `VERCEL_ENV=production`.
+**Conséquences.** La démo reçoit les données de chaque étape sans base neuve. Le journal de build
+ne contient que des références (`P-000xx`), jamais de nom.
 
 ## ADR-043 — Le jeton du dossier passe après `#`
 
-**Contexte.** Avec `GET /dossier/[token]` (ADR-038), le jeton figurait dans la première adresse
-reçue par le serveur, donc dans les journaux d'accès de l'hébergeur et du proxy du VPS.
+**Contexte.** Avec `/dossier/[token]`, le jeton figurait dans l'adresse de la première requête :
+les journaux d'accès de l'hébergeur (Vercel, proxy du VPS) pouvaient le conserver (point ouvert
+de l'étape 7).
 
-**Décision.** Le lien envoyé devient `/dossier/ouvrir#<jeton>`. Le navigateur n'envoie jamais
-le fragment : la page lit le jeton, l'efface de l'adresse (`history.replaceState`) avant toute
-requête, puis l'envoie par un `POST` à l'action publique `openDossierAction`, qui pose le cookie
-de dossier. L'ancienne route (jeton dans le chemin) est retirée : aucun vrai lien n'avait été
-envoyé.
+**Décision.** Le lien devient `/dossier/ouvrir#<jeton>`. Le fragment n'est jamais envoyé au
+serveur. La page lit le jeton côté navigateur, l'efface de l'adresse (`history.replaceState`),
+puis l'envoie dans le corps d'un `POST` à l'action publique `openDossierLinkAction`, qui pose le
+cookie (ADR-038). L'ancienne route est retirée : aucun vrai lien n'avait été envoyé.
 
-**Conséquences.** Le jeton n'apparaît dans aucune adresse reçue par le serveur ni dans aucun
-journal d'accès ; il ne voyage que dans le corps d'un `POST` en HTTPS. Sans JavaScript, le lien
-ne s'ouvre pas (le formulaire en a besoin de toute façon).
+**Conséquences.** Le jeton n'apparaît dans aucune adresse reçue ni dans aucun journal d'accès ;
+un test e2e le vérifie. L'ouverture demande JavaScript (message `<noscript>` sinon), ce qui est
+déjà le cas du formulaire.
 
-## ADR-044 — PDF officiels : `pdf-lib`, aplatissement, police Unicode, modèles figés
+## ADR-044 — Le lien est consommé à la signature, plus à l'envoi
 
-**Contexte.** L'étape 8 remplit trois PDF officiels (AcroForm) de la Croix-Rouge, y pose des
-signatures et les remet au bénévole. Il faut des fichiers non modifiables, des noms accentués ou
-d'Europe de l'Est corrects, et l'assurance que le champ « Nom_2 » est bien celui qu'on croit.
+**Contexte.** À l'étape 7, l'envoi du dossier marquait le lien utilisé. L'étape 8 ajoute la
+signature après l'envoi : le candidat doit pouvoir revenir signer avec le même lien.
 
-**Décision.**
+**Décision.** Entre l'envoi et la signature, le lien ne rouvre que les écrans de signature (le
+formulaire n'est plus modifiable). `usedAt` est posé quand toutes les signatures requises sont
+réunies : le bénévole, et le représentant légal pour un mineur. Un nouveau lien reprend le
+dossier envoyé non signé.
 
-- `pdf-lib` et `@pdf-lib/fontkit` (JavaScript pur, aucun service ni binaire externe) ; la police
-  Geist (OFL) est embarquée et sous-ensemblée pour tout texte ; Caveat (OFL) sert au nom saisi
-  comme signature.
-- Les PDF finaux sont **aplatis** : plus aucun champ. Les objets supprimés par l'aplatissement
-  deviennent `null` pour que la table des références reste complète (le modèle est balisé).
-- Les signatures sont des images posées dans le rectangle du champ, avec « Signé
-  électroniquement le JJ/MM/AAAA ».
-- L'empreinte SHA-256 de chaque modèle et de chaque police est **figée dans le code**
-  (`src/server/pdf/templates.ts`) : un modèle modifié bloque la génération avec un message clair.
-- Un défaut du modèle d'attestation (date de naissance réutilisée sur la ligne « Date ») est
-  corrigé à la génération, sans toucher au modèle.
+**Conséquences.** Le lien reste actif plus longtemps qu'avant, mais il ne permet plus de changer
+le contenu ; sa durée (7 jours) et la révocation restent les garde-fous.
 
-**Conséquences.** Changer de modèle demande une revue de ses champs (test de correspondance) et
-la mise à jour de l'empreinte : c'est voulu. Les PDF générés pèsent de 0,5 à 2 Mo (la charte
-d'origine est lourde).
+## ADR-045 — `pdf-lib` pour remplir et aplatir les PDF officiels
 
-## ADR-045 — Le lien du dossier est consommé à la signature, plus à l'envoi
+**Contexte.** Les trois documents officiels sont des PDF AcroForm. Il faut les remplir, y poser
+des signatures et rendre le résultat non modifiable, sans service externe ni binaire système.
 
-**Contexte.** À l'étape 7, l'envoi fermait le lien. À l'étape 8, le candidat doit encore signer
-(et le représentant légal d'un mineur) : il faut rouvrir quelque chose sans rouvrir le
-formulaire.
+**Décision.** `pdf-lib` (pur JavaScript, licence MIT) avec `@pdf-lib/fontkit` : remplissage par
+nom exact de champ (`src/server/pdf/mappings.ts`), images de signature dans le rectangle du
+champ, puis aplatissement (plus aucun champ, plus d'AcroForm). Les défauts des modèles sont
+traités dans le code et documentés (champ à deux widgets de l'attestation, cases sans
+apparence « Off »).
 
-**Décision.** Après l'envoi, le lien reste ouvert mais ne mène plus qu'aux écrans de signature
-(session `signing`) ; le formulaire n'est plus modifiable. `usedAt` est posé à la **signature
-complète** côté candidat (bénévole, puis représentant légal d'un mineur), dans la transaction de
-la dernière signature. Un nouveau lien créé entre-temps mène au même dossier envoyé, jamais à un
-nouveau brouillon.
+**Conséquences.** La génération tourne partout où Node tourne (Vercel, VPS). Les fichiers
+finaux ont une empreinte stable une fois produits ; un test relit chaque PDF généré.
 
-**Conséquences.** Un lien transféré permettrait de signer à la place du candidat : le code reçu
-sur son e-mail reste nécessaire, ce qui limite ce risque au partage de la boîte e-mail.
+## ADR-046 — Police Unicode embarquée (Geist), et Caveat pour les noms saisis
 
-## ADR-046 — Copie bénévole non stockée, passage à GAIA à la contresignature
+**Contexte.** Les polices standard des PDF (WinAnsi) ne couvrent pas « Ł », « Ő » ou « Ș » :
+un nom d'Europe de l'Est serait mal rendu.
 
-**Contexte.** Le bénévole reçoit ses documents par e-mail ; l'unité locale garde sa copie. La
-finalisation enchaîne génération, stockage, preuve, e-mail et passage d'étape : il faut savoir
-quoi faire en cas d'échec partiel.
+**Décision.** Geist (OFL), embarquée en sous-ensemble dans chaque PDF, dans `assets/fonts/` avec
+sa licence et son empreinte. Les signatures saisies au clavier sont dessinées en Caveat (OFL),
+en deux sous-ensembles (latin, latin étendu) choisis caractère par caractère.
 
-**Décision.**
+**Conséquences.** Les fichiers grossissent de quelques dizaines de Ko ; tous les noms
+s'affichent.
 
-- La **copie UL** (3 PDF + preuve) est stockée et enregistrée en `Document` (copie `UL`) ; la
-  **copie bénévole** est la même suite d'octets, envoyée en pièces jointes, **pas stockée une
-  seconde fois** ; ses empreintes figurent dans la preuve.
-- Ordre : génération → stockage (tout ou rien) → **une transaction** (signature du représentant,
-  empreintes, documents, `SIGNED`, candidature `FILE` → `GAIA`) → e-mail. L'e-mail est après la
-  transaction : son échec n'annule rien et « Renvoyer l'e-mail » relit les fichiers stockés.
-- La concurrence est réglée par l'état du dossier (`SUBMITTED` → `SIGNED`) et l'unicité
-  (dossier, rôle) des signatures : le second responsable est refusé, aucun document n'est doublé.
-- Sans stockage (démo hébergée sans S3), la signature est refusée dès l'écran, avec un message
-  clair.
+## ADR-047 — Empreinte des modèles figée dans le code
 
-**Conséquences.** La candidature passe à `GAIA` même si l'e-mail n'est pas parti : le dossier est
-complet côté unité locale ; l'échec de l'e-mail reste visible dans le bloc « Dossier ».
+**Contexte.** Un modèle remplacé par erreur (ou modifié) produirait des documents officiels
+faux, sans que personne ne s'en aperçoive.
+
+**Décision.** Le SHA-256 de chaque modèle de `assets/modeles/` (et des polices) est écrit dans
+`src/server/pdf/templates.ts`. Un fichier différent bloque la génération avec un message clair ;
+un test le vérifie.
+
+**Conséquences.** Changer un modèle officiel est un changement de code relu (nouvelle empreinte,
+mapping vérifié par le test de couverture des champs).
+
+## ADR-048 — La copie bénévole n'est pas stockée une seconde fois
+
+**Contexte.** Le bénévole reçoit ses trois PDF par e-mail ; l'unité locale garde sa copie.
+
+**Décision.** Les PDF envoyés sont les mêmes fichiers que la copie UL : seule la copie UL est
+rangée dans le stockage ; leur empreinte figure dans la preuve. « Renvoyer l'e-mail » relit la
+copie UL et vérifie son empreinte avant l'envoi.
+
+**Conséquences.** Pas de doublon de données personnelles dans le stockage ; un renvoi envoie
+exactement les fichiers signés.

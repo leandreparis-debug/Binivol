@@ -1,56 +1,81 @@
 import { z } from "zod";
 
-/**
- * Inputs of the signature actions (step 8). Client-safe. The image is the
- * canvas PNG as a data URL; the server decodes and checks it again.
- */
+/** Inputs of the signature actions (public `/dossier` and on-site mode). Client-safe. */
 
-export const SIGNATURE_IMAGE_MAX_CHARS = 300_000;
+const personId = z.string().min(1).max(40).optional();
+export const signerParty = z.enum(["VOLUNTEER", "PARENT"]);
 
-const image = z
-  .string({ error: "Signature manquante." })
-  .max(SIGNATURE_IMAGE_MAX_CHARS, "L'image de la signature est trop lourde.")
-  .regex(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/, "La signature doit être une image PNG.");
+export const requestCodeInput = z.object({ personId, role: signerParty });
 
-const id = z.string().min(1).max(40);
-const role = z.enum(["VOLUNTEER", "PARENT"]);
-const inputKind = z.enum(["DRAWN", "TYPED"]);
-
-export const requestCodeInput = z.object({ personId: id.optional(), role });
-
-export const signWithCodeInput = z.object({
-  personId: id.optional(),
-  role,
-  inputKind,
-  image,
-  code: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, "Le code compte 6 chiffres."),
+const fields = z.object({
+  personId,
+  role: signerParty,
+  verification: z.enum(["code", "in-person"]),
+  code: z.string().max(12).optional(),
+  confirmed: z.boolean(),
+  kind: z.enum(["drawn", "typed"]),
+  png: z.instanceof(File).optional(),
+  typedName: z.string().max(120).optional(),
 });
 
-export const signInPersonInput = z.object({
-  personId: id,
-  role,
-  inputKind,
-  image,
-  identityChecked: z.literal(true, {
-    error: "Coche « J'ai vérifié l'identité de la personne ».",
-  }),
+/** The signature form (FormData): who signs, how she is verified, the signature. */
+export const signFormInput = z.instanceof(FormData).transform((form, ctx) => {
+  const text = (k: string) => {
+    const v = form.get(k);
+    return typeof v === "string" && v !== "" ? v : undefined;
+  };
+  const file = form.get("png");
+  const parsed = fields.safeParse({
+    personId: text("personId"),
+    role: text("role"),
+    verification: text("verification"),
+    code: text("code"),
+    confirmed: text("confirmed") === "1",
+    kind: text("kind"),
+    png: file instanceof File ? file : undefined,
+    typedName: text("typedName"),
+  });
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      ctx.addIssue({ code: "custom", path: issue.path, message: issue.message });
+    }
+    return z.NEVER;
+  }
+  if (parsed.data.kind === "drawn" && !parsed.data.png) {
+    ctx.addIssue({ code: "custom", path: ["png"], message: "La signature est vide." });
+    return z.NEVER;
+  }
+  return parsed.data;
 });
 
-export const countersignInput = z.object({
-  personId: id,
-  inputKind,
-  image,
-  firstName: z.string().trim().min(1, "Le prénom est obligatoire.").max(50),
-  lastName: z.string().trim().min(1, "Le nom est obligatoire.").max(50),
-  quality: z.string().trim().min(1, "La qualité est obligatoire.").max(80),
+export type SignFormData = z.output<typeof signFormInput>;
+
+export const countersignInput = z.instanceof(FormData).transform((form, ctx) => {
+  const text = (k: string) => {
+    const v = form.get(k);
+    return typeof v === "string" ? v : "";
+  };
+  const file = form.get("png");
+  const parsed = z
+    .object({
+      personId: z.string().min(1).max(40),
+      quality: z.string().max(80),
+      kind: z.enum(["drawn", "typed"]),
+      png: z.instanceof(File).optional(),
+      typedName: z.string().max(120).optional(),
+    })
+    .safeParse({
+      personId: text("personId"),
+      quality: text("quality"),
+      kind: text("kind"),
+      png: file instanceof File ? file : undefined,
+      typedName: text("typedName") || undefined,
+    });
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      ctx.addIssue({ code: "custom", path: issue.path, message: issue.message });
+    }
+    return z.NEVER;
+  }
+  return parsed.data;
 });
-
-export const resendSignedMailInput = z.object({ personId: id });
-
-/** The bytes of a `data:image/png;base64,…` URL. */
-export function pngFromDataUrl(dataUrl: string): Uint8Array {
-  return new Uint8Array(Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64"));
-}

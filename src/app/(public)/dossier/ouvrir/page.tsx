@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
-import { OpenDossierLink } from "@/components/dossier/OpenDossierLink";
-import { openDossierAction } from "../actions";
+import { OpenLink } from "@/components/dossier/OpenLink";
+import { openDossierLinkAction } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Ouverture de votre dossier",
+  title: "Ouverture du dossier",
   robots: { index: false, follow: false },
 };
 
 /**
- * Opening of a dossier link (`/dossier/ouvrir#<token>`, ADR-043). The token
- * is in the fragment: the browser never sends it with this request, so it
- * never reaches the server's or the host's access logs. The page reads it,
- * removes it from the address, then exchanges it for the dossier cookie by a
- * POST (`openDossierAction`).
+ * Opening of a dossier link `/dossier/ouvrir#<token>`. The token is in the
+ * fragment: the browser never sends it with this request. The page reads it,
+ * clears it from the address, and posts it to the exchange action (ADR-043).
  */
 export default function OpenDossierPage() {
-  return <OpenDossierLink open={openDossierAction} />;
+  return <OpenLink exchange={openDossierLinkAction} />;
 }

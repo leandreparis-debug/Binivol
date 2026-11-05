@@ -1,25 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Smartphone } from "lucide-react";
-import { DossierForm, DossierSigned } from "@/components/dossier/DossierForm";
-import { SignatureFlow } from "@/components/signature/SignatureFlow";
+import { DossierForm, DossierSubmitted } from "@/components/dossier/DossierForm";
+import { SigningFlow } from "@/components/signature/SigningFlow";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { getDb } from "@/server/db";
 import { requireDossierPage } from "@/server/dossier/page";
-import { dossierStatus } from "@/server/dossier/store";
+import { signingState } from "@/server/dossier/signing";
+import { dossierStatus, submissionToSign } from "@/server/dossier/store";
 import { dossierFormView, onSiteContext } from "@/server/services/dossierForm";
 import { dossierPerson } from "@/server/services/dossiers";
-import { onSiteSigningView } from "@/server/signature/service";
-import {
-  requestOnSiteCodeAction,
-  signInPersonAction,
-  signOnSiteWithCodeAction,
-} from "@/app/(app)/benevoles/[ref]/signatureActions";
 import {
   addOnSiteAttachmentAction,
   removeOnSiteAttachmentAction,
+  requestOnSiteCodeAction,
+  signOnSiteAction,
   saveOnSiteDossierAction,
   submitOnSiteDossierAction,
 } from "@/app/(app)/benevoles/[ref]/dossierActions";
@@ -36,7 +33,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function OnSitePage({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
-  const { actor, personId, facts } = await requireDossierPage(ref);
+  const { personId, actor } = await requireDossierPage(ref);
   const db = getDb();
   const person = await dossierPerson(db, personId);
   const exitHref = `/benevoles/${person.ref}?onglet=integration`;
@@ -58,31 +55,29 @@ export default async function OnSitePage({ params }: { params: Promise<{ ref: st
       </Button>
     </div>
   );
-  if (!context) {
-    const status = await dossierStatus(db, personId);
-    // Sent and waiting for its signatures: the signature screens, with the
-    // in-person check of the signed-in responsible (journaled read).
-    const signing =
-      status.state === "submitted" ? await onSiteSigningView(db, actor, personId, facts) : null;
+  const toSign = context ? null : await submissionToSign(db, personId);
+  if (toSign) {
+    const state = await signingState(db, toSign.submissionId);
     return (
       <div className="flex flex-col gap-4">
         {banner}
-        {signing ? (
-          <>
-            <h1 className="text-title text-ink">Dossier de bénévole</h1>
-            <SignatureFlow
-              view={signing}
-              previewBase={`/benevoles/${person.ref}/dossier/apercu`}
-              onSite={{ personId, verifierName: actor.name, exitHref }}
-              actions={{
-                requestCode: requestOnSiteCodeAction,
-                signWithCode: signOnSiteWithCodeAction,
-                signInPerson: signInPersonAction,
-              }}
-            />
-          </>
-        ) : status.state === "submitted" ? (
-          <DossierSigned exitHref={exitHref} />
+        <h1 className="text-title text-ink">Signature du dossier</h1>
+        <SigningFlow
+          initial={state}
+          actions={{ requestCode: requestOnSiteCodeAction, sign: signOnSiteAction }}
+          previewBase={`/benevoles/${person.ref}/dossier/apercu/`}
+          onSite={{ personId, responsibleName: actor.name, exitHref }}
+        />
+      </div>
+    );
+  }
+  if (!context) {
+    const status = await dossierStatus(db, personId);
+    return (
+      <div className="flex flex-col gap-4">
+        {banner}
+        {status.state === "submitted" ? (
+          <DossierSubmitted exitHref={exitHref} />
         ) : (
           <Card>
             <CardContent className="flex flex-col gap-3 pt-6">

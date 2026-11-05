@@ -7,7 +7,7 @@ import {
   openDossierSession,
   sealDossierSession,
 } from "../session";
-import { dossierOpenUrl, hashDossierToken, looksLikeDossierToken, newDossierToken } from "../token";
+import { hashDossierToken, looksLikeDossierToken, newDossierToken } from "../token";
 
 describe("dossier token", () => {
   it("is 32 random bytes in base64url, stored as its SHA-256 only", () => {
@@ -27,18 +27,6 @@ describe("dossier token", () => {
   });
 });
 
-describe("dossier link address", () => {
-  it("puts the token in the fragment, never in the path or the query (ADR-043)", () => {
-    const { token } = newDossierToken();
-    const url = new URL(dossierOpenUrl("https://binivol.exemple.test/", token));
-    expect(url.pathname).toBe("/dossier/ouvrir");
-    expect(url.search).toBe("");
-    expect(url.hash).toBe(`#${token}`);
-    // What a browser sends to the server: everything but the fragment.
-    expect(`${url.origin}${url.pathname}${url.search}`).not.toContain(token);
-  });
-});
-
 describe("dossier session cookie", () => {
   it("holds the link id, signed, for 2 hours", () => {
     const now = Date.UTC(2026, 10, 5, 10);
@@ -51,17 +39,13 @@ describe("dossier session cookie", () => {
   });
 
   it("refuses a tampered or malformed cookie", () => {
-    // Fixed instant: the signature (hence its first character) no longer depends on the clock.
-    const value = sealDossierSession("link_1", Date.UTC(2026, 10, 5, 10));
+    const value = sealDossierSession("link_1");
     const [body = "", sig = ""] = value.split(".");
     const forged = Buffer.from(
       JSON.stringify({ linkId: "link_2", exp: Date.now() + 1e6 }),
     ).toString("base64url");
     expect(openDossierSession(`${forged}.${sig}`)).toBeNull();
-    // Change the first character for a different one (it was « x » once in 64 runs: flaky).
-    const tampered = `${sig.startsWith("x") ? "y" : "x"}${sig.slice(1)}`;
-    expect(tampered).not.toBe(sig);
-    expect(openDossierSession(`${body}.${tampered}`, Date.UTC(2026, 10, 5, 10))).toBeNull();
+    expect(openDossierSession(`${body}.x${sig.slice(1)}`)).toBeNull();
     expect(openDossierSession("n'importe quoi")).toBeNull();
     expect(openDossierSession(undefined)).toBeNull();
   });

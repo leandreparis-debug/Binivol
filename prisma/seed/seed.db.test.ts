@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { NIVOL_PATTERN } from "@/lib/nivol";
 import { dossierAge, migrateDossierData, submissionIssues } from "@/lib/dossierSchema";
-import { DEFAULT_SIGNED_DOSSIER_MAIL } from "@/server/mail/templates";
 import { linkState } from "@/server/services/dossiers";
+import { FINAL_MAIL_DEFAULT } from "@/server/settings";
 import { perimetersOf } from "@/server/perimeter";
 import { getTestDb } from "@/test/db/testDatabase";
 import {
@@ -215,11 +215,33 @@ describe("seed", () => {
       ["seed_link_active", "active"],
       ["seed_link_adult", "used"],
       ["seed_link_expired", "expired"],
-      // Signed by the volunteer only: not consumed (ADR-045), expired since.
       ["seed_link_minor", "expired"],
       ["seed_link_revoked", "revoked"],
     ]);
     expect(links.every((l) => /^[0-9a-f]{64}$/.test(l.tokenHash))).toBe(true);
+  });
+
+  it("step 8: to countersign, complete (documents fileMissing), minor waiting for the guardian", async () => {
+    const signatures = await db.signature.findMany({ orderBy: { id: "asc" } });
+    expect(signatures.map((s) => [s.submissionId, s.signerRole, s.method])).toEqual([
+      ["seed_sub_adult", "VOLUNTEER", "OTP_EMAIL"],
+      ["seed_sub_signed", "CRF_REPRESENTATIVE", "SESSION"],
+      ["seed_sub_minor", "VOLUNTEER", "IN_PERSON"],
+      ["seed_sub_signed", "VOLUNTEER", "OTP_EMAIL"],
+    ]);
+    // Typed signatures: nothing to read in the storage.
+    expect(signatures.every((s) => s.imageKey === null && s.typedName)).toBe(true);
+    const complete = await db.document.findMany({
+      where: { submissionId: "seed_sub_signed" },
+      orderBy: { kind: "asc" },
+    });
+    expect(complete.map((d) => [d.kind, d.copy, d.fileMissing])).toEqual([
+      ["DOSSIER", "UL", true],
+      ["CHARTE", "UL", true],
+      ["APTITUDE", "UL", true],
+      ["OTHER", "UL", true],
+    ]);
+    expect(complete[0]?.fileName).toMatch(/^[A-ZÀ-Ý'-]+_\p{Lu}[\p{L}-]*_Dossier-Bénévole\.pdf$/u);
   });
 
   it("stores a half-filled draft and complete submitted dossiers (one of a minor of 15)", async () => {
@@ -228,10 +250,10 @@ describe("seed", () => {
       include: { attachments: true, person: { select: { status: true } } },
     });
     expect(subs.map((s) => [s.id, s.status, s.schemaVersion])).toEqual([
-      ["seed_sub_adult", "SUBMITTED", 2],
+      ["seed_sub_adult", "SIGNED", 2],
       ["seed_sub_draft", "DRAFT", 2],
       ["seed_sub_minor", "SUBMITTED", 2],
-      ["seed_sub_signed", "SIGNED", 2],
+      ["seed_sub_signed", "COMPLETE", 2],
     ]);
     for (const s of subs.filter((x) => x.status !== "DRAFT")) {
       const data = migrateDossierData(s.data, s.schemaVersion).data;
@@ -242,14 +264,14 @@ describe("seed", () => {
       expect(issues, s.id).toEqual([]);
     }
     const minor = subs.find((s) => s.id === "seed_sub_minor");
-    const data = migrateDossierData(minor?.data, 1).data;
+    const data = migrateDossierData(minor?.data, 2).data;
     expect(dossierAge(data, today)).toBe(15);
     expect(minor?.attachments.map((a) => [a.kind, Boolean(a.documentId)])).toEqual([
       ["PARENTAL_AUTH", true],
     ]);
     const draft = subs.find((s) => s.id === "seed_sub_draft");
     expect(
-      submissionIssues(migrateDossierData(draft?.data, 1).data, { day: today, attachmentKinds: [] })
+      submissionIssues(migrateDossierData(draft?.data, 2).data, { day: today, attachmentKinds: [] })
         .length,
     ).toBeGreaterThan(0);
   });
@@ -275,7 +297,7 @@ describe("seed", () => {
       DOSSIER_LINK_DAYS: 7,
       UL_NAME: "Unité locale de Versailles",
       UL_CITY: "Versailles",
-      VOLUNTEER_DOSSIER_MAIL: DEFAULT_SIGNED_DOSSIER_MAIL,
+      FINAL_MAIL_TEXT: FINAL_MAIL_DEFAULT,
       RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });
     expect(await db.reminderRule.count()).toBe(6);

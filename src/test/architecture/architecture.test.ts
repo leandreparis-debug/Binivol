@@ -37,7 +37,7 @@ describe("architecture: server actions", () => {
       "src/app/(auth)/connexion/actions.ts#demoSignInAction",
       "src/app/(auth)/connexion/actions.ts#googleSignInAction",
       "src/app/(public)/dossier/actions.ts#addDossierAttachmentAction",
-      "src/app/(public)/dossier/actions.ts#openDossierAction",
+      "src/app/(public)/dossier/actions.ts#openDossierLinkAction",
       "src/app/(public)/dossier/actions.ts#removeDossierAttachmentAction",
       "src/app/(public)/dossier/actions.ts#requestSignatureCodeAction",
       "src/app/(public)/dossier/actions.ts#saveDossierAction",
@@ -58,10 +58,15 @@ describe("architecture: server actions", () => {
 });
 
 describe("architecture: sensitive data", () => {
-  // The only two sensitive modules: sensitive.ts, and the dossier store (step 7).
-  const ALLOWED = new Set(["src/server/sensitive.ts", "src/server/dossier/store.ts"]);
+  // The only sensitive modules: sensitive.ts, the dossier store (step 7) and the
+  // signature of the dossier (step 8: codes, signatures, final documents).
+  const ALLOWED = new Set([
+    "src/server/sensitive.ts",
+    "src/server/dossier/store.ts",
+    "src/server/dossier/signing.ts",
+  ]);
   const DELEGATE =
-    /\.(personSensitive|emergencyContact|document|dossierSubmission|dossierAttachment)\s*\.\s*\w+\s*\(/;
+    /\.(personSensitive|emergencyContact|document|dossierSubmission|dossierAttachment|signature|otpChallenge)\s*\.\s*\w+\s*\(/;
   const RELATION =
     /\b(sensitive|emergencyContacts|documents|submissions|attachments)\s*:\s*(true|\{)/;
 
@@ -86,19 +91,23 @@ describe("architecture: sensitive data", () => {
     expect(DELEGATE.test("await tx.dossierSubmission.update({")).toBe(true);
     expect(DELEGATE.test("db.dossierAttachment.findMany()")).toBe(true);
     expect(RELATION.test("include: { attachments: { where } }")).toBe(true);
+    expect(DELEGATE.test("tx.signature.create({")).toBe(true);
+    expect(DELEGATE.test("db.otpChallenge.update({")).toBe(true);
   });
 });
 
 describe("architecture: sensitive modules", () => {
-  it("the allowed list is exactly sensitive.ts and the dossier store", () => {
+  it("the dossier tables are touched only by the dossier store and the signature module", () => {
     const touching = files
       .filter(({ file }) => !isTestFile(file))
       .filter(({ content }) =>
-        /\.(dossierSubmission|dossierAttachment)\s*\.\s*\w+\s*\(/.test(content),
+        /\.(dossierSubmission|dossierAttachment|signature|otpChallenge)\s*\.\s*\w+\s*\(/.test(
+          content,
+        ),
       )
       .map((f) => f.file)
       .sort();
-    expect(touching).toEqual(["src/server/dossier/store.ts"]);
+    expect(touching).toEqual(["src/server/dossier/signing.ts", "src/server/dossier/store.ts"]);
   });
 });
 

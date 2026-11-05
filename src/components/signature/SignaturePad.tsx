@@ -1,282 +1,254 @@
 "use client";
 
-import localFont from "next/font/local";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import "@fontsource/caveat/400.css";
+import { useEffect, useId, useRef, useState } from "react";
 import { Eraser, Keyboard, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
-import { cn } from "@/lib/cn";
 
-const handwriting = localFont({
-  src: "../../../assets/fonts/Caveat-Regular.ttf",
-  display: "swap",
-});
-
-/** What the pad hands over: a PNG (transparent background) and how it was made. */
-export interface SignatureValue {
-  image: string;
-  inputKind: "DRAWN" | "TYPED";
-}
+export type SignatureValue = { kind: "drawn"; png: Blob } | { kind: "typed"; name: string };
 
 export interface SignaturePadProps {
-  /** Name prefilled in the typed alternative (the signer's full name). */
-  defaultName: string;
-  /** Label of the « Valider » button. */
-  validateLabel?: string;
+  /** Full name of the signer (the typed signature must match it). */
+  signerName: string;
+  /** Text of the validation button. */
+  submitLabel?: string;
   onValidate: (value: SignatureValue) => void;
-  /** Disables the controls while the parent is busy. */
-  busy?: boolean;
-  className?: string;
+  disabled?: boolean;
 }
 
-/** Export size: bounded (≤ 1200 × 400), transparent PNG. */
-const EXPORT_WIDTH = 900;
-const EXPORT_HEIGHT = 300;
-/** A trace shorter than this (CSS pixels of path) is refused before sending. */
-const MIN_PATH = 80;
+const CANVAS = { width: 640, height: 220 };
+const MIN_INKED = 150;
+const MAX_EXPORT_WIDTH = 800;
 
 /**
- * Signature pad (step 8). Draw with a finger, a stylus or a mouse; « Effacer »
- * clears, « Valider » hands a PNG over. For the keyboard and screen readers,
- * « Saisir mon nom » types the full name instead, rendered in a handwriting
- * font. An empty or too short trace is refused here, and again by the server.
+ * Signature pad: a canvas driven by pointer events (finger, stylus, mouse)
+ * with « Effacer » and « Valider », and an accessible alternative: typing
+ * one's full name, shown in a handwriting font. An empty or too short trace
+ * is refused here, and again by the server.
  */
 export function SignaturePad({
-  defaultName,
-  validateLabel = "Valider ma signature",
+  signerName,
+  submitLabel = "Valider ma signature",
   onValidate,
-  busy = false,
-  className,
+  disabled = false,
 }: SignaturePadProps) {
-  const [mode, setMode] = useState<"draw" | "type">("draw");
-  const [name, setName] = useState(defaultName);
-  const [error, setError] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
-  const length = useRef(0);
-  const [hasInk, setHasInk] = useState(false);
+  const [mode, setMode] = useState<"draw" | "type">("draw");
+  const [empty, setEmpty] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [typed, setTyped] = useState("");
   const hintId = useId();
-  const nameId = useId();
-
-  const setupCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.round(rect.width * ratio));
-    canvas.height = Math.max(1, Math.round(rect.height * ratio));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#111318";
-    length.current = 0;
-    setHasInk(false);
-  }, []);
 
   useEffect(() => {
-    if (mode !== "draw") return;
-    setupCanvas();
-    const onResize = () => {
-      setupCanvas();
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-    };
-  }, [mode, setupCanvas]);
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#111";
+  }, [mode]);
 
   const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    };
   };
 
-  const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (busy) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drawing.current = true;
-    last.current = point(event);
+  const clear = () => {
+    const canvas = canvasRef.current;
+    canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    setEmpty(true);
     setError(null);
   };
 
-  const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current || !last.current) return;
-    const ctx = event.currentTarget.getContext("2d");
-    const next = point(event);
-    if (!ctx) return;
-    ctx.beginPath();
-    ctx.moveTo(last.current.x, last.current.y);
-    ctx.lineTo(next.x, next.y);
-    ctx.stroke();
-    length.current += Math.hypot(next.x - last.current.x, next.y - last.current.y);
-    last.current = next;
-    if (!hasInk) setHasInk(true);
+  const exportTrace = (): Promise<Blob | null> => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return Promise.resolve(null);
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let inked = 0;
+    let minX = canvas.width;
+    let minY = canvas.height;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        if ((data[(y * canvas.width + x) * 4 + 3] ?? 0) > 16) {
+          inked += 1;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (inked < MIN_INKED || maxX - minX < 60) return Promise.resolve(null);
+    const pad = 8;
+    const sx = Math.max(0, minX - pad);
+    const sy = Math.max(0, minY - pad);
+    const sw = Math.min(canvas.width, maxX + pad) - sx;
+    const sh = Math.min(canvas.height, maxY + pad) - sy;
+    const scale = Math.min(1, MAX_EXPORT_WIDTH / sw);
+    const out = document.createElement("canvas");
+    out.width = Math.round(sw * scale);
+    out.height = Math.round(sh * scale);
+    out.getContext("2d")?.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+    return new Promise((resolve) => {
+      out.toBlob((blob) => {
+        resolve(blob);
+      }, "image/png");
+    });
   };
 
-  const stop = () => {
-    drawing.current = false;
-    last.current = null;
-  };
-
-  /** Copies the visible canvas onto a bounded export canvas (proportions kept). */
-  function exportDrawn(): string | null {
-    const source = canvasRef.current;
-    if (!source) return null;
-    const out = document.createElement("canvas");
-    out.width = EXPORT_WIDTH;
-    out.height = EXPORT_HEIGHT;
-    const ctx = out.getContext("2d");
-    if (!ctx) return null;
-    const scale = Math.min(EXPORT_WIDTH / source.width, EXPORT_HEIGHT / source.height);
-    const w = source.width * scale;
-    const h = source.height * scale;
-    ctx.drawImage(source, (EXPORT_WIDTH - w) / 2, (EXPORT_HEIGHT - h) / 2, w, h);
-    return out.toDataURL("image/png");
-  }
-
-  async function exportTyped(): Promise<string | null> {
-    const text = name.trim();
-    const out = document.createElement("canvas");
-    out.width = EXPORT_WIDTH;
-    out.height = EXPORT_HEIGHT;
-    const ctx = out.getContext("2d");
-    if (!ctx) return null;
-    const family = handwriting.style.fontFamily;
-    try {
-      await document.fonts.load(`96px ${family}`);
-    } catch {
-      // The fallback font still renders the name.
-    }
-    let size = 120;
-    ctx.font = `${String(size)}px ${family}`;
-    while (size > 24 && ctx.measureText(text).width > EXPORT_WIDTH - 40) {
-      size -= 4;
-      ctx.font = `${String(size)}px ${family}`;
-    }
-    ctx.fillStyle = "#111318";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, EXPORT_WIDTH / 2, EXPORT_HEIGHT / 2);
-    return out.toDataURL("image/png");
-  }
-
-  async function validate() {
+  const validate = async () => {
     setError(null);
-    if (mode === "draw") {
-      if (!hasInk) {
-        setError("La signature est vide : trace-la dans le cadre, ou saisis ton nom.");
+    if (mode === "type") {
+      if (typed.trim().length < 3) {
+        setError("Saisis ton nom complet.");
         return;
       }
-      if (length.current < MIN_PATH) {
-        setError("La signature est trop courte : trace-la en entier, ou saisis ton nom.");
-        return;
-      }
-      const image = exportDrawn();
-      if (image) onValidate({ image, inputKind: "DRAWN" });
+      onValidate({ kind: "typed", name: typed.trim() });
       return;
     }
-    if (name.trim().length < 3) {
-      setError("Saisis ton nom complet.");
+    const blob = await exportTrace();
+    if (!blob) {
+      setError(
+        empty
+          ? "La signature est vide : trace-la dans le cadre."
+          : "La signature est trop courte : trace ta signature en entier.",
+      );
       return;
     }
-    const image = await exportTyped();
-    if (image) onValidate({ image, inputKind: "TYPED" });
-  }
+    onValidate({ kind: "drawn", png: blob });
+  };
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <div role="group" aria-label="Façon de signer" className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant={mode === "draw" ? "primary" : "outline"}
-          aria-pressed={mode === "draw"}
-          leftIcon={<PenLine className="size-4" aria-hidden="true" />}
-          onClick={() => {
-            setMode("draw");
-            setError(null);
-          }}
-        >
-          Tracer
-        </Button>
-        <Button
-          type="button"
-          variant={mode === "type" ? "primary" : "outline"}
-          aria-pressed={mode === "type"}
-          leftIcon={<Keyboard className="size-4" aria-hidden="true" />}
-          onClick={() => {
-            setMode("type");
-            setError(null);
-          }}
-        >
-          Saisir mon nom
-        </Button>
-      </div>
-
+    <div className="flex flex-col gap-3">
       {mode === "draw" ? (
-        <div className="flex flex-col gap-2">
-          <p id={hintId} className="text-small text-ink-2">
-            Trace ta signature dans le cadre, au doigt, au stylet ou à la souris.
+        <>
+          <p id={hintId} className="text-small text-muted">
+            Trace ta signature dans le cadre, avec le doigt, un stylet ou la souris.
           </p>
           <canvas
             ref={canvasRef}
+            width={CANVAS.width}
+            height={CANVAS.height}
             role="img"
-            aria-label="Cadre de signature. Au clavier ou avec un lecteur d'écran, choisis « Saisir mon nom »."
+            aria-label="Zone de signature"
             aria-describedby={hintId}
             data-testid="signature-canvas"
-            className="h-44 w-full touch-none rounded-inner border border-line bg-surface"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={stop}
-            onPointerCancel={stop}
-            onPointerLeave={stop}
+            className="aspect-[32/11] w-full touch-none rounded-inner border border-line bg-surface"
+            onPointerDown={(e) => {
+              if (disabled) return;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              drawing.current = true;
+              last.current = point(e);
+              const ctx = canvasRef.current?.getContext("2d");
+              ctx?.beginPath();
+              ctx?.arc(last.current.x, last.current.y, 1.5, 0, Math.PI * 2);
+              ctx?.fill();
+            }}
+            onPointerMove={(e) => {
+              if (!drawing.current || !last.current) return;
+              const p = point(e);
+              const ctx = canvasRef.current?.getContext("2d");
+              ctx?.beginPath();
+              ctx?.moveTo(last.current.x, last.current.y);
+              ctx?.lineTo(p.x, p.y);
+              ctx?.stroke();
+              last.current = p;
+              setEmpty(false);
+            }}
+            onPointerUp={() => {
+              drawing.current = false;
+              last.current = null;
+            }}
+            onPointerCancel={() => {
+              drawing.current = false;
+              last.current = null;
+            }}
           />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
-              leftIcon={<Eraser className="size-4" aria-hidden="true" />}
-              onClick={setupCanvas}
-              disabled={busy}
+              leftIcon={<Eraser aria-hidden="true" />}
+              onClick={clear}
+              disabled={disabled}
             >
               Effacer
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              leftIcon={<Keyboard aria-hidden="true" />}
+              onClick={() => {
+                setMode("type");
+                setError(null);
+              }}
+            >
+              Signer en saisissant mon nom
+            </Button>
           </div>
-        </div>
+        </>
       ) : (
-        <div className="flex flex-col gap-2">
-          <Field label="Ton nom complet" htmlFor={nameId} hint="Il sert de signature.">
+        <>
+          <Field
+            label="Ton nom complet"
+            htmlFor="signature-typed"
+            hint={`Saisis exactement : ${signerName}. Il sera utilisé comme signature.`}
+          >
             <Input
-              id={nameId}
-              value={name}
+              value={typed}
               autoComplete="name"
-              maxLength={80}
-              onChange={(event) => {
-                setName(event.target.value);
+              maxLength={120}
+              onChange={(e) => {
+                setTyped(e.target.value);
               }}
             />
           </Field>
           <p
             aria-hidden="true"
-            className={cn(
-              "min-h-16 rounded-inner border border-line bg-surface px-4 py-2 text-center text-[2.5rem] leading-tight text-ink",
-              handwriting.className,
-            )}
+            className="min-h-16 rounded-inner border border-line bg-surface px-4 py-2 text-[2.25rem] leading-tight text-ink"
+            style={{ fontFamily: "Caveat, cursive" }}
           >
-            {name.trim() || " "}
+            {typed}
           </p>
-        </div>
+          <Button
+            type="button"
+            variant="ghost"
+            leftIcon={<PenLine aria-hidden="true" />}
+            className="self-start"
+            onClick={() => {
+              setMode("draw");
+              setError(null);
+            }}
+          >
+            Tracer ma signature
+          </Button>
+        </>
       )}
-
       {error && (
         <p role="alert" className="text-small font-medium text-danger-ink">
           {error}
         </p>
       )}
-      <Button type="button" size="lg" loading={busy} onClick={() => void validate()}>
-        {validateLabel}
+      <Button
+        type="button"
+        size="lg"
+        disabled={disabled}
+        onClick={() => void validate()}
+        data-testid="signature-validate"
+      >
+        {submitLabel}
       </Button>
     </div>
   );

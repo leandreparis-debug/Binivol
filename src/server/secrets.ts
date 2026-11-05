@@ -9,17 +9,16 @@ import { getEnv } from "@/lib/env";
  */
 const DEV_SECRET = "binivol-development-secret-not-for-production";
 
-export type KeyPurpose = "dossier-session" | "sealed-mail" | "otp-code" | "ip-hash";
+export type KeyPurpose = "dossier-session" | "sealed-mail" | "signature-code" | "ip-hash";
 
 /**
- * The signature's HMAC keys (`otp-code`, `ip-hash`) come from
- * SIGNATURE_HMAC_SECRET when it is set, from AUTH_SECRET otherwise.
+ * `signature-code` (HMAC of the signature codes) uses `OTP_SECRET` when set,
+ * so it can be rotated apart from the sessions; else it derives from AUTH_SECRET.
  */
 export function derivedKey(purpose: KeyPurpose): Buffer {
   const env = getEnv();
-  const signature = purpose === "otp-code" || purpose === "ip-hash";
   const secret =
-    (signature ? env.SIGNATURE_HMAC_SECRET : undefined) ?? env.AUTH_SECRET ?? DEV_SECRET;
+    (purpose === "signature-code" ? env.OTP_SECRET : undefined) ?? env.AUTH_SECRET ?? DEV_SECRET;
   return Buffer.from(
     hkdfSync("sha256", createHash("sha256").update(secret).digest(), "binivol", purpose, 32),
   );

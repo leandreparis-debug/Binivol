@@ -1,255 +1,306 @@
 import fontkit from "@pdf-lib/fontkit";
 import {
+  degrees,
   PDFCheckBox,
+  PDFDict,
   PDFDocument,
-  PDFNull,
-  PDFRef,
+  PDFName,
   PDFTextField,
   rgb,
   type PDFFont,
   type PDFPage,
+  type PDFWidgetAnnotation,
 } from "pdf-lib";
-import {
-  MAPPINGS,
-  SECOND_WIDGET_DATES,
-  SIGNATURE_FIELDS,
-  STRUCTURE_SPLIT,
-  templateValues,
-  type PdfInput,
-  type SignatureSlot,
-} from "./mappings";
-import { readAsset, FONTS, TEMPLATES, type TemplateKind } from "./templates";
-import { fitText, parisDateParts, parisDayText, splitOverTwo } from "./text";
+import type { SignerRole } from "@/generated/prisma/enums";
+import type { TemplateMapping } from "./mappings";
+import { fitText, parisDay } from "./text";
 
 /**
- * Fills an official template (AcroForm) from the dossier, lays the signature
- * images in their fields' rectangles, then **flattens** it: the result has
- * no field left. Text uses an embedded Unicode font (Geist), fitted to each
- * field (smaller size, then cut with « … », never overflowing).
+ * Fills an official template (ADR-045): text with the embedded Unicode font
+ * (ADR-046), fitted to each field; boxes /Oui or /Off; signature images in
+ * the rectangle of their field, with « Signé électroniquement le … »; then
+ * **flattened**: the final PDF has no field left.
  */
 
 export interface SignatureImage {
-  /** PNG of the drawn (or typed) signature, transparent background. */
-  png: Uint8Array;
+  /** PNG of the drawn signature, transparent background. */
+  png?: Uint8Array;
+  /** Name typed as the signature (keyboard alternative): drawn in a handwriting font. */
+  typedName?: string;
   signedAt: Date;
 }
 
-export type PdfSignatures = Partial<Record<SignatureSlot, SignatureImage>>;
-
-export interface FillOptions {
-  /** A preview (before signing): a light « Aperçu » mark on each page, never stored. */
+export interface RenderInput {
+  template: Uint8Array;
+  font: Uint8Array;
+  mapping: TemplateMapping;
+  images: Partial<Record<SignerRole, SignatureImage>>;
+  title: string;
+  /** Instant written in the PDF metadata. */
+  producedAt: Date;
+  /** Preview before signature: marked « Aperçu », never stored. */
   preview?: boolean;
+  /** Handwriting font files (typed signatures), tried in order for each glyph. */
+  handwriting?: Uint8Array[];
 }
 
-const PADDING = 2;
-const MAX_SIZE = 9;
 const MIN_SIZE = 6;
+const CAPTION_SIZE = 6;
+const INK = rgb(0, 0, 0);
 
-interface Rect {
+interface Placed {
+  page: PDFPage;
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-function widgetPage(doc: PDFDocument, pageRef: PDFRef | undefined): PDFPage | undefined {
-  return doc.getPages().find((p) => p.ref === pageRef) ?? doc.getPages()[0];
+function placeOf(doc: PDFDocument, widget: PDFWidgetAnnotation): Placed | null {
+  const rect = widget.getRectangle();
+  const ref = widget.P();
+  const page =
+    doc.getPages().find((p) => ref !== undefined && p.ref === ref) ??
+    doc.getPages().find((p) => {
+      const annots = p.node.Annots();
+      return annots?.asArray().some((a) => doc.context.lookup(a) === widget.dict) ?? false;
+    });
+  return page ? { page, ...rect } : null;
 }
 
-/** Draws a signature image in a rectangle (proportions kept), with its date line under it. */
-function drawSignature(
-  page: PDFPage,
-  rect: Rect,
-  image: Awaited<ReturnType<PDFDocument["embedPng"]>>,
-  signedAt: Date,
-  font: PDFFont,
-): void {
-  const caption = `Signé électroniquement le ${parisDayText(signedAt)}`;
-  const captionSize = Math.min(6, rect.height / 6);
-  const captionHeight = captionSize + 2;
-  const boxHeight = rect.height - captionHeight;
-  const scale = Math.min(rect.width / image.width, boxHeight / image.height);
-  const w = image.width * scale;
-  const h = image.height * scale;
-  page.drawImage(image, {
-    x: rect.x + (rect.width - w) / 2,
-    y: rect.y + captionHeight + (boxHeight - h) / 2,
-    width: w,
-    height: h,
-  });
-  const fitted = fitText(caption, rect.width, (t, size) => font.widthOfTextAtSize(t, size), {
-    max: captionSize,
-    min: Math.min(4, captionSize),
-  });
-  page.drawText(fitted.text, {
-    x: rect.x + (rect.width - font.widthOfTextAtSize(fitted.text, fitted.size)) / 2,
-    y: rect.y + 1,
-    size: fitted.size,
-    font,
-    color: rgb(0.2, 0.2, 0.2),
-  });
+/** Font size of the field's default appearance (`/Helv 9 Tf`), 9 by default. */
+function daSize(field: PDFTextField): number {
+  const da = field.acroField.getDefaultAppearance() ?? "";
+  const m = /(\d+(?:\.\d+)?)\s+Tf/.exec(da);
+  const size = m ? Number(m[1]) : 9;
+  return size > 0 && size <= 12 ? size : 9;
 }
 
-export async function fillTemplate(
-  kind: TemplateKind,
-  input: PdfInput,
-  signatures: PdfSignatures = {},
-  options: FillOptions = {},
-): Promise<Uint8Array> {
-  const [templateBytes, fontBytes] = await Promise.all([
-    readAsset(TEMPLATES[kind]),
-    readAsset(FONTS.TEXT),
-  ]);
-  const doc = await PDFDocument.load(templateBytes);
-  doc.registerFontkit(fontkit);
-  const font = await doc.embedFont(fontBytes, { subset: true });
-  const measure = (t: string, size: number) => font.widthOfTextAtSize(t, size);
-  const form = doc.getForm();
-  const values = templateValues(kind, input);
+/** Text colour of the field's default appearance (`0 0 1 rg`, `0 g`), black by default. */
+function daColor(field: PDFTextField) {
+  const da = field.acroField.getDefaultAppearance() ?? "";
+  const rgbMatch = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg/.exec(da);
+  if (rgbMatch) return rgb(Number(rgbMatch[1]), Number(rgbMatch[2]), Number(rgbMatch[3]));
+  const grayMatch = /([\d.]+)\s+g(?:\s|$)/.exec(da);
+  if (grayMatch) {
+    const v = Number(grayMatch[1]);
+    return rgb(v, v, v);
+  }
+  return INK;
+}
 
-  // 1. Aptitude certificate: the second widget of the birth-date fields is the
-  //    « Date » line. Detach it before filling, draw the signature date there.
-  const dateLines: { rect: Rect; page: PDFPage | undefined; part: "day" | "month" | "year" }[] = [];
-  if (kind === "APTITUDE") {
-    for (const [name, part] of Object.entries(SECOND_WIDGET_DATES)) {
-      const field = form.getTextField(name);
-      const widgets = field.acroField.getWidgets();
-      const second = widgets[1];
-      if (!second) continue;
-      const kids = field.acroField.Kids();
-      const ref = kids?.get(1);
-      const page = widgetPage(doc, second.P());
-      dateLines.push({ rect: second.getRectangle(), page, part });
-      field.acroField.removeWidget(1);
-      if (ref instanceof PDFRef) page?.node.removeAnnot(ref);
+/** Removes one widget of a field (from the field and from its page). */
+function detachWidget(doc: PDFDocument, field: PDFTextField, index: number): Placed | null {
+  const widgets = field.acroField.getWidgets();
+  const widget = widgets[index];
+  if (!widget) return null;
+  const placed = placeOf(doc, widget);
+  if (placed) {
+    const annots = placed.page.node.Annots();
+    const refs = annots?.asArray() ?? [];
+    const position = refs.findIndex((a) => doc.context.lookup(a) === widget.dict);
+    if (position >= 0) annots?.remove(position);
+  }
+  field.acroField.removeWidget(index);
+  return placed;
+}
+
+function drawFitted(font: PDFFont, place: Placed, value: string, maxSize: number, color = INK) {
+  if (value === "") return;
+  const fitted = fitText(value, (t, size) => font.widthOfTextAtSize(t, size), {
+    width: place.width - 4,
+    maxSize,
+    minSize: MIN_SIZE,
+  });
+  const y = place.y + Math.max(1, (place.height - fitted.size) / 2 + 1);
+  place.page.drawText(fitted.text, { x: place.x + 2, y, size: fitted.size, font, color });
+}
+
+/**
+ * After flattening, a page can still list widgets (a field with two widgets
+ * on the Attestation) or references to removed objects: they are dropped, so
+ * the file is clean for every reader.
+ */
+function removeDanglingWidgets(doc: PDFDocument) {
+  for (const page of doc.getPages()) {
+    const annots = page.node.Annots();
+    if (!annots) continue;
+    for (let i = annots.size() - 1; i >= 0; i -= 1) {
+      const entry = annots.get(i);
+      const target = doc.context.lookup(entry);
+      const subtype = target instanceof PDFDict ? target.get(PDFName.of("Subtype")) : undefined;
+      if (!target || subtype === PDFName.of("Widget")) annots.remove(i);
     }
+    if (annots.size() === 0) page.node.delete(PDFName.of("Annots"));
+  }
+}
+
+interface Handwriting {
+  font: PDFFont;
+  has: (codePoint: number) => boolean;
+}
+
+async function embedHandwriting(doc: PDFDocument, files: Uint8Array[]): Promise<Handwriting[]> {
+  const out: Handwriting[] = [];
+  for (const bytes of files) {
+    const parsed = fontkit.create(bytes) as { hasGlyphForCodePoint: (cp: number) => boolean };
+    out.push({
+      font: await doc.embedFont(bytes, { subset: true }),
+      has: (cp) => parsed.hasGlyphForCodePoint(cp),
+    });
+  }
+  return out;
+}
+
+/**
+ * Draws a typed signature, centred in its box, as large as fits (up to 26 pt).
+ * Each character uses the first handwriting font that has it (Latin, then
+ * Latin Extended subsets).
+ */
+function drawHandwriting(
+  fonts: Handwriting[],
+  box: { text: string; x: number; y: number; width: number; height: number; page: PDFPage },
+) {
+  const fallback = fonts[0];
+  if (!fallback) return;
+  const runs: { font: PDFFont; text: string }[] = [];
+  for (const char of box.text.trim()) {
+    const cp = char.codePointAt(0) ?? 32;
+    const font = (fonts.find((f) => f.has(cp)) ?? fallback).font;
+    const last = runs.at(-1);
+    if (last?.font === font) last.text += char;
+    else runs.push({ font, text: char });
+  }
+  const widthAt = (size: number) =>
+    runs.reduce((sum, r) => sum + r.font.widthOfTextAtSize(r.text, size), 0);
+  let size = Math.min(26, box.height * 0.8);
+  while (size > 8 && widthAt(size) > box.width) size -= 0.5;
+  let x = box.x + Math.max(0, (box.width - widthAt(size)) / 2);
+  const y = box.y + Math.max(0, (box.height - size) / 2);
+  for (const run of runs) {
+    box.page.drawText(run.text, { x, y, size, font: run.font, color: INK });
+    x += run.font.widthOfTextAtSize(run.text, size);
+  }
+}
+
+export async function renderTemplate(input: RenderInput): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(input.template);
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(input.font, { subset: true });
+  const form = doc.getForm();
+  const overrides: {
+    place: Placed;
+    value: string;
+    size: number;
+    color: ReturnType<typeof rgb>;
+  }[] = [];
+
+  // 1. Second widgets that mean something else: detached, drawn later.
+  for (const o of input.mapping.widgetOverrides) {
+    const field = form.getTextField(o.field);
+    const size = daSize(field);
+    const color = daColor(field);
+    const place = detachWidget(doc, field, o.widget);
+    if (place) overrides.push({ place, value: o.value, size, color });
   }
 
-  // 2. Text fields and check boxes.
-  for (const [name, value] of Object.entries(values)) {
+  // 2. Text and boxes.
+  for (const [name, value] of Object.entries(input.mapping.fields)) {
     const field = form.getField(name);
     if (field instanceof PDFCheckBox) {
       if (value === true) field.check();
       else field.uncheck();
-    } else if (field instanceof PDFTextField) {
-      const text = typeof value === "string" ? value : "";
-      const width = (field.acroField.getWidgets()[0]?.getRectangle().width ?? 100) - 2 * PADDING;
-      const fitted = fitText(text, width, measure, { max: MAX_SIZE, min: MIN_SIZE });
-      field.setFontSize(fitted.size);
-      field.setText(fitted.text);
+      // Some boxes of the templates have no « Off » appearance: rebuild both.
+      field.updateAppearances();
+      continue;
     }
-  }
-
-  // 3. Charter: the structure over its two fields.
-  if (kind === "CHARTE") {
-    const [firstName, secondName] = STRUCTURE_SPLIT;
-    const first = form.getTextField(firstName);
-    const second = form.getTextField(secondName);
-    const w1 = (first.acroField.getWidgets()[0]?.getRectangle().width ?? 100) - 2 * PADDING;
-    const w2 = (second.acroField.getWidgets()[0]?.getRectangle().width ?? 200) - 2 * PADDING;
-    const structure = input.representative ? input.structure : "";
-    const [a, b] = splitOverTwo(structure, w1, measure, MAX_SIZE);
-    for (const [field, text, width] of [
-      [first, a, w1],
-      [second, b, w2],
-    ] as const) {
-      const fitted = fitText(text, width, measure, { max: MAX_SIZE, min: MIN_SIZE });
-      field.setFontSize(fitted.size);
-      field.setText(fitted.text);
-    }
-  }
-
-  // 4. Signature fields: emptied (flattened as blank), their rectangles kept;
-  //    the images are drawn after flattening.
-  const signatureSpots: { rect: Rect; page: PDFPage | undefined; signature: SignatureImage }[] = [];
-  for (const [slot, fieldName] of Object.entries(SIGNATURE_FIELDS[kind]) as [
-    SignatureSlot,
-    string,
-  ][]) {
-    const field = form.getTextField(fieldName);
-    const widget = field.acroField.getWidgets()[0];
-    const signature = signatures[slot];
-    if (widget && signature) {
-      signatureSpots.push({
-        rect: widget.getRectangle(),
-        page: widgetPage(doc, widget.P()),
-        signature,
-      });
-    }
-    field.setText("");
-  }
-
-  // 5. Flatten: no editable field remains. Flattening deletes the fields and
-  //    widgets, but a tagged template still points to them (structure tree):
-  //    each deleted object becomes `null`, so the cross-reference table stays
-  //    complete (a dangling reference is a null object for the PDF spec anyway).
-  const formRefs = form.getFields().flatMap((field) => {
-    const kids = field.acroField.Kids();
-    const refs: unknown[] = [field.ref];
-    for (let i = 0; i < (kids?.size() ?? 0); i++) refs.push(kids?.get(i));
-    return refs.filter((r): r is PDFRef => r instanceof PDFRef);
-  });
-  form.updateFieldAppearances(font);
-  form.flatten();
-  for (const ref of formRefs) {
-    if (!doc.context.lookup(ref)) doc.context.assign(ref, PDFNull);
-  }
-  for (const spot of signatureSpots) {
-    if (!spot.page) continue;
-    const image = await doc.embedPng(spot.signature.png);
-    drawSignature(spot.page, spot.rect, image, spot.signature.signedAt, font);
-  }
-
-  // 6. The « Date » line of the aptitude certificate.
-  const signedOn = input.signedOn ? parisDateParts(input.signedOn) : null;
-  for (const line of dateLines) {
-    if (!signedOn || !line.page) continue;
-    const text = signedOn[line.part];
-    line.page.drawText(text, {
-      x: line.rect.x + PADDING,
-      y: line.rect.y + (line.rect.height - MAX_SIZE) / 2 + 1,
-      size: Math.min(MAX_SIZE, line.rect.height - 2),
-      font,
-      color: rgb(0, 0, 1),
+    if (!(field instanceof PDFTextField)) continue;
+    const text = typeof value === "string" ? value : "";
+    const widths = field.acroField.getWidgets().map((w) => w.getRectangle().width);
+    const fitted = fitText(text, (t, size) => font.widthOfTextAtSize(t, size), {
+      width: Math.min(...widths) - 4,
+      maxSize: daSize(field),
+      minSize: MIN_SIZE,
     });
+    field.setText(fitted.text);
+    field.setFontSize(fitted.size);
+    field.updateAppearances(font);
+  }
+  for (const name of Object.keys(input.mapping.empty)) {
+    const field = form.getTextField(name);
+    field.setText("");
+    field.updateAppearances(font);
   }
 
-  if (options.preview) {
+  // 3. Signatures: image (or typed name) in the rectangle of the field, then the field goes.
+  const handwriting = await embedHandwriting(doc, input.handwriting ?? []);
+  for (const [name, role] of Object.entries(input.mapping.signatures)) {
+    const field = form.getTextField(name);
+    const image = input.images[role];
+    for (const widget of field.acroField.getWidgets()) {
+      const place = placeOf(doc, widget);
+      if (!place || !image) continue;
+      const box = { w: place.width - 4, h: place.height - CAPTION_SIZE - 4 };
+      if (image.png) {
+        const png = await doc.embedPng(image.png);
+        const scale = Math.min(box.w / png.width, box.h / png.height, 1);
+        const w = png.width * scale;
+        const h = png.height * scale;
+        place.page.drawImage(png, {
+          x: place.x + (place.width - w) / 2,
+          y: place.y + CAPTION_SIZE + 3 + (box.h - h) / 2,
+          width: w,
+          height: h,
+        });
+      } else if (image.typedName) {
+        drawHandwriting(handwriting.length > 0 ? handwriting : [{ font, has: () => true }], {
+          text: image.typedName,
+          x: place.x + 2,
+          y: place.y + CAPTION_SIZE + 3,
+          width: box.w,
+          height: box.h,
+          page: place.page,
+        });
+      }
+      const caption = `Signé électroniquement le ${parisDay(image.signedAt)}`;
+      const size = Math.min(
+        CAPTION_SIZE,
+        ((place.width - 4) / font.widthOfTextAtSize(caption, CAPTION_SIZE)) * CAPTION_SIZE,
+      );
+      place.page.drawText(caption, { x: place.x + 2, y: place.y + 1.5, size, font, color: INK });
+    }
+    // `removeField` needs an appearance stream: give the empty field one first.
+    field.setText("");
+    field.updateAppearances(font);
+    form.removeField(field);
+  }
+
+  // 4. Flatten: appearances become page content, no field is left.
+  form.flatten({ updateFieldAppearances: false });
+  for (const o of overrides) drawFitted(font, o.place, o.value, o.size, o.color);
+  // No AcroForm left at all (some readers still show an empty form otherwise).
+  doc.catalog.delete(PDFName.of("AcroForm"));
+  removeDanglingWidgets(doc);
+
+  if (input.preview) {
     for (const page of doc.getPages()) {
-      page.drawText("Aperçu avant signature : document non signé", {
-        x: 24,
-        y: 8,
-        size: 8,
+      const { width, height } = page.getSize();
+      page.drawText("APERÇU, NON SIGNÉ", {
+        x: width * 0.18,
+        y: height * 0.35,
+        size: 48,
         font,
-        color: rgb(0.75, 0.1, 0.1),
+        color: rgb(0.85, 0.1, 0.1),
+        opacity: 0.18,
+        rotate: degrees(35),
       });
     }
   }
 
-  doc.setTitle(
-    kind === "DOSSIER"
-      ? "Dossier bénévole"
-      : kind === "CHARTE"
-        ? "Charte du bénévolat"
-        : "Attestation d'aptitude",
-  );
+  doc.setTitle(input.title, { showInWindowTitleBar: true });
   doc.setProducer("Binivol");
   doc.setCreator("Binivol");
+  doc.setCreationDate(input.producedAt);
+  doc.setModificationDate(input.producedAt);
   return doc.save({ useObjectStreams: false });
 }
-
-/** Field names of a template, with their kind (tests, documentation). */
-export async function templateFields(
-  kind: TemplateKind,
-): Promise<{ name: string; type: "text" | "checkbox" | "other" }[]> {
-  const doc = await PDFDocument.load(await readAsset(TEMPLATES[kind]));
-  return doc
-    .getForm()
-    .getFields()
-    .map((f) => ({
-      name: f.getName(),
-      type: f instanceof PDFTextField ? "text" : f instanceof PDFCheckBox ? "checkbox" : "other",
-    }));
-}
-
-export { MAPPINGS };

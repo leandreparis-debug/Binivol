@@ -5,15 +5,17 @@ import { withAudit, type Actor as AuditActor } from "../audit";
 import { changeStage } from "./candidacies";
 import type { Db, DbOrTx } from "../db";
 import { getEnv } from "@/lib/env";
+import { signatureStatus, type SignatureStatus } from "../dossier/signing";
 import {
   dossierStatus,
   ensureDraft,
   loadDraft,
+  submissionToSign,
   type DossierStatus,
   type DraftView,
 } from "../dossier/store";
 import {
-  dossierOpenUrl,
+  dossierLinkUrl,
   hashDossierToken,
   looksLikeDossierToken,
   newDossierToken,
@@ -24,7 +26,6 @@ import { dossierLinkMail } from "../mail/templates";
 import { authorize } from "../policy/can";
 import type { Actor, PersonFacts } from "../policy/types";
 import { dossierSettings } from "../settings";
-import { signatureBlock, type SignatureBlock } from "../signature/service";
 
 /**
  * Dossier links (step 7). A link is a random token whose **SHA-256 only** is
@@ -197,7 +198,7 @@ export async function sendDossierLink(
   const { ulName } = await dossierSettings(db);
   const message = dossierLinkMail({
     firstName: link.person.firstName,
-    url: dossierOpenUrl(input.baseUrl, input.token),
+    url: dossierLinkUrl(input.baseUrl, input.token),
     ulName,
     expiresAt: link.expiresAt,
   });
@@ -224,7 +225,7 @@ export async function sendDossierLink(
 export type OpenOutcome = { ok: true; linkId: string } | { ok: false };
 
 /**
- * Checks a token from `/dossier/ouvrir#<token>`. Refused (unknown, expired, revoked,
+ * Checks a token from `/dossier/ouvrir`. Refused (unknown, expired, revoked,
  * used) → `{ ok: false }` without saying which, and the attempt is audited
  * without the token.
  */
@@ -256,6 +257,32 @@ export interface DossierSessionContext {
   personId: string;
   mode: DossierLinkMode;
   draft: DraftView;
+}
+
+/** A link whose dossier is sent and waits for its signatures (ADR-044). */
+export interface SigningSessionContext {
+  linkId: string;
+  personId: string;
+  mode: DossierLinkMode;
+  submissionId: string;
+}
+
+/** The signature context behind an active link, when its dossier waits for signatures. */
+export async function resolveSigningLink(
+  db: DbOrTx,
+  linkId: string,
+  now: Date = new Date(),
+): Promise<SigningSessionContext | null> {
+  const link = await db.dossierLink.findUnique({ where: { id: linkId } });
+  if (!link || linkState(link, now) !== "active") return null;
+  const toSign = await submissionToSign(db, link.personId);
+  if (!toSign) return null;
+  return {
+    linkId: link.id,
+    personId: link.personId,
+    mode: link.mode,
+    submissionId: toSign.submissionId,
+  };
 }
 
 /**
@@ -343,8 +370,8 @@ export async function dossierLinks(
 export interface DossierBlock {
   links: DossierLinkView[];
   status: DossierStatus;
-  /** Signature of the sent dossier (step 8). */
-  signature: SignatureBlock;
+  /** Signatures of the sent dossier (step 8), null before the submission. */
+  signature: SignatureStatus | null;
   hasEmail: boolean;
   linkDays: number;
   mailDriver: "log" | "smtp";
@@ -364,12 +391,12 @@ export async function dossierBlock(
   now: Date = new Date(),
 ): Promise<DossierBlock> {
   authorize(actor, "dossier.manage", { person: facts });
-  const [links, status, person, settings, signature] = await Promise.all([
+  const [links, status, signature, person, settings] = await Promise.all([
     dossierLinks(db, personId, now),
     dossierStatus(db, personId),
+    signatureStatus(db, personId),
     db.person.findUniqueOrThrow({ where: { id: personId }, select: { email: true } }),
     dossierSettings(db),
-    signatureBlock(db, actor, personId, facts),
   ]);
   return {
     links,

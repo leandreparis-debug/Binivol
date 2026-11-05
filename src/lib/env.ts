@@ -36,6 +36,8 @@ export const envObject = z.object({
   // --- Authentication (Auth.js) -------------------------------------------
   /** Secret that signs Auth.js cookies and tokens (`openssl rand -base64 32`). */
   AUTH_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
+  /** Key of the HMAC of the signature codes (step 8). Optional: derived from AUTH_SECRET. */
+  OTP_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
   /** Public URL of the app for Auth.js callbacks; deduced from the request when absent. */
   AUTH_URL: z.url().optional(),
   /** Google OAuth client (Google Cloud console). Google sign-in is off when absent. */
@@ -57,14 +59,6 @@ export const envObject = z.object({
   AUTH_DEMO_ON_VERCEL: booleanFlag,
   /** Set by Vercel on every deployment (production, preview, development). */
   VERCEL_ENV: z.string().optional(),
-
-  // --- Electronic signature (docs/signature.md) ----------------------------
-  /**
-   * Optional key (32 characters minimum) of the HMACs of the signature: the
-   * e-mailed code and the IP address fingerprint. Defaults to a key derived
-   * from AUTH_SECRET. Changing it invalidates the codes being typed.
-   */
-  SIGNATURE_HMAC_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
 
   // --- E-mail (MailService, docs/mail.md) ------------------------------------
   /** `log` (written to outbound_mails, encrypted: development, tests, demo) or `smtp`. */

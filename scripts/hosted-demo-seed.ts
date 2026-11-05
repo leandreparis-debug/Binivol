@@ -2,12 +2,9 @@
  * Build step of a hosted demo (ADR-035): seeds the fictitious demo data when,
  * and only when, the deployment is a hosted demo (AUTH_DEMO_LOGIN=true,
  * AUTH_DEMO_ON_VERCEL=true, VERCEL_ENV set). Does nothing otherwise, so a
- * real deployment never receives demo data. Idempotent.
- *
- * The hosted demo is fictitious by definition (ADR-042): people typed in the
- * demo itself (without the seed note) are accepted, left untouched, and their
- * references are listed in the build log. Everywhere else, `seedDemo` keeps
- * refusing a database that holds non-seed people.
+ * real deployment never receives demo data. Idempotent; `seedDemo` also
+ * refuses a database that holds non-seed people, except on a hosted demo
+ * where they are kept and listed (ADR-042).
  */
 import "dotenv/config";
 import { isHostedDemo, parseEnv } from "../src/lib/env";
@@ -26,13 +23,15 @@ async function main() {
   if (!url) throw new Error("DIRECT_URL ou DATABASE_URL manquant.");
   const db = createDb(url);
   try {
-    const { foreignPersons } = await seedDemo(db, { acceptForeignPersons: true });
-    process.stdout.write("Seed de démonstration appliqué (données fictives).\n");
-    if (foreignPersons.length > 0) {
+    // A hosted demo is fictitious by definition (ADR-042): people typed by the
+    // testers are kept untouched and listed (refs only), the seed runs as usual.
+    const { foreignPeople } = await seedDemo(db, { hostedDemo: true });
+    if (foreignPeople.length > 0) {
       process.stdout.write(
-        `${String(foreignPersons.length)} personne(s) créée(s) dans la démo, hors seed, laissée(s) telle(s) quelle(s) : ${foreignPersons.join(", ")}\n`,
+        `Démo hébergée : ${String(foreignPeople.length)} personne(s) créée(s) hors seed, conservée(s) telle(s) quelle(s) : ${foreignPeople.map((p) => p.ref).join(", ")}.\n`,
       );
     }
+    process.stdout.write("Seed de démonstration appliqué (données fictives).\n");
   } finally {
     await db.$disconnect();
   }

@@ -26,9 +26,8 @@ import type {
   ReferenceCategory,
   ReferenceKind,
   ReminderTrigger,
-  SignatureInput,
-  SignatureMethod,
   SignerRole,
+  SignatureMethod,
   SkillLevel,
   SubmissionStatus,
   TrainingResult,
@@ -161,15 +160,10 @@ export const DOSSIER_LINK_MODE_LABELS: Record<DossierLinkMode, string> = {
 
 export const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
   DRAFT: "Brouillon",
-  SUBMITTED: "Envoyé",
-  SIGNED: "Signé",
+  SUBMITTED: "Envoyé, à signer",
+  SIGNED: "Signé, à contresigner",
+  COMPLETE: "Complet",
   VOID: "Annulé",
-};
-
-export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
-  VOLUNTEER: "Bénévole",
-  PARENT: "Représentant légal",
-  CRF_REPRESENTATIVE: "Représentant de la Croix-Rouge",
 };
 
 export const SIGNATURE_METHOD_LABELS: Record<SignatureMethod, string> = {
@@ -178,15 +172,16 @@ export const SIGNATURE_METHOD_LABELS: Record<SignatureMethod, string> = {
   SESSION: "Session du responsable",
 };
 
-export const SIGNATURE_INPUT_LABELS: Record<SignatureInput, string> = {
-  DRAWN: "Tracé",
-  TYPED: "Nom saisi",
+export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
+  VOLUNTEER: "Bénévole",
+  PARENT: "Représentant légal",
+  CRF_REPRESENTATIVE: "Représentant de la Croix-Rouge",
 };
 
 export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
-  DOSSIER: "Dossier bénévole",
-  CHARTE: "Charte du bénévolat",
-  APTITUDE: "Attestation d'aptitude",
+  DOSSIER: "Dossier d'engagement",
+  CHARTE: "Charte du bénévole",
+  APTITUDE: "Certificat d'aptitude",
   DIPLOMA_COPY: "Copie de diplôme",
   PARENTAL_AUTH: "Autorisation parentale",
   B3_ATTESTATION: "Attestation B3",
@@ -261,7 +256,6 @@ export const ENUM_LABELS = {
   SubmissionStatus: SUBMISSION_STATUS_LABELS,
   SignerRole: SIGNER_ROLE_LABELS,
   SignatureMethod: SIGNATURE_METHOD_LABELS,
-  SignatureInput: SIGNATURE_INPUT_LABELS,
   DocumentKind: DOCUMENT_KIND_LABELS,
   DocumentCopy: DOCUMENT_COPY_LABELS,
   ReminderTrigger: REMINDER_TRIGGER_LABELS,

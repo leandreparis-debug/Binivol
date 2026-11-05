@@ -10,10 +10,10 @@ import type {
   TrainingResult,
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
+import { documentFileName } from "../../src/lib/fileNames";
 import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
-import { DEFAULT_SIGNED_DOSSIER_MAIL } from "../../src/server/mail/templates";
-import { officialFileName } from "../../src/server/pdf/fileName";
 import { computeExpiresAt } from "../../src/server/reference";
+import { FINAL_MAIL_DEFAULT } from "../../src/server/settings";
 import { REFERENCE_ITEMS } from "./referenceData";
 
 /**
@@ -60,28 +60,17 @@ export interface SeedOptions {
   /** Reference day (00:00 UTC). Default: today in Paris. */
   today?: Date;
   /**
-   * Hosted demo only (ADR-035, ADR-042): the database is fictitious by
-   * definition, so people typed in the demo itself (without the seed note) are
-   * accepted. They are never modified; their references are returned so the
-   * build log lists them. Everywhere else the strict refusal stays.
+   * Hosted demo (AUTH_DEMO_ON_VERCEL=true, ADR-035 and ADR-042): the database is
+   * a demo, fictitious by definition. People created outside the seed (typed by
+   * testers) are kept untouched and listed, instead of refusing. Everywhere
+   * else the strict refusal applies.
    */
-  acceptForeignPersons?: boolean;
+  hostedDemo?: boolean;
 }
 
-/** What the demo seed did besides its own data. */
+/** Result of the demo seed: people found outside the seed (hosted demo only). */
 export interface SeedDemoResult {
-  /** References of the people created outside the seed (hosted demo only), left untouched. */
-  foreignPersons: string[];
-}
-
-/** References of the people that are not synthetic seed data, sorted. */
-export async function listNonSeedPersons(db: PrismaClient | SeedTx): Promise<string[]> {
-  const rows = await db.person.findMany({
-    where: { OR: [{ notes: null }, { NOT: { notes: { contains: SEED_MARK } } }] },
-    select: { ref: true },
-    orderBy: { ref: "asc" },
-  });
-  return rows.map((r) => r.ref);
+  foreignPeople: { ref: string; createdAt: Date }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -155,21 +144,10 @@ async function save<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
   }
 }
 
-/**
- * Creates the missing rows only: what TOPAZE edited (settings) is never
- * overwritten by a later deployment.
- */
-async function saveMissing<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
-  for (const row of rows) {
-    const existing = await delegate.findUnique({ where: { id: row.id }, select: { id: true } });
-    if (!existing) await delegate.create({ data: row as never });
-  }
-}
-
 const isoDay = (date: Date) => date.toISOString().slice(0, 10);
 
 /**
- * Online dossier of a seed candidate (current schemaVersion), invented like the
+ * Online dossier of a seed candidate (schemaVersion 1), invented like the
  * rest. `half`: identity and part of the contact details (a draft being
  * typed); `complete`: everything a submission requires (minors included).
  */
@@ -237,7 +215,7 @@ export function seedDossierData(
             firstName: "Dominique",
             quality: "Mère",
             phone: fictionalMobile(7000 + p.index),
-            email: `dominique.parent.${slug(p.lastName)}${p.index}@exemple.test`,
+            email: `dominique.${slug(p.lastName)}${String(p.index)}@exemple.test`,
           },
         }
       : {}),
@@ -379,16 +357,27 @@ export class RealDataPresentError extends Error {
   }
 }
 
+const NON_SEED_PERSON = {
+  OR: [{ notes: null }, { NOT: { notes: { contains: SEED_MARK } } }],
+} satisfies Prisma.PersonWhereInput;
+
 /** Number of people that are not synthetic seed data. */
 export async function countNonSeedPersons(db: PrismaClient | SeedTx): Promise<number> {
-  return db.person.count({
-    where: { OR: [{ notes: null }, { NOT: { notes: { contains: SEED_MARK } } }] },
+  return db.person.count({ where: NON_SEED_PERSON });
+}
+
+/** People that are not seed data (refs only: nothing personal goes to a log). */
+async function listNonSeedPersons(db: PrismaClient | SeedTx) {
+  return db.person.findMany({
+    where: NON_SEED_PERSON,
+    orderBy: { ref: "asc" },
+    select: { ref: true, createdAt: true },
   });
 }
 
 async function seedBaseIn(tx: SeedTx): Promise<void> {
   // -- Settings -----------------------------------------------------------
-  const settingRows: [string, Prisma.InputJsonValue, string][] = [
+  const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = [
     ["ALERT_DAYS_BEFORE_EXPIRY", 60, "Nombre de jours avant échéance déclenchant une alerte."],
     ["RETENTION_YEARS_AFTER_LEAVE", 5, "Durée de conservation après le départ, en années (RGPD)."],
     ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
@@ -396,11 +385,11 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
     ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
     ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
-    ["UL_CITY", "Versailles", "Ville de l'unité locale : « Fait à » des documents signés."],
+    ["UL_CITY", "Versailles", "« Fait à » de la charte du bénévolat."],
     [
-      "VOLUNTEER_DOSSIER_MAIL",
-      DEFAULT_SIGNED_DOSSIER_MAIL,
-      "E-mail envoyé au bénévole avec ses documents signés ({prenom}, {structure}, {pieces}).",
+      "FINAL_MAIL_TEXT",
+      FINAL_MAIL_DEFAULT,
+      "E-mail des documents signés ({prenom}, {pieces}, {ul}).",
     ],
     [
       "RGPD_NOTICE",
@@ -417,18 +406,14 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
       12,
       "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
     ],
-  ];
-  const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = settingRows.map(
-    ([key, value, description]) => ({
-      id: `seed_setting_${key.toLowerCase()}`,
-      key,
-      value,
-      description,
-      ...audit,
-    }),
-  );
-  // Settings are edited by TOPAZE: a deployment only adds the missing ones.
-  await saveMissing(tx.setting, settings);
+  ].map(([key, value, description]) => ({
+    id: `seed_setting_${String(key).toLowerCase()}`,
+    key: String(key),
+    value: value as Prisma.InputJsonValue,
+    description: String(description),
+    ...audit,
+  }));
+  await save(tx.setting, settings);
 
   // -- Reference list --------------------------------------------------------
   await save<Prisma.ReferenceItemUncheckedCreateInput>(
@@ -553,14 +538,14 @@ export async function seedDemo(
     );
   };
 
-  const strict = options.acceptForeignPersons !== true;
+  const hosted = options.hostedDemo === true;
   const realPeople = await countNonSeedPersons(db);
-  if (strict && realPeople > 0) throw new RealDataPresentError(realPeople);
-  const foreignPersons = strict ? [] : await listNonSeedPersons(db);
+  if (realPeople > 0 && !hosted) throw new RealDataPresentError(realPeople);
+  const foreignPeople = hosted ? await listNonSeedPersons(db) : [];
 
   await db.$transaction(
     async (tx) => {
-      if (strict && (await countNonSeedPersons(tx)) > 0)
+      if (!hosted && (await countNonSeedPersons(tx)) > 0)
         throw new RealDataPresentError(await countNonSeedPersons(tx));
       await seedBaseIn(tx);
 
@@ -675,15 +660,18 @@ export async function seedDemo(
         p: PersonPlan,
         kind: Prisma.DocumentUncheckedCreateInput["kind"],
         copy: Prisma.DocumentUncheckedCreateInput["copy"],
+        extra: { fileName?: string; submissionId?: string; suffix?: string } = {},
       ) => {
-        const key = `seed/${p.id}/${kind.toLowerCase()}.pdf`;
+        const name = extra.suffix ?? kind.toLowerCase();
+        const key = `seed/${p.id}/${name}.pdf`;
         documents.push({
-          id: `seed_doc_${pad(p.index)}_${kind.toLowerCase()}`,
+          id: `seed_doc_${pad(p.index)}_${name}`,
           personId: p.id,
           kind,
           copy,
           storageKey: key,
-          fileName: `${kind.toLowerCase()}-fictif.pdf`,
+          fileName: extra.fileName ?? `${kind.toLowerCase()}-fictif.pdf`,
+          submissionId: extra.submissionId ?? null,
           mimeType: "application/pdf",
           sizeBytes: 0,
           sha256: sha256(key),
@@ -923,8 +911,17 @@ export async function seedDemo(
         if (p.minor) doc(p, "PARENTAL_AUTH", "UL");
         if (!isCandidate && p.index % 12 === 0) doc(p, "B3_ATTESTATION", "UL");
         if (p.stage === "GAIA") {
-          doc(p, "DOSSIER", "UL");
-          doc(p, "CHARTE", "VOLUNTEER");
+          // The complete dossier (step 8): the UL copy of the 3 PDF and the proof.
+          const name = (suffix: string) => documentFileName(p.lastName, p.firstName, suffix);
+          const from = { submissionId: "seed_sub_signed" };
+          doc(p, "DOSSIER", "UL", { ...from, fileName: name("Dossier-Bénévole") });
+          doc(p, "CHARTE", "UL", { ...from, fileName: name("Charte-du-Bénévolat") });
+          doc(p, "APTITUDE", "UL", { ...from, fileName: name("Attestation-d_Aptitude") });
+          doc(p, "OTHER", "UL", {
+            ...from,
+            suffix: "proof",
+            fileName: name("Preuve-de-signature"),
+          });
         }
       }
 
@@ -1237,8 +1234,8 @@ export async function seedDemo(
           personId: minorFile.id,
           mode: "ON_SITE" as const,
           createdAt: addDays(today, -2),
+          // On site, one day: expired; the guardian signs through a new link or on site.
           expiresAt: addDays(today, -1),
-          // Signed by the volunteer, not yet by her guardian: not consumed (ADR-045).
           usedAt: null,
           revokedAt: null,
         },
@@ -1262,36 +1259,6 @@ export async function seedDemo(
             },
           });
       }
-      const signedName = (kind: "DOSSIER" | "CHARTE" | "APTITUDE" | "PROOF") =>
-        officialFileName(gaiaCandidate.lastName, gaiaCandidate.firstName, kind);
-      const signedDocuments: WithId<Prisma.DocumentUncheckedCreateInput>[] = (
-        [
-          ["dossier", "DOSSIER", "DOSSIER"],
-          ["charte", "CHARTE", "CHARTE"],
-          ["aptitude", "APTITUDE", "APTITUDE"],
-          ["preuve", "OTHER", "PROOF"],
-        ] as const
-      ).map(([suffix, kind, name]) => {
-        const key = `seed/${gaiaCandidate.id}/${suffix}.pdf`;
-        return {
-          id: `seed_doc_${pad(gaiaCandidate.index)}_${suffix}`,
-          personId: gaiaCandidate.id,
-          kind,
-          copy: "UL",
-          storageKey: key,
-          fileName: signedName(name),
-          mimeType: "application/pdf",
-          sizeBytes: 0,
-          sha256: sha256(key),
-          fileMissing: true,
-          submissionId: "seed_sub_signed",
-          uploadedById: userId("diamant"),
-          ...audit,
-        };
-      });
-      const signedHashes = Object.fromEntries(
-        signedDocuments.filter((d) => d.kind !== "OTHER").map((d) => [d.fileName, d.sha256]),
-      );
       await save<Prisma.DossierSubmissionUncheckedCreateInput>(tx.dossierSubmission, [
         {
           id: "seed_sub_draft",
@@ -1306,10 +1273,12 @@ export async function seedDemo(
           id: "seed_sub_adult",
           personId: adultFile.id,
           linkId: "seed_link_adult",
-          status: "SUBMITTED",
+          // Signed by the volunteer: to countersign.
+          status: "SIGNED",
           data: seedDossierData(adultFile, today, "complete", declaredNivol),
           schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -1),
+          signedAt: addDays(today, -1),
           ...audit,
         },
         {
@@ -1326,12 +1295,14 @@ export async function seedDemo(
           id: "seed_sub_signed",
           personId: gaiaCandidate.id,
           linkId: null,
-          status: "SIGNED",
+          // Countersigned: complete, documents in the UL copy (fileMissing).
+          status: "COMPLETE",
           data: seedDossierData(gaiaCandidate, today, "complete"),
           schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -6),
-          signedAt: addDays(today, -5),
-          mailSentAt: addDays(today, -5),
+          signedAt: addDays(today, -6),
+          completedAt: addDays(today, -5),
+          finalMailSentAt: addDays(today, -5),
           ...audit,
         },
       ]);
@@ -1347,6 +1318,12 @@ export async function seedDemo(
           ...audit,
         },
       ]);
+      const gaiaHashes = Object.fromEntries(
+        ["Dossier-Bénévole", "Charte-du-Bénévolat", "Attestation-d_Aptitude"].map((suffix) => [
+          documentFileName(gaiaCandidate.lastName, gaiaCandidate.firstName, suffix),
+          sha256(`seed/${gaiaCandidate.id}/${suffix}`),
+        ]),
+      );
       await save<Prisma.SignatureUncheckedCreateInput>(tx.signature, [
         {
           id: "seed_sig_volunteer",
@@ -1354,69 +1331,62 @@ export async function seedDemo(
           signerRole: "VOLUNTEER",
           signerName: `${gaiaCandidate.firstName} ${gaiaCandidate.lastName}`,
           signerQuality: "Bénévole",
-          imageKey: `seed/${gaiaCandidate.id}/signature.png`,
+          imageKey: null,
+          typedName: `${gaiaCandidate.firstName} ${gaiaCandidate.lastName}`,
+          method: "OTP_EMAIL",
+          verifiedEmail: seedDossierData(gaiaCandidate, today, "complete").contact?.email ?? null,
           signedAt: addDays(today, -6),
           otpChallengeId: "seed_otp_signed",
           userAgent: "Seed/1.0 (fictif)",
           ipHash: sha256("seed-ip"),
-          documentHashes: signedHashes,
+          documentHashes: gaiaHashes,
           ...audit,
         },
         {
           id: "seed_sig_crf",
           submissionId: "seed_sub_signed",
           signerRole: "CRF_REPRESENTATIVE",
-          signerName: "Diane Fictive",
+          signerName: "Maé Démo",
           signerQuality: "DIAMANT · Animation des équipes",
-          imageKey: `seed/${gaiaCandidate.id}/signature-crf.png`,
-          signedAt: addDays(today, -5),
+          imageKey: null,
+          typedName: "Maé Démo",
           method: "SESSION",
           verifiedEmail: seedUserEmail("diamant"),
-          verifiedByName: "Diane Fictive",
-          userAgent: "Seed/1.0 (fictif)",
-          ipHash: sha256("seed-ip-crf"),
-          documentHashes: signedHashes,
+          verifiedById: userId("diamant"),
+          signedAt: addDays(today, -5),
+          documentHashes: gaiaHashes,
           ...audit,
         },
-        // Signed by the volunteer, waiting for the counter-signature.
+        // Signed by the volunteer, to countersign (typed: no file to read).
         {
-          id: "seed_sig_adult_volunteer",
+          id: "seed_sig_adult",
           submissionId: "seed_sub_adult",
           signerRole: "VOLUNTEER",
           signerName: `${adultFile.firstName} ${adultFile.lastName}`,
-          signerQuality: "Bénévole",
-          imageKey: `seed/${adultFile.id}/signature.png`,
-          signedAt: addDays(today, -1),
+          imageKey: null,
+          typedName: `${adultFile.firstName} ${adultFile.lastName}`,
           method: "OTP_EMAIL",
-          verifiedEmail: `${slug(adultFile.firstName)}.${slug(adultFile.lastName)}${adultFile.index}@exemple.test`,
+          verifiedEmail: seedDossierData(adultFile, today, "complete").contact?.email ?? null,
+          signedAt: addDays(today, -1),
           userAgent: "Seed/1.0 (fictif)",
           ipHash: sha256("seed-ip-adult"),
           ...audit,
         },
-        // A minor signed in person, waiting for her legal guardian.
+        // The minor signed on site; her legal guardian has not signed yet.
         {
-          id: "seed_sig_minor_volunteer",
+          id: "seed_sig_minor",
           submissionId: "seed_sub_minor",
           signerRole: "VOLUNTEER",
           signerName: `${minorFile.firstName} ${minorFile.lastName}`,
-          signerQuality: "Bénévole",
-          imageKey: `seed/${minorFile.id}/signature.png`,
-          signedAt: addDays(today, -2),
+          imageKey: null,
+          typedName: `${minorFile.firstName} ${minorFile.lastName}`,
           method: "IN_PERSON",
-          inputKind: "TYPED",
-          verifiedByName: "Diane Fictive",
+          verifiedById: userId("diamant"),
+          signedAt: addDays(today, -2),
           userAgent: "Seed/1.0 (fictif)",
-          ipHash: sha256("seed-ip-minor"),
           ...audit,
         },
       ]);
-      // The complete dossier: its final documents (UL copy) and the proof, marked
-      // `fileMissing` (the seed never writes to the storage).
-      for (const document of signedDocuments) {
-        const existing = documents.findIndex((d) => d.id === document.id);
-        if (existing >= 0) documents.splice(existing, 1, document);
-        else documents.push(document);
-      }
       await save(tx.document, documents);
       // The parental authorisation of the minor's dossier became her document.
       const minorAuth = required(
@@ -1554,7 +1524,7 @@ export async function seedDemo(
     },
     { timeout: 180_000, maxWait: 20_000 },
   );
-  return { foreignPersons };
+  return { foreignPeople };
 }
 
 /** Row counts of every table, for the seed report and the tests. */

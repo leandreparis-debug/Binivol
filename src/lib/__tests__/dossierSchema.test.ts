@@ -181,11 +181,6 @@ describe("submission rules", () => {
       phone: "0639980003",
       email: "dominique.exemple@exemple.test",
     };
-    const badMail = complete({
-      identity: { ...id, birthDate: "2009-06-01" },
-      guardian: { ...guardian, email: "pas-un-mail" },
-    });
-    expect(fields(badMail)).toEqual(["guardian.email"]);
     const fifteen = complete({ identity: { ...id, birthDate: "2011-09-01" }, guardian });
     expect(fields(fifteen)).toEqual(["attachments.PARENTAL_AUTH"]);
     expect(fields(fifteen, ["PARENTAL_AUTH"])).toEqual([]);
@@ -216,6 +211,30 @@ describe("schema versions", () => {
     expect(warnings).toHaveLength(1);
   });
 
+  it("version 1 → 2: a guardian without e-mail is kept, with a warning", () => {
+    const { data, warnings } = migrateDossierData(
+      { guardian: { lastName: "Exemple", firstName: "Dominique", quality: "Mère" } },
+      1,
+    );
+    expect(data.guardian?.lastName).toBe("Exemple");
+    expect(warnings).toEqual(["Version 1 : l'e-mail du représentant légal est à compléter."]);
+    expect(migrateDossierData({ guardian: { email: "a@exemple.test" } }, 2).warnings).toEqual([]);
+  });
+
+  it("refuses the candidate's own e-mail as the guardian's", () => {
+    const id = complete().identity;
+    const g = {
+      lastName: "Exemple",
+      firstName: "Dominique",
+      quality: "Mère",
+      phone: "0639980003",
+      email: "CAMILLE.exemple@exemple.test",
+    };
+    expect(fields(complete({ identity: { ...id, birthDate: "2009-06-01" }, guardian: g }))).toEqual(
+      ["guardian.email"],
+    );
+  });
+
   it("drops an unreadable section instead of breaking the form", () => {
     const { data, warnings } = migrateDossierData(
       { identity: { firstName: 42 }, contact: { city: "Versailles" }, inconnu: true },
@@ -224,26 +243,6 @@ describe("schema versions", () => {
     expect(data.identity).toBeUndefined();
     expect(data.contact?.city).toBe("Versailles");
     expect(warnings).toHaveLength(2);
-  });
-
-  it("reads a version 1 dossier as is: version 2 only adds the guardian's e-mail", () => {
-    const v1 = {
-      identity: { firstName: "Camille" },
-      guardian: {
-        lastName: "Exemple",
-        firstName: "Dominique",
-        quality: "Mère",
-        phone: "0639980003",
-      },
-    };
-    const { data, warnings } = migrateDossierData(v1, 1);
-    expect(DOSSIER_SCHEMA_VERSION).toBe(2);
-    expect(data).toEqual(v1);
-    expect(data.guardian?.email).toBeUndefined();
-    expect(warnings).toEqual([]);
-    expect(
-      normalizeSubmission({ guardian: { email: " Dominique@Exemple.TEST " } }).guardian?.email,
-    ).toBe("dominique@exemple.test");
   });
 
   it("reads garbage as an empty draft", () => {

@@ -1,8 +1,6 @@
-import type { DocumentKind } from "@/generated/prisma/enums";
+import type { DocumentKind, SubmissionStatus } from "@/generated/prisma/enums";
 import { formatDate } from "@/lib/dates";
-import { toParisDay } from "@/lib/dates";
 import {
-  dossierAge,
   DOSSIER_SCHEMA_VERSION,
   migrateDossierData,
   normalizeSubmission,
@@ -11,7 +9,7 @@ import {
   type DossierIssue,
 } from "@/lib/dossierSchema";
 import { formatPhone } from "@/lib/phone";
-import { withAudit, type Actor as AuditActor, type AuditRecorder } from "../audit";
+import { withAudit, type Actor as AuditActor } from "../audit";
 import type { DbOrTx, Tx } from "../db";
 import { checkDocumentFile, cleanFileName, sha256Hex } from "../documentFile";
 import { DomainError } from "../errors";
@@ -56,7 +54,7 @@ export interface DraftAttachment {
 
 export interface DraftView {
   submissionId: string;
-  status: "DRAFT" | "SUBMITTED" | "SIGNED" | "VOID";
+  status: SubmissionStatus;
   data: DossierDraft;
   warnings: string[];
   updatedAt: Date;
@@ -100,8 +98,7 @@ export async function loadDraft(db: DbOrTx, personId: string): Promise<DraftView
 
 /**
  * The draft of the person, created when missing, and attached to `linkId`
- * (a new link takes over the draft typed through the previous one, or the
- * submitted dossier still waiting for its signatures).
+ * (a new link takes over the draft typed through the previous one).
  */
 export async function ensureDraft(
   tx: Tx,
@@ -110,8 +107,9 @@ export async function ensureDraft(
   prefill: DossierDraft,
   actor: AuditActor,
 ): Promise<string> {
+  // A dossier sent but not signed yet follows the new link too (to sign it).
   const existing = await tx.dossierSubmission.findFirst({
-    where: { personId, status: "DRAFT" },
+    where: { personId, status: { in: ["DRAFT", "SUBMITTED"] } },
     orderBy: { updatedAt: "desc" },
     select: { id: true, linkId: true },
   });
@@ -120,19 +118,6 @@ export async function ensureDraft(
       await tx.dossierSubmission.update({ where: { id: existing.id }, data: { linkId } });
     }
     return existing.id;
-  }
-  // A dossier submitted but not yet signed: the new link leads to its signature
-  // screens (no new draft over a dossier waiting for its signatures).
-  const waiting = await tx.dossierSubmission.findFirst({
-    where: { personId, status: "SUBMITTED" },
-    orderBy: { submittedAt: "desc" },
-    select: { id: true, linkId: true },
-  });
-  if (waiting) {
-    if (waiting.linkId !== linkId) {
-      await tx.dossierSubmission.update({ where: { id: waiting.id }, data: { linkId } });
-    }
-    return waiting.id;
   }
   const created = await tx.dossierSubmission.create({
     data: {
@@ -146,6 +131,19 @@ export async function ensureDraft(
     },
   });
   return created.id;
+}
+
+/** The dossier sent and waiting for its signatures, for a person (null otherwise). */
+export async function submissionToSign(
+  db: DbOrTx,
+  personId: string,
+): Promise<{ submissionId: string; linkId: string | null } | null> {
+  const row = await db.dossierSubmission.findFirst({
+    where: { personId, status: "SUBMITTED" },
+    orderBy: { submittedAt: "desc" },
+    select: { id: true, linkId: true },
+  });
+  return row ? { submissionId: row.id, linkId: row.linkId } : null;
 }
 
 /** Saves a draft (last write wins, two tabs never crash). Refused once submitted. */
@@ -259,8 +257,8 @@ export type SubmitOutcome = { ok: true; submittedAt: Date } | { ok: false; issue
 /**
  * Submits a draft: complete rules (minors on the submission day), normalised
  * data stored with its `schemaVersion`, attachments turned into documents of
- * the person. All in one transaction; nothing written when the dossier is
- * incomplete. The link stays open for the signature screens only (ADR-045).
+ * the person, link marked used. All in one transaction; nothing written when
+ * the dossier is incomplete.
  */
 export async function submitDraft(
   db: DbOrTx,
@@ -317,9 +315,8 @@ export async function submitDraft(
         data: { documentId: document.id },
       });
     }
-    // ADR-045: the link is no longer consumed here, but at the complete
-    // signature (`src/server/signature/service.ts`). Until then it only opens
-    // the signature screens: the form can no longer be changed.
+    // The link stays open, for the signature screens only: it is marked used
+    // once every required signer has signed (signing.ts, ADR-044).
     return { ok: true as const, submittedAt };
   });
 }
@@ -334,7 +331,7 @@ export interface DossierStatus {
 /** State of the person's dossier, without its content (Intégration tab). */
 export async function dossierStatus(db: DbOrTx, personId: string): Promise<DossierStatus> {
   const row = await db.dossierSubmission.findFirst({
-    where: { personId, status: { in: ["DRAFT", "SUBMITTED", "SIGNED"] } },
+    where: { personId, status: { in: ["DRAFT", "SUBMITTED", "SIGNED", "COMPLETE"] } },
     orderBy: { updatedAt: "desc" },
     select: { id: true, status: true, updatedAt: true, submittedAt: true },
   });
@@ -432,7 +429,7 @@ async function currentValues(db: DbOrTx, personId: string): Promise<CurrentValue
 /** The latest submitted dossier of a person (SUBMITTED or SIGNED), migrated, or null. */
 async function latestSubmitted(db: DbOrTx, personId: string) {
   const row = await db.dossierSubmission.findFirst({
-    where: { personId, status: { in: ["SUBMITTED", "SIGNED"] } },
+    where: { personId, status: { in: ["SUBMITTED", "SIGNED", "COMPLETE"] } },
     orderBy: { submittedAt: "desc" },
     include: { attachments: { where: { archivedAt: null } } },
   });
@@ -510,7 +507,7 @@ export async function applyDossier(
       where: {
         id: input.submissionId,
         personId: input.personId,
-        status: { in: ["SUBMITTED", "SIGNED"] },
+        status: { in: ["SUBMITTED", "SIGNED", "COMPLETE"] },
       },
     });
     if (!submission)
@@ -726,213 +723,3 @@ export async function applyDossier(
 }
 
 export { LIST_KEYS };
-
-// ---------------------------------------------------------------------------
-// Signature (step 8)
-// ---------------------------------------------------------------------------
-
-/** A submitted dossier on its way to signature (or signed). */
-export interface SigningDossier {
-  submissionId: string;
-  personId: string;
-  linkId: string | null;
-  status: "SUBMITTED" | "SIGNED";
-  submittedAt: Date;
-  signedAt: Date | null;
-  mailSentAt: Date | null;
-  mailFailedAt: Date | null;
-  /** Under 18 on the submission day (Paris): the legal guardian signs too. */
-  minor: boolean;
-  data: DossierDraft;
-}
-
-async function signingRow(db: DbOrTx, personId: string): Promise<SigningDossier | null> {
-  const row = await db.dossierSubmission.findFirst({
-    where: { personId, status: { in: ["SUBMITTED", "SIGNED"] }, submittedAt: { not: null } },
-    orderBy: { submittedAt: "desc" },
-  });
-  if (!row?.submittedAt || (row.status !== "SUBMITTED" && row.status !== "SIGNED")) return null;
-  const data = migrateDossierData(row.data, row.schemaVersion).data;
-  const age = dossierAge(data, toParisDay(row.submittedAt));
-  return {
-    submissionId: row.id,
-    personId: row.personId,
-    linkId: row.linkId,
-    status: row.status,
-    submittedAt: row.submittedAt,
-    signedAt: row.signedAt,
-    mailSentAt: row.mailSentAt,
-    mailFailedAt: row.mailFailedAt,
-    minor: age !== null && age < 18,
-    data,
-  };
-}
-
-/**
- * The candidate's own submitted dossier, for her signature screens and the
- * preview of her documents. No access log: nobody else consults it.
- */
-export async function loadOwnSigningDossier(
-  db: DbOrTx,
-  personId: string,
-): Promise<SigningDossier | null> {
-  return signingRow(db, personId);
-}
-
-/**
- * The submitted dossier read by a responsible (`dossier.manage`) to generate
- * or preview the documents. Journaled (SENSITIVE_VIEW, given context).
- *
- * @throws {ForbiddenError}
- */
-export async function readSigningDossier(
-  db: DbOrTx,
-  actor: Actor,
-  personId: string,
-  facts: PersonFacts,
-  context: string,
-): Promise<SigningDossier | null> {
-  authorize(actor, "dossier.manage", { person: facts });
-  const found = await signingRow(db, personId);
-  if (!found) return null;
-  await db.accessLog.create({
-    data: { userId: actor.userId, personId, scope: "SENSITIVE_VIEW", context },
-  });
-  return found;
-}
-
-/** State of the signature of a person's dossier, without its content (Intégration tab). */
-export async function signingState(
-  db: DbOrTx,
-  personId: string,
-): Promise<Omit<SigningDossier, "data"> | null> {
-  const found = await signingRow(db, personId);
-  if (!found) return null;
-  const { data: _data, ...state } = found;
-  return state;
-}
-
-export interface FinalDocument {
-  kind: "DOSSIER" | "CHARTE" | "APTITUDE" | "OTHER";
-  storageKey: string;
-  fileName: string;
-  sizeBytes: number;
-  sha256: string;
-}
-
-export const DOSSIER_ALREADY_SIGNED =
-  "Ce dossier vient d'être contresigné par un autre responsable : rien n'a été modifié.";
-
-/**
- * Inside the counter-signature transaction: SUBMITTED → SIGNED (the state is
- * the concurrency check), the final documents recorded as UL copies of the
- * person, the previous versions of the same documents archived (never
- * deleted). Returns the new document ids.
- */
-export async function recordSignedDossier(
-  tx: Tx,
-  audit: AuditRecorder,
-  actorId: string | null,
-  input: { submissionId: string; personId: string; signedAt: Date; documents: FinalDocument[] },
-): Promise<string[]> {
-  const { count } = await tx.dossierSubmission.updateMany({
-    where: { id: input.submissionId, personId: input.personId, status: "SUBMITTED" },
-    data: { status: "SIGNED", signedAt: input.signedAt, updatedById: actorId },
-  });
-  if (count === 0) throw new DomainError("DOSSIER_ALREADY_SIGNED", DOSSIER_ALREADY_SIGNED);
-  audit.log({
-    action: "UPDATE",
-    entity: "DossierSubmission",
-    entityId: input.submissionId,
-    field: "status",
-    oldValue: "SUBMITTED",
-    newValue: "SIGNED",
-  });
-  const ids: string[] = [];
-  for (const document of input.documents) {
-    const previous = await tx.document.findMany({
-      where: {
-        personId: input.personId,
-        kind: document.kind,
-        copy: "UL",
-        archivedAt: null,
-        ...(document.kind === "OTHER" ? { submissionId: { not: null } } : {}),
-      },
-      select: { id: true },
-    });
-    for (const old of previous) {
-      await tx.document.update({
-        where: { id: old.id },
-        data: { archivedAt: input.signedAt, updatedById: actorId },
-      });
-      audit.archived("Document", old.id);
-    }
-    const row = await tx.document.create({
-      data: {
-        personId: input.personId,
-        kind: document.kind,
-        copy: "UL",
-        storageKey: document.storageKey,
-        fileName: document.fileName,
-        mimeType: "application/pdf",
-        sizeBytes: document.sizeBytes,
-        sha256: document.sha256,
-        submissionId: input.submissionId,
-        uploadedById: actorId,
-        createdById: actorId,
-        updatedById: actorId,
-      },
-    });
-    audit.created("Document", row.id, row);
-    ids.push(row.id);
-  }
-  return ids;
-}
-
-/** The final documents of a signed dossier (to e-mail them again). */
-export async function signedDossierDocuments(
-  db: DbOrTx,
-  submissionId: string,
-): Promise<(FinalDocument & { id: string; fileMissing: boolean })[]> {
-  const rows = await db.document.findMany({
-    where: { submissionId, archivedAt: null },
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      kind: true,
-      storageKey: true,
-      fileName: true,
-      sizeBytes: true,
-      sha256: true,
-      fileMissing: true,
-    },
-  });
-  return rows.flatMap((r) =>
-    r.kind === "DOSSIER" || r.kind === "CHARTE" || r.kind === "APTITUDE" || r.kind === "OTHER"
-      ? [{ ...r, kind: r.kind }]
-      : [],
-  );
-}
-
-/** Records the outcome of the e-mail of the documents (sent, or failed: « Renvoyer l'e-mail »). */
-export async function setSignedMailState(
-  db: DbOrTx,
-  actor: AuditActor,
-  submissionId: string,
-  sent: boolean,
-  at: Date = new Date(),
-): Promise<void> {
-  await withAudit(db, actor, async (tx, audit) => {
-    await tx.dossierSubmission.update({
-      where: { id: submissionId },
-      data: sent ? { mailSentAt: at, mailFailedAt: null } : { mailFailedAt: at },
-    });
-    audit.log({
-      action: "UPDATE",
-      entity: "DossierSubmission",
-      entityId: submissionId,
-      field: sent ? "mailSentAt" : "mailFailedAt",
-      newValue: at,
-    });
-  });
-}

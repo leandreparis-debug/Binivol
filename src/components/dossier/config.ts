@@ -311,7 +311,7 @@ export const STEP_FIELDS: Partial<Record<DossierStep, FieldDef[]>> = {
       section: "guardian",
       name: "email",
       label: "E-mail du représentant légal",
-      hint: "Il recevra un code pour signer le dossier à son tour.",
+      hint: "Son propre e-mail : il y recevra un code pour signer la charte.",
       maxLength: 120,
       required: true,
     },

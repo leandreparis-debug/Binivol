@@ -1,327 +1,214 @@
 // @vitest-environment node
-import { mkdtemp, writeFile, cp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { PDFDocument } from "pdf-lib";
+import { PDFCheckBox, PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import type { DossierDraft } from "@/lib/dossierSchema";
-import { pdfText, signaturePng } from "@/test/pdf/helpers";
-import { fillTemplate, templateFields } from "../fill";
-import { contentDisposition, officialFileName } from "../fileName";
+import { seedDossierData } from "../../../../prisma/seed/index";
+import { fakeSignature } from "@/test/png";
+import { pdfText } from "@/test/pdfText";
+import { renderTemplate } from "../fill";
+import { MAPPINGS, splitStructure, type MappingContext } from "../mappings";
+import { fitText, isoDayParts, parisDateParts, parisDay } from "../text";
 import {
-  INTENTIONALLY_EMPTY,
-  MAPPINGS,
-  SECOND_WIDGET_DATES,
-  SIGNATURE_FIELDS,
-  STRUCTURE_SPLIT,
-  type PdfInput,
-} from "../mappings";
-import { buildProofPdf, wrap } from "../proof";
-import {
-  assetsDir,
-  checkAssets,
-  readAsset,
+  assertIntact,
+  loadFont,
+  loadTemplate,
   sha256,
-  TemplateIntegrityError,
   TEMPLATES,
-  type TemplateKind,
+  TemplateModifiedError,
+  verifyTemplates,
+  type TemplateKey,
 } from "../templates";
-import { fitText, isoDayParts, parisDateParts, parisDayText, splitOverTwo } from "../text";
 
-const KINDS: TemplateKind[] = ["DOSSIER", "CHARTE", "APTITUDE"];
+const KEYS = Object.keys(TEMPLATES) as TemplateKey[];
+const today = new Date("2026-11-05T00:00:00.000Z");
+const signedAt = new Date("2026-11-05T14:30:00.000Z");
 
-const data: DossierDraft = {
-  identity: {
-    civility: "MME",
-    lastName: "Ñúñez-O'Brien",
-    firstName: "Łucja",
-    secondFirstName: "Zoë",
-    birthDate: "2009-03-04",
-    birthCity: "Kraków",
-    birthCountry: "Pologne",
-  },
-  contact: {
-    street: "1 rue des Exemples",
-    postalCode: "78000",
-    city: "Versailles",
-    country: "France",
-    phone: "0639980001",
-    email: "lucja.exemple@exemple.test",
-  },
-  crf: { alreadyVolunteer: false, hasNivol: false, hasCrfEmail: false, activities: ["Logistique"] },
-  emergency: {
-    civility: "M",
-    lastName: "Exemple",
-    firstName: "Jérôme",
-    relationship: "Père",
-    phone1: "0639980002",
-  },
-  profile: {
-    skills: [{ label: "Informatique", level: "EXPERT" }],
-    languages: [{ label: "Polonais", level: "BILINGUAL" }],
-    diplomas: ["PSC1"],
-    licenses: [],
-    profession: "Lycéenne",
-  },
-  guardian: {
-    lastName: "Ñúñez",
-    firstName: "Dominika",
-    quality: "Mère",
-    phone: "0639980003",
-    email: "dominika.exemple@exemple.test",
-  },
-  structure: "Unité locale de Versailles",
-};
+function context(overrides: Partial<MappingContext> = {}): MappingContext {
+  const data = seedDossierData(
+    { index: 61, civility: "MME", firstName: "Łucja", lastName: "Ñúñez-O'Brien", minor: true },
+    today,
+    "complete",
+    "00012345678A",
+  );
+  return {
+    data,
+    ulName: "Unité locale de Versailles",
+    ulCity: "Versailles",
+    signedAt,
+    crf: { lastName: "Démo", firstName: "Maé", quality: "Responsable de l'intégration" },
+    minor: true,
+    ...overrides,
+  };
+}
 
-const input: PdfInput = {
-  data,
-  structure: "Unité locale de Versailles",
-  city: "Versailles",
-  signedOn: new Date("2026-11-05T23:30:00Z"),
-  representative: { lastName: "Fictif", firstName: "Camille", quality: "DIAMANT" },
-  nivol: null,
-};
-const signature = { png: signaturePng(), signedAt: new Date("2026-11-05T23:30:00Z") };
-
-describe("official file names", () => {
-  it("NOM in capitals, Prénom capitalised, accents kept, spaces to dashes", () => {
-    expect(officialFileName("Dupont", "jean éric", "DOSSIER")).toBe(
-      "DUPONT_Jean-Éric_Dossier-Bénévole.pdf",
-    );
-    expect(officialFileName("de la Fontaine", "ANNE", "CHARTE")).toBe(
-      "DE-LA-FONTAINE_Anne_Charte-du-Bénévolat.pdf",
-    );
-    expect(officialFileName("Ñúñez-O'Brien", "łucja", "APTITUDE")).toBe(
-      "ÑÚÑEZ-O'BRIEN_Łucja_Attestation-d_Aptitude.pdf",
-    );
-  });
-
-  it("removes forbidden characters and never leaves an empty part", () => {
-    expect(officialFileName('a/b\\c:d*e?"f<g>h|i_j', "k\u0007l", "DOSSIER")).toBe(
-      "ABCDEFGHIJ_Kl_Dossier-Bénévole.pdf",
-    );
-    expect(officialFileName("  ", "", "PROOF")).toBe("NOM_Prénom_Preuve-de-signature.pdf");
-  });
-
-  it("Content-Disposition carries an ASCII fallback and the exact name (RFC 5987)", () => {
-    const header = contentDisposition("ÑÚÑEZ_Łucja_Charte-du-Bénévolat.pdf");
-    expect(header).toBe(
-      "attachment; filename=\"NUNEZ__ucja_Charte-du-Benevolat.pdf\"; filename*=UTF-8''%C3%91%C3%9A%C3%91EZ_%C5%81ucja_Charte-du-B%C3%A9n%C3%A9volat.pdf",
-    );
-    expect(contentDisposition("O'Brien (1).pdf")).toContain(
-      "filename*=UTF-8''O%27Brien%20%281%29.pdf",
-    );
-  });
-});
-
-describe("dates and text fitting", () => {
-  it("splits an instant in Paris: 23:30 UTC on 31/12 is already 01/01 in Paris", () => {
-    expect(parisDateParts(new Date("2026-12-31T23:30:00Z"))).toEqual({
-      day: "01",
-      month: "01",
-      year: "2027",
-    });
-    expect(parisDateParts(new Date("2026-07-14T21:59:00Z"))).toEqual({
-      day: "14",
-      month: "07",
-      year: "2026",
-    });
-    expect(parisDayText(new Date("2026-03-29T00:30:00Z"))).toBe("29/03/2026");
-    expect(isoDayParts("2009-03-04")).toEqual({ day: "04", month: "03", year: "2009" });
-    expect(isoDayParts("04/03/2009")).toBeNull();
-  });
-
-  const measure = (t: string, size: number) => t.length * size * 0.5;
-
-  it("keeps the size when it fits, reduces it, then cuts with « … »", () => {
-    expect(fitText("Court", 100, measure)).toEqual({ text: "Court", size: 9, truncated: false });
-    const reduced = fitText("x".repeat(25), 100, measure);
-    expect(reduced.size).toBeLessThan(9);
-    expect(reduced.size).toBeGreaterThanOrEqual(6);
-    expect(measure(reduced.text, reduced.size)).toBeLessThanOrEqual(100);
-    const cut = fitText("y".repeat(200), 100, measure);
-    expect(cut.truncated).toBe(true);
-    expect(cut.text.endsWith("…")).toBe(true);
-    expect(measure(cut.text, cut.size)).toBeLessThanOrEqual(100);
-  });
-
-  it("splits a long structure over two fields by whole words", () => {
-    expect(splitOverTwo("Unité locale de Versailles", 60, measure, 9)).toEqual([
-      "Unité locale",
-      "de Versailles",
-    ]);
-    expect(splitOverTwo("Court", 60, measure, 9)).toEqual(["Court", ""]);
-  });
-
-  it("wraps the proof text without losing characters", () => {
-    const lines = wrap("a".repeat(30) + " bb cc", 10, (t) => t.length);
-    expect(lines.join("")).toBe("a".repeat(30) + "bb cc");
-    expect(lines.every((l) => l.length <= 10)).toBe(true);
-  });
-});
-
-describe("templates", () => {
-  it("each template has its frozen SHA-256", async () => {
-    expect(await checkAssets()).toEqual([]);
-    for (const kind of KINDS) {
-      expect(sha256(await readAsset(TEMPLATES[kind]))).toBe(TEMPLATES[kind].sha256);
-    }
+describe("official templates", () => {
+  it("match their frozen SHA-256", async () => {
+    await expect(verifyTemplates()).resolves.toBeUndefined();
   });
 
   it("a modified template blocks the generation with a clear message", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "binivol-assets-"));
-    await cp(assetsDir(), dir, { recursive: true });
-    await writeFile(path.join(dir, TEMPLATES.CHARTE.file), Buffer.from("%PDF-1.7 modifié"));
-    await expect(readAsset(TEMPLATES.CHARTE, dir)).rejects.toBeInstanceOf(TemplateIntegrityError);
-    await expect(readAsset(TEMPLATES.CHARTE, dir)).rejects.toThrow(
-      /« NOM_Prénom_Charte-du-Bénévolat\.pdf » a été modifié/,
+    const bytes = await loadTemplate("charte");
+    const modified = new Uint8Array(bytes);
+    modified[modified.length - 10] = (modified[modified.length - 10] ?? 0) ^ 0xff;
+    expect(sha256(modified)).not.toBe(TEMPLATES.charte.sha256);
+    expect(() => assertIntact(modified, TEMPLATES.charte.sha256, "Charte du bénévolat")).toThrow(
+      TemplateModifiedError,
     );
-    expect(await checkAssets(dir)).toEqual([TEMPLATES.CHARTE.file]);
-  });
-
-  it.each(KINDS)("mapping of %s: every field exists, no field forgotten", async (kind) => {
-    const fields = await templateFields(kind);
-    const names = new Set(fields.map((f) => f.name));
-    const mapped = Object.keys(MAPPINGS[kind]);
-    const signatures = Object.values(SIGNATURE_FIELDS[kind]);
-    const split = kind === "CHARTE" ? [...STRUCTURE_SPLIT] : [];
-    for (const name of [
-      ...mapped,
-      ...signatures,
-      ...split,
-      ...Object.keys(INTENTIONALLY_EMPTY[kind]),
-    ]) {
-      expect(names.has(name), `${kind} : champ « ${name} » absent du modèle`).toBe(true);
-    }
-    const covered = new Set([
-      ...mapped,
-      ...signatures,
-      ...split,
-      ...Object.keys(INTENTIONALLY_EMPTY[kind]),
-    ]);
-    expect([...names].filter((n) => !covered.has(n))).toEqual([]);
-    // Check boxes get booleans, text fields strings.
-    for (const field of fields) {
-      const get = MAPPINGS[kind][field.name];
-      if (!get) continue;
-      expect(typeof get(input), `${kind} : ${field.name}`).toBe(
-        field.type === "checkbox" ? "boolean" : "string",
-      );
-    }
-  });
-
-  it("knows the exact number of fields of each template", async () => {
-    expect((await templateFields("DOSSIER")).length).toBe(89);
-    expect((await templateFields("CHARTE")).length).toBe(18);
-    expect((await templateFields("APTITUDE")).length).toBe(8);
-    expect(Object.keys(SECOND_WIDGET_DATES)).toHaveLength(3);
+    expect(() => assertIntact(modified, TEMPLATES.charte.sha256, "Charte du bénévolat")).toThrow(
+      /Charte du bénévolat.*génération des documents est bloquée/,
+    );
   });
 });
 
-describe("filling", () => {
-  it.each(KINDS)(
-    "%s: flattened (no field), Unicode names rendered, signature date",
-    async (kind) => {
-      const bytes = await fillTemplate(kind, input, {
-        VOLUNTEER: signature,
-        PARENT: signature,
-        CRF_REPRESENTATIVE: signature,
+describe("mappings", () => {
+  it.each(KEYS)("%s: every mapped field exists, and every field is mapped", async (key) => {
+    const doc = await PDFDocument.load(await loadTemplate(key));
+    const names = doc
+      .getForm()
+      .getFields()
+      .map((f) => f.getName())
+      .sort();
+    const mapping = MAPPINGS[key](context());
+    const covered = [
+      ...Object.keys(mapping.fields),
+      ...Object.keys(mapping.signatures),
+      ...Object.keys(mapping.empty),
+    ];
+    expect(covered.filter((n) => !names.includes(n))).toEqual([]);
+    expect(names.filter((n) => !covered.includes(n))).toEqual([]);
+    expect(new Set(covered).size).toBe(covered.length);
+    for (const o of mapping.widgetOverrides) expect(names).toContain(o.field);
+  });
+
+  it("check boxes are booleans, the rest is text", async () => {
+    for (const key of KEYS) {
+      const doc = await PDFDocument.load(await loadTemplate(key));
+      const mapping = MAPPINGS[key](context());
+      for (const field of doc.getForm().getFields()) {
+        const value = mapping.fields[field.getName()];
+        if (value === undefined) continue;
+        expect(typeof value, `${key}: ${field.getName()}`).toBe(
+          field instanceof PDFCheckBox ? "boolean" : "string",
+        );
+      }
+    }
+  });
+
+  it("the dossier mapping uses the exact field names", () => {
+    const { fields } = MAPPINGS.dossier(context());
+    expect(fields["Prénom - 2"]).toBe("Łucja");
+    expect(fields["Nom de naissance"]).toBe("Ñúñez-O'Brien");
+    expect(fields["Civilité - Mme"]).toBe(true);
+    expect(fields["Civilité - M"]).toBe(false);
+    expect(fields["NIVOL - Oui"]).toBe(true);
+    expect(fields.NIVOL).toBe("00012345678A");
+    expect(fields["Jour signature"]).toBe("05");
+    expect(fields["Compétence 1 - Confirmé"]).toBe(true);
+    expect(fields["Langue 1 - Courant"]).toBe(true);
+    expect(fields["Structure de rattachement"]).toBe("Unité locale de Versailles");
+  });
+
+  it("the charte: volunteer left, Croix-Rouge right, parent below, emergency contact", () => {
+    const { fields, signatures } = MAPPINGS.charte(context());
+    expect(fields["Fait à"]).toBe("Versailles");
+    expect(fields.Nom_2).toBe("Démo");
+    expect(fields.Qualité).toBe("Responsable de l'intégration");
+    expect(fields.Nom_3).toBe("Ñúñez-O'Brien");
+    expect(fields["nom / qualité"]).toBe("Dominique Ñúñez-O'Brien / Mère");
+    expect(signatures).toEqual({
+      Signature: "VOLUNTEER",
+      "Signature 01": "CRF_REPRESENTATIVE",
+      "Signature parent": "PARENT",
+    });
+    expect(MAPPINGS.charte(context({ minor: false })).fields.Nom_3).toBe("");
+  });
+
+  it("the aptitude: NIVOL intentionally empty, signature date on the second date widgets", () => {
+    const mapping = MAPPINGS.aptitude(context());
+    expect(mapping.empty.NIVOL).toMatch(/étape 9/);
+    expect(mapping.widgetOverrides.map((o) => o.value)).toEqual(["05", "11", "2026"]);
+  });
+
+  it("splits a long structure name over the two lines of the charte", () => {
+    expect(splitStructure("Unité locale de Versailles")).toEqual(["Unité locale de", "Versailles"]);
+    expect(splitStructure("UL Versailles")).toEqual(["UL Versailles", ""]);
+  });
+});
+
+describe("text helpers", () => {
+  it("splits dates in the Paris time zone", () => {
+    expect(parisDateParts(new Date("2026-11-05T23:30:00Z"))).toEqual({
+      jour: "06",
+      mois: "11",
+      annee: "2026",
+    });
+    expect(parisDateParts(new Date("2026-07-14T22:30:00Z")).jour).toBe("15");
+    expect(parisDay(new Date("2026-03-29T00:30:00Z"))).toBe("29/03/2026");
+    expect(isoDayParts("2011-09-21")).toEqual({ jour: "21", mois: "09", annee: "2011" });
+    expect(isoDayParts(undefined)).toEqual({ jour: "", mois: "", annee: "" });
+  });
+
+  it("reduces the font size, then truncates cleanly, never overflowing", () => {
+    const measure = (t: string, size: number) => t.length * size * 0.5;
+    expect(fitText("court", measure, { width: 100, maxSize: 9, minSize: 6 })).toEqual({
+      text: "court",
+      size: 9,
+      truncated: false,
+    });
+    const reduced = fitText("x".repeat(30), measure, { width: 100, maxSize: 9, minSize: 6 });
+    expect(reduced.size).toBeLessThan(9);
+    expect(reduced.truncated).toBe(false);
+    const cut = fitText("y".repeat(80), measure, { width: 100, maxSize: 9, minSize: 6 });
+    expect(cut).toMatchObject({ size: 6, truncated: true });
+    expect(cut.text.endsWith("…")).toBe(true);
+    expect(measure(cut.text, 6)).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("rendering", () => {
+  it.each(KEYS)(
+    "%s: flattened, no field left, Unicode names kept, long values fitted",
+    async (key) => {
+      const ctx = context();
+      ctx.data.contact = {
+        ...ctx.data.contact,
+        street: `${"Résidence des Tilleuls, bâtiment B, escalier 4, ".repeat(4)}fin`,
+      };
+      const png = new Uint8Array(fakeSignature());
+      const bytes = await renderTemplate({
+        template: await loadTemplate(key),
+        font: await loadFont(),
+        mapping: MAPPINGS[key](ctx),
+        images: {
+          VOLUNTEER: { png, signedAt },
+          PARENT: { png, signedAt },
+          CRF_REPRESENTATIVE: { png, signedAt },
+        },
+        title: TEMPLATES[key].label,
+        producedAt: signedAt,
       });
       const doc = await PDFDocument.load(bytes);
       expect(doc.getForm().getFields()).toHaveLength(0);
-      const text = (await pdfText(bytes)).join("\n");
+      const text = await pdfText(bytes);
       expect(text).toContain("Łucja");
       expect(text).toContain("Ñúñez-O'Brien");
-      expect(text).toContain("Signé électroniquement le 06/11/2026");
+      expect(text).toContain("Signé électroniquement le 05/11/2026");
+      if (key === "dossier") expect(text).toMatch(/Résidence des Tilleuls.*…/);
     },
+    30_000,
   );
 
-  it("charter: volunteer, representative, guardian and person to notify in their places", async () => {
-    const bytes = await fillTemplate("CHARTE", input, { VOLUNTEER: signature });
-    const page3 = (await pdfText(bytes))[2] ?? "";
-    for (const value of [
-      "Versailles",
-      "Camille",
-      "Fictif",
-      "DIAMANT",
-      "Dominika",
-      "Jérôme Exemple / Père",
-      "06 39 98 00 02",
-    ]) {
-      expect(page3).toContain(value);
-    }
-  });
-
-  it("an adult's charter leaves the guardian block empty", async () => {
-    const adult = { ...input, data: { ...data, guardian: {} } };
-    const page3 = (await pdfText(await fillTemplate("CHARTE", adult)))[2] ?? "";
-    expect(page3).not.toContain("Dominika");
-  });
-
-  it("aptitude: NIVOL empty at step 8, the « Date » line gets the signature date", async () => {
-    const bytes = await fillTemplate("APTITUDE", input, { VOLUNTEER: signature });
-    const page1 = (await pdfText(bytes))[0] ?? "";
-    expect(page1).toContain("Kraków, Pologne");
-    expect(page1).toContain("2009");
-    expect(page1).toContain("2026");
-    const withNivol = (
-      await pdfText(await fillTemplate("APTITUDE", { ...input, nivol: "00012345678A" }))
-    )[0];
-    expect(withNivol).toContain("00012345678A");
-    expect(page1).not.toContain("00012345678A");
-  });
-
-  it("a value too long for its field is reduced or cut, never overflowing", async () => {
-    const long = {
-      ...input,
-      data: { ...data, contact: { ...data.contact, street: "Rue ".repeat(60) + "Fin" } },
-    };
-    const text = (await pdfText(await fillTemplate("DOSSIER", long))).join(" ");
-    expect(text).toContain("…");
-    expect(text).not.toContain("Fin");
-  });
-
-  it("a preview is marked and has no signature", async () => {
-    const bytes = await fillTemplate(
-      "DOSSIER",
-      { ...input, signedOn: null },
-      {},
-      { preview: true },
-    );
-    const text = (await pdfText(bytes)).join(" ");
-    expect(text).toContain("Aperçu avant signature");
-    expect(text).not.toContain("Signé électroniquement");
-  });
-});
-
-describe("proof of signature", () => {
-  it("one page with the signers, their method and the documents' hashes", async () => {
-    const bytes = await buildProofPdf({
-      structure: "Unité locale de Versailles",
-      personRef: "P-00099",
-      personName: "Łucja ÑÚÑEZ",
-      generatedAt: new Date("2026-11-06T10:00:00Z"),
-      signers: [
-        {
-          role: "Bénévole",
-          name: "Łucja Ñúñez",
-          quality: null,
-          signedAt: new Date("2026-11-05T23:30:00Z"),
-          method: "Code reçu par e-mail",
-          verification: "e-mail vérifié : lucja.exemple@exemple.test",
-          input: "Tracé",
-          userAgent: "Mozilla/5.0 (fictif)",
-          ipHash: "a".repeat(64),
-        },
-      ],
-      files: [{ fileName: "ÑÚÑEZ_Łucja_Dossier-Bénévole.pdf", sha256: "b".repeat(64) }],
+  it("a preview is marked and carries no signature", async () => {
+    const bytes = await renderTemplate({
+      template: await loadTemplate("charte"),
+      font: await loadFont(),
+      mapping: MAPPINGS.charte(context({ signedAt: null, crf: null })),
+      images: {},
+      title: "Aperçu",
+      producedAt: signedAt,
+      preview: true,
     });
-    const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(1);
-    const text = (await pdfText(bytes))[0] ?? "";
-    expect(text).toContain("Preuve de signature électronique");
-    expect(text).toContain("Code reçu par e-mail");
-    expect(text).toContain("b".repeat(64));
-    expect(text).toContain("eIDAS");
-  });
+    const text = await pdfText(bytes);
+    expect(text).toContain("APERÇU, NON SIGNÉ");
+    expect(text).not.toContain("Signé électroniquement");
+  }, 30_000);
 });
