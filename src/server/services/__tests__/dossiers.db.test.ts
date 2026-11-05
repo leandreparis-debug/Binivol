@@ -272,10 +272,14 @@ describe("draft, submission and review", () => {
       contact: { phone: "0639981234" },
       structure: "Unité locale de Versailles",
     });
+    // ADR-045: the link is consumed at the signature, not at submission. It still
+    // opens (the signature screens), but the draft is read-only and gone.
     expect(linkState(await db.dossierLink.findUniqueOrThrow({ where: { id: link.linkId } }))).toBe(
-      "used",
+      "active",
     );
-    expect(await openDossierLink(db, link.token)).toEqual({ ok: false });
+    expect(await openDossierLink(db, link.token)).toEqual({ ok: true, linkId: link.linkId });
+    expect(await resolveDossierLink(db, link.linkId)).toBeNull();
+    expect(await loadDraft(db, c.personId)).toBeNull();
     await expect(saveDraft(db, draft.submissionId, {})).rejects.toThrow(/déjà été envoyé/);
     const audit = await db.auditLog.findMany({
       where: { entity: "DossierSubmission", entityId: draft.submissionId },

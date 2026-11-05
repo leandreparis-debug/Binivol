@@ -39,7 +39,9 @@ describe("architecture: server actions", () => {
       "src/app/(public)/dossier/actions.ts#addDossierAttachmentAction",
       "src/app/(public)/dossier/actions.ts#openDossierAction",
       "src/app/(public)/dossier/actions.ts#removeDossierAttachmentAction",
+      "src/app/(public)/dossier/actions.ts#requestSignatureCodeAction",
       "src/app/(public)/dossier/actions.ts#saveDossierAction",
+      "src/app/(public)/dossier/actions.ts#signDossierAction",
       "src/app/(public)/dossier/actions.ts#submitDossierAction",
     ]);
   });

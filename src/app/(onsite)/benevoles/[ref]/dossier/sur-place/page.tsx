@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Smartphone } from "lucide-react";
-import { DossierForm, DossierSubmitted } from "@/components/dossier/DossierForm";
+import { DossierForm, DossierSigned } from "@/components/dossier/DossierForm";
+import { SignatureFlow } from "@/components/signature/SignatureFlow";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -10,6 +11,12 @@ import { requireDossierPage } from "@/server/dossier/page";
 import { dossierStatus } from "@/server/dossier/store";
 import { dossierFormView, onSiteContext } from "@/server/services/dossierForm";
 import { dossierPerson } from "@/server/services/dossiers";
+import { onSiteSigningView } from "@/server/signature/service";
+import {
+  requestOnSiteCodeAction,
+  signInPersonAction,
+  signOnSiteWithCodeAction,
+} from "@/app/(app)/benevoles/[ref]/signatureActions";
 import {
   addOnSiteAttachmentAction,
   removeOnSiteAttachmentAction,
@@ -29,7 +36,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function OnSitePage({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
-  const { personId } = await requireDossierPage(ref);
+  const { actor, personId, facts } = await requireDossierPage(ref);
   const db = getDb();
   const person = await dossierPerson(db, personId);
   const exitHref = `/benevoles/${person.ref}?onglet=integration`;
@@ -53,11 +60,29 @@ export default async function OnSitePage({ params }: { params: Promise<{ ref: st
   );
   if (!context) {
     const status = await dossierStatus(db, personId);
+    // Sent and waiting for its signatures: the signature screens, with the
+    // in-person check of the signed-in responsible (journaled read).
+    const signing =
+      status.state === "submitted" ? await onSiteSigningView(db, actor, personId, facts) : null;
     return (
       <div className="flex flex-col gap-4">
         {banner}
-        {status.state === "submitted" ? (
-          <DossierSubmitted exitHref={exitHref} />
+        {signing ? (
+          <>
+            <h1 className="text-title text-ink">Dossier de bénévole</h1>
+            <SignatureFlow
+              view={signing}
+              previewBase={`/benevoles/${person.ref}/dossier/apercu`}
+              onSite={{ personId, verifierName: actor.name, exitHref }}
+              actions={{
+                requestCode: requestOnSiteCodeAction,
+                signWithCode: signOnSiteWithCodeAction,
+                signInPerson: signInPersonAction,
+              }}
+            />
+          </>
+        ) : status.state === "submitted" ? (
+          <DossierSigned exitHref={exitHref} />
         ) : (
           <Card>
             <CardContent className="flex flex-col gap-3 pt-6">

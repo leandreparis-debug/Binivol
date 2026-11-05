@@ -3,6 +3,11 @@ import { openMail } from "../mail";
 import { authorize } from "../policy/can";
 import type { Actor } from "../policy/types";
 
+export interface AttachmentInfo {
+  filename: string;
+  size: number;
+}
+
 export interface OutboundMailView {
   id: string;
   to: string;
@@ -10,6 +15,17 @@ export interface OutboundMailView {
   text: string | null;
   createdAt: Date;
   createdBy: string | null;
+  /** Attachments by name and size (the files themselves are not kept). */
+  attachments: AttachmentInfo[];
+}
+
+function attachmentList(value: unknown): { filename: string; size: number }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((a: unknown) => {
+    if (typeof a !== "object" || a === null) return [];
+    const { filename, size } = a as { filename?: unknown; size?: unknown };
+    return typeof filename === "string" && typeof size === "number" ? [{ filename, size }] : [];
+  });
 }
 
 /**
@@ -38,5 +54,6 @@ export async function listOutboundMails(
     text: openMail(r.payload)?.text ?? null,
     createdAt: r.createdAt,
     createdBy: r.createdById ? (authors.get(r.createdById) ?? null) : null,
+    attachments: attachmentList(r.attachments),
   }));
 }

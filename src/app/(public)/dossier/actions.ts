@@ -6,9 +6,17 @@ import {
   removeAttachmentInput,
   saveDossierInput,
 } from "@/lib/dossierForms";
+import { pngFromDataUrl, requestCodeInput, signWithCodeInput } from "@/lib/signatureForms";
 import { definePublicAction } from "@/server/actions/defineAction";
 import { getDb } from "@/server/db";
-import { clearDossierCookie, requireCandidate, setDossierCookie } from "@/server/dossier/current";
+import {
+  clearDossierCookie,
+  requireCandidate,
+  requireSigningCandidate,
+  setDossierCookie,
+} from "@/server/dossier/current";
+import { requestMeta } from "@/server/signature/request";
+import { requestSignatureCode, signWithCode } from "@/server/signature/service";
 import {
   addDossierFormAttachment,
   formActor,
@@ -69,5 +77,37 @@ export const submitDossierAction = definePublicAction({
   handler: async ({ input }) => {
     const context = await requireCandidate(getDb());
     return submitDossierForm(getDb(), context, input.data, formActor(context));
+  },
+});
+
+/** E-mails a signature code to the next signer (the candidate, then her legal guardian). */
+export const requestSignatureCodeAction = definePublicAction({
+  input: requestCodeInput,
+  handler: async ({ input }) => {
+    const { personId } = await requireSigningCandidate(getDb());
+    const sent = await requestSignatureCode(getDb(), { personId, role: input.role });
+    return { sentTo: sent.sentTo, expiresAt: sent.expiresAt.toISOString() };
+  },
+});
+
+/** Signs with the trace (or typed name) and the code; the person comes from the cookie. */
+export const signDossierAction = definePublicAction({
+  input: signWithCodeInput,
+  handler: async ({ input }) => {
+    const { personId, linkId } = await requireSigningCandidate(getDb());
+    const view = await signWithCode(
+      getDb(),
+      getStorage(),
+      {
+        personId,
+        linkId,
+        role: input.role,
+        inputKind: input.inputKind,
+        png: pngFromDataUrl(input.image),
+        code: input.code,
+      },
+      await requestMeta(),
+    );
+    return { next: view.next };
   },
 });

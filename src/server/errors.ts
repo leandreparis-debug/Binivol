@@ -34,7 +34,14 @@ export type DomainErrorCode =
   | "DUPLICATE_PERSON"
   | "MENTOR_INVALID"
   | "IMPORT_DISABLED"
-  | "DOSSIER_SESSION_EXPIRED";
+  | "DOSSIER_SESSION_EXPIRED"
+  | "DOSSIER_ALREADY_SIGNED"
+  | "ALREADY_SIGNED"
+  | "SIGNATURE_REFUSED"
+  | "OTP_INVALID"
+  | "OTP_RATE_LIMITED"
+  | "TEMPLATE_MODIFIED"
+  | "MAIL_UNAVAILABLE";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {
@@ -94,6 +101,10 @@ export const CONSTRAINT_RULES: Record<string, Rule> = {
     code: "APPOINTMENT_NOT_A_FUNCTION",
     message: "Une nomination doit porter sur une fonction du référentiel.",
   },
+  signatures_submission_id_signer_role_key: {
+    code: "ALREADY_SIGNED",
+    message: "Cette signature a déjà été enregistrée : actualise la page.",
+  },
   users_email_key: {
     code: "EMAIL_TAKEN",
     message: "Un compte existe déjà avec cette adresse e-mail.",
@@ -104,6 +115,8 @@ export const CONSTRAINT_RULES: Record<string, Rule> = {
 const UNIQUE_FIELDS: Record<string, string> = {
   "Person:nivol": "persons_nivol_key",
   "User:email": "users_email_key",
+  "Signature:submission_id,signer_role": "signatures_submission_id_signer_role_key",
+  "Signature:submissionId,signerRole": "signatures_submission_id_signer_role_key",
   "Candidacy:person_id": "candidacies_one_open",
   "Candidacy:personId": "candidacies_one_open",
   "TrainingWish:person_id,reference_id": "training_wishes_one_open",

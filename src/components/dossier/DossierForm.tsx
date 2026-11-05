@@ -545,12 +545,41 @@ export function DossierSubmitted({ exitHref }: { exitHref?: string }) {
           Votre dossier a bien été envoyé
         </h2>
         <p className="text-body text-ink-2">
-          Merci. L&apos;unité locale va le relire, puis vous recontactera pour la suite : les
-          documents à signer et votre accueil.
+          Merci. Dernière étape : signer vos trois documents (dossier, charte et attestation), avec
+          un code reçu par e-mail.
         </p>
         <p className="text-small text-muted">
-          Le lien ne permet plus de modifier le dossier. Pour une correction, contactez l&apos;unité
-          locale.
+          Le dossier ne peut plus être modifié. Pour une correction, contactez l&apos;unité locale.
+        </p>
+        <Button
+          size="lg"
+          onClick={() => {
+            window.location.reload();
+          }}
+        >
+          Passer à la signature
+        </Button>
+        {exitHref && (
+          <Button asChild variant="outline" size="lg">
+            <Link href={exitHref}>Rendre l&apos;appareil au responsable</Link>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** The link once the dossier is sent and signed (it is used: nothing else opens). */
+export function DossierSigned({ exitHref }: { exitHref?: string }) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-start gap-4 pt-6">
+        <CircleCheck className="size-10 text-ok" aria-hidden="true" />
+        <h2 className="text-title text-ink" data-testid="dossier-step-title">
+          Votre dossier est envoyé et signé
+        </h2>
+        <p className="text-body text-ink-2">
+          Merci. L&apos;unité locale le contresigne, puis vous envoie vos documents par e-mail.
         </p>
         {exitHref && (
           <Button asChild size="lg">

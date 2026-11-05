@@ -22,7 +22,18 @@ export type DossierStatusKey =
   | "dossier-draft"
   | "dossier-submitted";
 
-export type Status = VolunteerStatus | DeadlineStatus | DossierStatusKey;
+/** Signature of the dossier and e-mail of the documents (step 8). */
+export type SignatureStatusKey =
+  | "signature-submitted"
+  | "signature-volunteer_signed"
+  | "signature-parent_signed"
+  | "signature-to_countersign"
+  | "signature-complete"
+  | "signature-mail-sent"
+  | "signature-mail-failed"
+  | "signature-mail-pending";
+
+export type Status = VolunteerStatus | DeadlineStatus | DossierStatusKey | SignatureStatusKey;
 
 /** Colour tone, mapped to design tokens by the components. */
 export type Tone = "neutral" | "accent" | "ok" | "warn" | "danger" | "ink";
@@ -62,10 +73,22 @@ export const DOSSIER_STATUSES: Record<DossierStatusKey, StatusMeta> = {
   "dossier-submitted": { label: "Envoyé", tone: "accent" },
 };
 
+export const SIGNATURE_STATUSES: Record<SignatureStatusKey, StatusMeta> = {
+  "signature-submitted": { label: "Envoyé, en attente de signature", tone: "warn" },
+  "signature-volunteer_signed": { label: "Signé par le bénévole", tone: "accent" },
+  "signature-parent_signed": { label: "Signé par le représentant légal", tone: "accent" },
+  "signature-to_countersign": { label: "À contresigner", tone: "accent" },
+  "signature-complete": { label: "Complet", tone: "ok" },
+  "signature-mail-sent": { label: "E-mail envoyé", tone: "ok" },
+  "signature-mail-failed": { label: "E-mail en échec", tone: "danger" },
+  "signature-mail-pending": { label: "E-mail non envoyé", tone: "warn" },
+};
+
 export const STATUSES: Record<Status, StatusMeta> = {
   ...VOLUNTEER_STATUSES,
   ...DEADLINE_STATUSES,
   ...DOSSIER_STATUSES,
+  ...SIGNATURE_STATUSES,
 };
 
 export const STATUS_KEYS = Object.keys(STATUSES) as Status[];

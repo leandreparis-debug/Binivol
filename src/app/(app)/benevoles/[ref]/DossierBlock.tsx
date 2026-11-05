@@ -18,6 +18,7 @@ import {
   revokeDossierLinkAction,
   sendDossierLinkAction,
 } from "./dossierActions";
+import { SignatureSection } from "./SignatureSection";
 
 const DIALOG = "max-h-[calc(100dvh-2rem)] overflow-y-auto";
 
@@ -303,6 +304,7 @@ export function DossierBlock({
             {onSiteError}
           </p>
         )}
+        <SignatureSection personId={personId} personRef={personRef} block={block.signature} />
         {block.links.length > 0 && (
           <section aria-labelledby="dossier-links-title" className="flex flex-col gap-2">
             <h3 id="dossier-links-title" className="text-small font-medium text-muted">

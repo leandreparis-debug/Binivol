@@ -24,6 +24,7 @@ import { dossierLinkMail } from "../mail/templates";
 import { authorize } from "../policy/can";
 import type { Actor, PersonFacts } from "../policy/types";
 import { dossierSettings } from "../settings";
+import { signatureBlock, type SignatureBlock } from "../signature/service";
 
 /**
  * Dossier links (step 7). A link is a random token whose **SHA-256 only** is
@@ -342,6 +343,8 @@ export async function dossierLinks(
 export interface DossierBlock {
   links: DossierLinkView[];
   status: DossierStatus;
+  /** Signature of the sent dossier (step 8). */
+  signature: SignatureBlock;
   hasEmail: boolean;
   linkDays: number;
   mailDriver: "log" | "smtp";
@@ -361,15 +364,17 @@ export async function dossierBlock(
   now: Date = new Date(),
 ): Promise<DossierBlock> {
   authorize(actor, "dossier.manage", { person: facts });
-  const [links, status, person, settings] = await Promise.all([
+  const [links, status, person, settings, signature] = await Promise.all([
     dossierLinks(db, personId, now),
     dossierStatus(db, personId),
     db.person.findUniqueOrThrow({ where: { id: personId }, select: { email: true } }),
     dossierSettings(db),
+    signatureBlock(db, actor, personId, facts),
   ]);
   return {
     links,
     status,
+    signature,
     hasEmail: Boolean(person.email),
     linkDays: settings.linkDays,
     mailDriver: getEnv().MAIL_DRIVER,

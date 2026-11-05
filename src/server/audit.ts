@@ -33,7 +33,7 @@ export const SENSITIVE_FIELDS: Record<string, "*" | readonly string[]> = {
   DossierSubmission: ["data"],
   DossierAttachment: ["fileName", "storageKey", "sha256"],
   OtpChallenge: ["codeHash", "email"],
-  Signature: ["imageKey", "ipHash", "userAgent", "documentHashes"],
+  Signature: ["imageKey", "ipHash", "userAgent", "documentHashes", "verifiedEmail"],
 };
 
 /** Technical fields never worth an audit entry. */
