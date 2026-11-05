@@ -23,6 +23,8 @@ export { MISSING_DATABASE_URL_MESSAGE };
 export interface CreateDbOptions {
   /** Logs every SQL query (development only). */
   logQueries?: boolean;
+  /** Called after every SQL query (tests that count queries). */
+  onQuery?: (query: string) => void;
 }
 
 /**
@@ -32,6 +34,17 @@ export interface CreateDbOptions {
  */
 export function createDb(connectionString: string, options: CreateDbOptions = {}): Db {
   const adapter = new PrismaPg({ connectionString });
+  if (options.onQuery) {
+    const onQuery = options.onQuery;
+    const client = new PrismaClient({
+      adapter,
+      log: [{ emit: "event", level: "query" }, "warn", "error"],
+    });
+    client.$on("query", (event) => {
+      onQuery(event.query);
+    });
+    return client;
+  }
   return new PrismaClient({
     adapter,
     log: options.logQueries ? ["query", "warn", "error"] : ["warn", "error"],

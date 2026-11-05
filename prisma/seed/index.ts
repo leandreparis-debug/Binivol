@@ -69,9 +69,9 @@ export function seedNivol(index: number): string {
   return `000${digits}${letters[index % letters.length] ?? "A"}`;
 }
 
-/** French numbers reserved for fiction by ARCEP (06 39 98 xx xx). */
+/** French numbers reserved for fiction by ARCEP (06 39 98 xx xx), stored as digits only. */
 const fictionalMobile = (n: number) =>
-  `06 39 98 ${pad(Math.floor(n / 100) % 100, 2)} ${pad(n % 100, 2)}`;
+  `063998${pad(Math.floor(n / 100) % 100, 2)}${pad(n % 100, 2)}`;
 
 const POSTAL_CITIES = [
   ["78000", "Versailles"],
@@ -625,7 +625,7 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
             city,
             country: "France",
             phone1: fictionalMobile(5000 + p.index * 10 + c),
-            phone2: c === 0 ? `01 99 00 ${pad(p.index % 100, 2)} ${pad(c + 10, 2)}` : null,
+            phone2: c === 0 ? `019900${pad(p.index % 100, 2)}${pad(c + 10, 2)}` : null,
             email: `contact${c + 1}.${emailLocal}@exemple.test`,
             ...audit,
           });

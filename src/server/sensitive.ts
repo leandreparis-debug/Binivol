@@ -1,3 +1,5 @@
+import { Prisma } from "@/generated/prisma/client";
+import { adultBornOnOrBefore, ageOn } from "@/lib/age";
 import type { DbOrTx } from "./db";
 import { inTransaction } from "./db";
 import { DomainError } from "./errors";
@@ -161,6 +163,41 @@ export async function readDocument(
 }
 
 export { ForbiddenError };
+
+// ---------------------------------------------------------------------------
+// Age (step 5). The directory and the person page show the age and a « Mineur »
+// pill, and filter minors: they need the birth date, which is sensitive. Only
+// the **derived** age leaves this module — never the birth date itself — so
+// these reads are not journaled (no birth date is shown). The full sensitive
+// block stays behind `readPersonSensitive`, which is journaled.
+// ---------------------------------------------------------------------------
+
+/** Age of each person on `day` (null when the birth date is unknown). Missing ids → null. */
+export async function agesOf(
+  db: DbOrTx,
+  personIds: readonly string[],
+  day: Date,
+): Promise<Map<string, number | null>> {
+  const result = new Map<string, number | null>(personIds.map((id) => [id, null]));
+  if (personIds.length === 0) return result;
+  const rows = await db.personSensitive.findMany({
+    where: { personId: { in: [...personIds] }, birthDate: { not: null } },
+    select: { personId: true, birthDate: true },
+  });
+  for (const row of rows) result.set(row.personId, ageOn(row.birthDate, day));
+  return result;
+}
+
+/**
+ * SQL condition on `persons p`: the person is a minor on `day` (known birth
+ * date, less than 18 years old). For the directory's « Mineur » filter.
+ */
+export function minorSql(day: Date): Prisma.Sql {
+  return Prisma.sql`EXISTS (
+    SELECT 1 FROM person_sensitive s
+    WHERE s.person_id = p.id AND s.birth_date > ${adultBornOnOrBefore(day)}::date
+  )`;
+}
 
 // ---------------------------------------------------------------------------
 // Import of the legacy workbook (step 4). The import is authorised by
