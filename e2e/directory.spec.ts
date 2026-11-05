@@ -10,16 +10,16 @@ const ALL_STATUSES = "statut=ACTIVE,PAUSED,SUSPENDED,INACTIVE,LEFT,CANDIDATE";
  * that can be opened (`person.full.read`).
  */
 const EXPECTED: Record<string, { visible: number; openable: number }> = {
-  topaze: { visible: 60, openable: 60 },
+  topaze: { visible: 62, openable: 62 },
   action: { visible: 54, openable: 54 },
   laser: { visible: 54, openable: 54 },
   // FORMAT opens every visible page, reduced to the Formations tab.
   format: { visible: 54, openable: 54 },
   "format-gp": { visible: 54, openable: 13 },
   // Candidates, newcomers, mentees, and the re-engaged person who left (step 6).
-  diamant: { visible: 60, openable: 12 },
+  diamant: { visible: 62, openable: 14 },
   // FORMAT's reduced pages of the 54 non-candidates, plus DIAMANT's candidates.
-  "format-diamant": { visible: 60, openable: 60 },
+  "format-diamant": { visible: 62, openable: 62 },
 };
 
 async function expectNoSeriousViolation(page: Page) {
