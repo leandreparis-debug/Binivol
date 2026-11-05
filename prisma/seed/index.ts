@@ -57,6 +57,29 @@ export const SEED_VOLUMES = {
 export interface SeedOptions {
   /** Reference day (00:00 UTC). Default: today in Paris. */
   today?: Date;
+  /**
+   * Hosted demo only (ADR-035, ADR-042): the database is fictitious by
+   * definition, so people typed in the demo itself (without the seed note) are
+   * accepted. They are never modified; their references are returned so the
+   * build log lists them. Everywhere else the strict refusal stays.
+   */
+  acceptForeignPersons?: boolean;
+}
+
+/** What the demo seed did besides its own data. */
+export interface SeedDemoResult {
+  /** References of the people created outside the seed (hosted demo only), left untouched. */
+  foreignPersons: string[];
+}
+
+/** References of the people that are not synthetic seed data, sorted. */
+export async function listNonSeedPersons(db: PrismaClient | SeedTx): Promise<string[]> {
+  const rows = await db.person.findMany({
+    where: { OR: [{ notes: null }, { NOT: { notes: { contains: SEED_MARK } } }] },
+    select: { ref: true },
+    orderBy: { ref: "asc" },
+  });
+  return rows.map((r) => r.ref);
 }
 
 // ---------------------------------------------------------------------------
@@ -486,7 +509,10 @@ export async function seedBase(db: PrismaClient): Promise<void> {
  * people. Safe to run again: it only creates what is missing and refreshes the
  * rest, in one transaction. Refuses a database that holds any non-seed person.
  */
-export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Promise<void> {
+export async function seedDemo(
+  db: PrismaClient,
+  options: SeedOptions = {},
+): Promise<SeedDemoResult> {
   faker.seed(FAKER_SEED);
   const today = options.today ?? toParisDay();
   const year = today.getUTCFullYear();
@@ -503,12 +529,14 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
     );
   };
 
+  const strict = options.acceptForeignPersons !== true;
   const realPeople = await countNonSeedPersons(db);
-  if (realPeople > 0) throw new RealDataPresentError(realPeople);
+  if (strict && realPeople > 0) throw new RealDataPresentError(realPeople);
+  const foreignPersons = strict ? [] : await listNonSeedPersons(db);
 
   await db.$transaction(
     async (tx) => {
-      if ((await countNonSeedPersons(tx)) > 0)
+      if (strict && (await countNonSeedPersons(tx)) > 0)
         throw new RealDataPresentError(await countNonSeedPersons(tx));
       await seedBaseIn(tx);
 
@@ -1416,6 +1444,7 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
     },
     { timeout: 180_000, maxWait: 20_000 },
   );
+  return { foreignPersons };
 }
 
 /** Row counts of every table, for the seed report and the tests. */

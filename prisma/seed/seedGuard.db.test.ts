@@ -44,6 +44,21 @@ describe("seed:demo", () => {
     await expect(seedDemo(db, { today })).rejects.toBeInstanceOf(RealDataPresentError);
   });
 
+  it("on a hosted demo, accepts people created outside the seed, leaves them untouched and lists them", async () => {
+    await seedBase(db);
+    await seedDemo(db, { today });
+    const typed = await db.person.create({
+      data: { firstName: "Saisie", lastName: "Démo", notes: "Créée dans la démo" },
+    });
+    const before = await db.person.findUniqueOrThrow({ where: { id: typed.id } });
+    const result = await seedDemo(db, { today, acceptForeignPersons: true });
+    expect(result.foreignPersons).toEqual([typed.ref]);
+    expect(await db.person.findUniqueOrThrow({ where: { id: typed.id } })).toEqual(before);
+    expect(await db.person.count()).toBe(SEED_VOLUMES.persons + 1);
+    // Without the option, the strict refusal is unchanged.
+    await expect(seedDemo(db, { today })).rejects.toBeInstanceOf(RealDataPresentError);
+  });
+
   it("runs on top of the base seed and stays idempotent", async () => {
     await seedBase(db);
     await seedDemo(db, { today });
@@ -51,5 +66,6 @@ describe("seed:demo", () => {
     await seedDemo(db, { today });
     expect(await countRows(db)).toEqual(first);
     expect(first.persons).toBe(SEED_VOLUMES.persons);
+    expect(await seedDemo(db, { today })).toEqual({ foreignPersons: [] });
   });
 });

@@ -2,14 +2,17 @@
  * Build step of a hosted demo (ADR-035): seeds the fictitious demo data when,
  * and only when, the deployment is a hosted demo (AUTH_DEMO_LOGIN=true,
  * AUTH_DEMO_ON_VERCEL=true, VERCEL_ENV set). Does nothing otherwise, so a
- * real deployment never receives demo data. Idempotent; `seedDemo` also
- * refuses a database that holds non-seed people: the step is then skipped,
- * without failing the build.
+ * real deployment never receives demo data. Idempotent.
+ *
+ * The hosted demo is fictitious by definition (ADR-042): people typed in the
+ * demo itself (without the seed note) are accepted, left untouched, and their
+ * references are listed in the build log. Everywhere else, `seedDemo` keeps
+ * refusing a database that holds non-seed people.
  */
 import "dotenv/config";
 import { isHostedDemo, parseEnv } from "../src/lib/env";
 import { createDb } from "../src/server/db";
-import { RealDataPresentError, seedDemo } from "../prisma/seed/index";
+import { seedDemo } from "../prisma/seed/index";
 
 async function main() {
   const env = parseEnv(process.env);
@@ -23,14 +26,13 @@ async function main() {
   if (!url) throw new Error("DIRECT_URL ou DATABASE_URL manquant.");
   const db = createDb(url);
   try {
-    await seedDemo(db);
+    const { foreignPersons } = await seedDemo(db, { acceptForeignPersons: true });
     process.stdout.write("Seed de démonstration appliqué (données fictives).\n");
-  } catch (error) {
-    // People typed in the demo itself are not marked as seed data: the seed
-    // never mixes, so it is skipped and the deployment goes on (the migrations
-    // are already applied).
-    if (!(error instanceof RealDataPresentError)) throw error;
-    process.stdout.write(`Seed de démonstration ignoré : ${error.message}\n`);
+    if (foreignPersons.length > 0) {
+      process.stdout.write(
+        `${String(foreignPersons.length)} personne(s) créée(s) dans la démo, hors seed, laissée(s) telle(s) quelle(s) : ${foreignPersons.join(", ")}\n`,
+      );
+    }
   } finally {
     await db.$disconnect();
   }

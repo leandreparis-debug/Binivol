@@ -587,3 +587,18 @@ en test, relais du VPS ensuite) et `log` (par défaut), qui écrit le message ch
 
 **Conséquences.** Changer de fournisseur ne demande que les variables `SMTP_*`. Le pilote `log`
 sert aux tests e2e (le lien y est récupéré) sans jamais stocker un jeton en clair.
+
+## ADR-042 — Le seed de la démo hébergée accepte les personnes saisies dans la démo
+
+**Contexte.** Sur la démo hébergée (ADR-035), les testeurs créent des candidats. Ces personnes
+n'ont pas la note du seed : `seed:demo` refusait alors toute la base et le déploiement suivant ne
+mettait plus à jour les données de démonstration.
+
+**Décision.** Quand la démo hébergée est active (`isHostedDemo()`, production Vercel), le script
+de build appelle `seedDemo` avec `acceptForeignPersons` : la base est fictive par définition. Les
+personnes créées hors seed ne sont **jamais modifiées** ; leurs références (jamais leurs noms)
+sont listées dans le journal de build ; le seed ajoute ou met à jour ses propres données comme
+d'habitude. Partout ailleurs (`pnpm db:seed:demo`, `db:fresh`, tests), le refus strict reste.
+
+**Conséquences.** La démo se met à jour à chaque déploiement de `main`, même après des essais.
+Ce chemin n'existe que derrière `isHostedDemo()` et `VERCEL_ENV=production`.
