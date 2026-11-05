@@ -25,6 +25,17 @@ describe("seed:base", () => {
   });
 });
 
+describe("seed:base and edited settings", () => {
+  it("never overwrites a setting edited by TOPAZE", async () => {
+    await seedBase(db);
+    await db.setting.update({ where: { key: "UL_NAME" }, data: { value: "UL modifiée (fictif)" } });
+    await seedBase(db);
+    expect((await db.setting.findUniqueOrThrow({ where: { key: "UL_NAME" } })).value).toBe(
+      "UL modifiée (fictif)",
+    );
+  });
+});
+
 describe("seed:demo", () => {
   it("refuses a database holding a person that is not seed data, and writes nothing", async () => {
     await seedBase(db);

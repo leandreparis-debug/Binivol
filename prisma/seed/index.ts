@@ -135,6 +135,14 @@ interface Delegate {
 }
 
 /** Creates rows that do not exist yet, updates the others (by id). */
+/** Creates the missing rows only: a value edited by TOPAZE (settings) is never overwritten. */
+async function saveMissing<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
+  for (const row of rows) {
+    const existing = await delegate.findUnique({ where: { id: row.id }, select: { id: true } });
+    if (!existing) await delegate.create({ data: row as never });
+  }
+}
+
 async function save<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
   for (const row of rows) {
     const { id, ...rest } = row;
@@ -413,7 +421,8 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     description: String(description),
     ...audit,
   }));
-  await save(tx.setting, settings);
+  // Settings are edited by TOPAZE: a deployment only adds the missing ones.
+  await saveMissing(tx.setting, settings);
 
   // -- Reference list --------------------------------------------------------
   await save<Prisma.ReferenceItemUncheckedCreateInput>(
