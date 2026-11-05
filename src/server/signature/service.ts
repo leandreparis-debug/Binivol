@@ -256,8 +256,8 @@ async function currentSubmitted(db: DbOrTx, personId: string): Promise<SigningDo
 
 /**
  * E-mails a new code to the next signer (the volunteer, then the guardian of
- * a minor). Refused within 60 s of the previous code and beyond 5 per hour
- * for the dossier. The e-mail holds the code and the first name only.
+ * a minor). Refused within 60 s of the same signer's previous code, and
+ * beyond 5 per hour for the dossier. The e-mail holds the code and the first name only.
  */
 export async function requestSignatureCode(
   db: Db,
@@ -290,9 +290,10 @@ export async function requestSignatureCode(
   }
   const previous = await db.otpChallenge.findMany({
     where: { submissionId: dossier.submissionId },
-    select: { createdAt: true },
+    select: { createdAt: true, signerRole: true },
   });
   const decision = canSendCode(
+    previous.filter((p) => p.signerRole === input.role).map((p) => p.createdAt),
     previous.map((p) => p.createdAt),
     now,
   );

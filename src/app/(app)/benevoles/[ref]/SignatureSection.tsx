@@ -47,7 +47,9 @@ function CountersignDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button leftIcon={<PenLine aria-hidden="true" />}>Contresigner</Button>
+        <Button className="self-start" leftIcon={<PenLine aria-hidden="true" />}>
+          Contresigner
+        </Button>
       </DialogTrigger>
       <DialogContent
         title="Contresigner la charte"
@@ -65,7 +67,7 @@ function CountersignDialog({
                 router.refresh();
               }}
             >
-              Fermer
+              Terminer
             </Button>
           </div>
         ) : (

@@ -69,6 +69,72 @@ async function linkFromMailLog(browser: Browser, email: string): Promise<string>
   return href ?? "";
 }
 
+/** TOPAZE reads the signature code of the latest code e-mail sent to `email` (log driver). */
+async function codeFromMailLog(browser: Browser, email: string): Promise<string> {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await loginAs(page, "topaze");
+  await page.goto("/admin/courriels");
+  const mail = page
+    .getByRole("listitem")
+    .filter({ hasText: email })
+    .filter({ hasText: "Ton code de signature" })
+    .first();
+  const text = (await mail.textContent()) ?? "";
+  await context.close();
+  const code = /\b(\d{6})\b/.exec(text)?.[1];
+  expect(code, "code de signature dans /admin/courriels").toBeTruthy();
+  return code ?? "";
+}
+
+/** Draws a fictitious signature in the pad (pointer events, as a finger would). */
+async function drawSignature(page: Page) {
+  const canvas = page.getByTestId("signature-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("canvas");
+  await page.mouse.move(box.x + 20, box.y + box.height * 0.7);
+  await page.mouse.down();
+  for (let i = 1; i <= 24; i += 1) {
+    const x = box.x + 20 + (i * (box.width - 40)) / 24;
+    const y = box.y + box.height * (0.5 + 0.25 * Math.sin(i / 2));
+    await page.mouse.move(x, y);
+  }
+  await page.mouse.up();
+}
+
+const signatureTitle = (page: Page) => page.getByTestId("signature-step-title");
+
+/** Trace (or typed name), then the e-mailed code: one signer of the flow. */
+async function signWithCode(
+  browser: Browser,
+  page: Page,
+  email: string,
+  how: "draw" | "type" = "draw",
+) {
+  await expect(page.getByTestId("signature-canvas")).toBeVisible();
+  await expectNoSeriousViolation(page);
+  if (how === "draw") {
+    // An empty trace is refused.
+    await page.getByRole("button", { name: "Valider la signature" }).click();
+    await expect(page.getByText(/La signature est vide/)).toBeVisible();
+    await drawSignature(page);
+  } else {
+    // Keyboard alternative: the full name, rendered in a handwriting font.
+    await page.getByRole("button", { name: "Saisir mon nom" }).click();
+    await expect(page.getByLabel("Ton nom complet")).not.toHaveValue("");
+    await expectNoSeriousViolation(page);
+  }
+  await page.getByRole("button", { name: "Valider la signature" }).click();
+  await expect(page.getByRole("button", { name: "Recevoir mon code" })).toBeVisible();
+  await expectNoSeriousViolation(page);
+  await page.getByRole("button", { name: "Recevoir mon code" }).click();
+  await expect(page.getByText(/est envoyé par e-mail à/)).toBeVisible();
+  const code = await codeFromMailLog(browser, email);
+  await page.getByLabel("Code reçu par e-mail").fill(code);
+  await expectNoSeriousViolation(page);
+  await page.getByRole("button", { name: "Signer", exact: true }).click();
+}
+
 async function phone(browser: Browser) {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -183,10 +249,27 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     await expect(again.page.getByText(/Cochez la case/)).toBeVisible();
     await again.page.getByText(/J'ai lu l'information/).click();
     await again.page.getByRole("button", { name: "Envoyer mon dossier" }).click();
-    await expect(title(again.page)).toHaveText("Votre dossier a bien été envoyé");
+    // Sent: the page goes straight to the signature screens.
+    await expect(signatureTitle(again.page)).toHaveText("Signature");
     await expectNoSeriousViolation(again.page);
 
-    // Used after submission: the same link now gets the neutral page.
+    // Sent, not signed: the link only opens the signature screens (ADR-045).
+    await again.page.goto(url);
+    await expect(again.page).toHaveURL(/\/dossier$/);
+    await expect(signatureTitle(again.page)).toHaveText("Signature");
+    await expect(again.page.getByRole("link", { name: /Charte du bénévolat/ })).toBeVisible();
+    await expectNoSeriousViolation(again.page);
+    await expectNoHorizontalScroll(again.page);
+    // Preview before signing: a PDF generated on the fly.
+    const preview = await again.page.request.get("/dossier/apercu/charte");
+    expect(preview.status()).toBe(200);
+    expect(preview.headers()["content-type"]).toBe("application/pdf");
+    await again.page.getByRole("button", { name: "Je signe" }).click();
+    await signWithCode(browser, again.page, who.email);
+    await expect(signatureTitle(again.page)).toHaveText("Ton dossier est signé");
+    await expectNoSeriousViolation(again.page);
+
+    // Consumed once signed: the same link now gets the neutral page.
     await again.page.goto(url);
     await expect(again.page.getByRole("heading", { level: 1 })).toHaveText(
       "Ce lien n'est plus valable.",
@@ -210,6 +293,37 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     // The page now holds the reported values.
     await page.goto(`/benevoles/${ref}?onglet=apercu`);
     await expect(page.getByText("06 39 98 00 01")).toBeVisible();
+
+    // Counter-signature (keyboard alternative: the name typed), then the charter downloaded.
+    await page.goto(`/benevoles/${ref}?onglet=integration`);
+    await expect(page.getByTestId("signature-state")).toContainText("À contresigner");
+    await page.getByRole("button", { name: "Contresigner" }).click();
+    const dialog = page.getByRole("dialog", { name: "Contresigner la charte" });
+    await expect(dialog.getByLabel("Qualité")).toHaveValue(/DIAMANT/);
+    await expectNoSeriousViolation(page);
+    await dialog.getByRole("button", { name: "Saisir mon nom" }).click();
+    await dialog.getByRole("button", { name: "Contresigner et envoyer" }).click();
+    await expect(dialog.getByRole("status")).toContainText("Dossier complet", {
+      timeout: 30_000,
+    });
+    await dialog.getByRole("button", { name: "Terminer" }).click();
+    await expect(page.getByTestId("signature-state")).toContainText("Complet");
+    await expect(page.getByTestId("signature-state")).toContainText("E-mail envoyé");
+
+    await page.goto(`/benevoles/${ref}?onglet=documents`);
+    const charter = page.getByRole("link", { name: /Télécharger Charte du bénévolat/ });
+    const [download] = await Promise.all([page.waitForEvent("download"), charter.click()]);
+    expect(await download.failure()).toBeNull();
+    // The exact name travels in `filename*` (RFC 5987). The headless Chromium of the
+    // tests does not decode a non-ASCII `filename*` (it says « download »): the header
+    // itself is checked.
+    const href = (await charter.getAttribute("href")) ?? "";
+    const response = await page.request.get(href);
+    expect(response.headers()["content-type"]).toBe("application/pdf");
+    expect(response.headers()["content-disposition"]).toMatch(
+      /filename\*=UTF-8''FICTIF\d+_Dossiermajeur_Charte-du-B%C3%A9n%C3%A9volat\.pdf$/,
+    );
+    await expect(page.getByText(/_Preuve-de-signature\.pdf$/)).toBeVisible();
   });
 
   test("un candidat de 15 ans : représentant légal et autorisation parentale", async ({
@@ -244,7 +358,16 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     await next(candidate.page, "Relecture et envoi");
     await candidate.page.getByText(/J'ai lu l'information/).click();
     await candidate.page.getByRole("button", { name: "Envoyer mon dossier" }).click();
-    await expect(title(candidate.page)).toHaveText("Votre dossier a bien été envoyé");
+    await expect(signatureTitle(candidate.page)).toHaveText("Signature");
+
+    // The minor signs (keyboard alternative), then her legal guardian with her own code.
+    await candidate.page.getByRole("button", { name: "Je signe" }).click();
+    await signWithCode(browser, candidate.page, who.email, "type");
+    await expect(signatureTitle(candidate.page)).toHaveText("Au tour de ton représentant légal");
+    await expectNoSeriousViolation(candidate.page);
+    await candidate.page.getByRole("button", { name: "Continuer" }).click();
+    await signWithCode(browser, candidate.page, `parent.${who.email}`);
+    await expect(signatureTitle(candidate.page)).toHaveText("Ton dossier est signé");
     await candidate.context.close();
   });
 
@@ -258,7 +381,7 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     };
     const visitor = await phone(browser);
     await visitor.page.goto("/dossier/ouvrir#" + "x".repeat(43));
-    await expect(visitor.page).toHaveURL(/\/dossier\/ouvrir$/);
+    await expect(visitor.page).toHaveURL(/\/dossier\/lien-invalide$/);
     await neutral(visitor.page);
     await expectNoSeriousViolation(visitor.page);
     await visitor.page.goto("/dossier");

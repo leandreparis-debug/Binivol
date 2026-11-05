@@ -575,11 +575,12 @@ export function DossierSigned({ exitHref }: { exitHref?: string }) {
     <Card>
       <CardContent className="flex flex-col items-start gap-4 pt-6">
         <CircleCheck className="size-10 text-ok" aria-hidden="true" />
-        <h2 className="text-title text-ink" data-testid="dossier-step-title">
-          Votre dossier est envoyé et signé
+        <h2 className="text-title text-ink" data-testid="signature-step-title">
+          Ton dossier est signé
         </h2>
         <p className="text-body text-ink-2">
-          Merci. L&apos;unité locale le contresigne, puis vous envoie vos documents par e-mail.
+          Merci ! L&apos;unité locale va le contresigner. Tu recevras ensuite tes documents par
+          e-mail, avec le règlement et le code de conduite.
         </p>
         {exitHref && (
           <Button asChild size="lg">

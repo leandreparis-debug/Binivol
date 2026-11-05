@@ -6,8 +6,8 @@ import { derivedKey } from "../secrets";
  * - drawn with `crypto.randomInt`;
  * - only an HMAC-SHA256 (server key, random salt) is stored, never the code;
  * - valid 10 minutes, 5 attempts at most;
- * - a new code 60 seconds after the previous one at the earliest, 5 per hour
- *   and per dossier at most;
+ * - a new code 60 seconds after the same signer's previous one at the
+ *   earliest, 5 per hour and per dossier at most;
  * - compared in constant time.
  */
 
@@ -49,13 +49,17 @@ export function verifyOtpCode(
 export type SendDecision = { ok: true } | { ok: false; retryInSeconds: number; message: string };
 
 /**
- * May a new code be sent now? `sentAt` lists the creation times of the
- * dossier's previous codes (any order).
+ * May a new code be sent now? `sameSigner` lists the creation times of the
+ * previous codes of this signer (the 60-second delay), `dossier` those of
+ * every signer of the dossier (5 per hour). Any order.
  */
-export function canSendCode(sentAt: Date[], now: Date = new Date()): SendDecision {
+export function canSendCode(
+  sameSigner: Date[],
+  dossier: Date[] = sameSigner,
+  now: Date = new Date(),
+): SendDecision {
   const t = now.getTime();
-  const recent = sentAt.map((d) => d.getTime()).filter((s) => s > t - HOUR_MS);
-  const last = Math.max(...recent, Number.NEGATIVE_INFINITY);
+  const last = Math.max(...sameSigner.map((d) => d.getTime()), Number.NEGATIVE_INFINITY);
   if (t - last < OTP_RESEND_DELAY_MS) {
     const wait = Math.ceil((OTP_RESEND_DELAY_MS - (t - last)) / 1000);
     return {
@@ -64,6 +68,7 @@ export function canSendCode(sentAt: Date[], now: Date = new Date()): SendDecisio
       message: `Un code vient d'être envoyé. Tu pourras en demander un nouveau dans ${String(wait)} secondes.`,
     };
   }
+  const recent = dossier.map((d) => d.getTime()).filter((s) => s > t - HOUR_MS);
   if (recent.length >= OTP_MAX_PER_HOUR) {
     const oldest = Math.min(...recent);
     const wait = Math.ceil((oldest + HOUR_MS - t) / 1000);

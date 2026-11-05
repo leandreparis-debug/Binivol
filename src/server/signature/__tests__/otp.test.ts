@@ -52,20 +52,22 @@ describe("sending rhythm", () => {
   const ago = (s: number) => new Date(now.getTime() - s * 1000);
 
   it("refuses a new code within 60 seconds, with the remaining delay", () => {
-    expect(canSendCode([], now)).toEqual({ ok: true });
-    const refused = canSendCode([ago(45)], now);
+    expect(canSendCode([], [], now)).toEqual({ ok: true });
+    const refused = canSendCode([ago(45)], [ago(45)], now);
     expect(refused).toMatchObject({ ok: false, retryInSeconds: 15 });
     expect(!refused.ok && refused.message).toContain("15 secondes");
-    expect(canSendCode([ago(60)], now)).toEqual({ ok: true });
+    expect(canSendCode([ago(60)], [ago(60)], now)).toEqual({ ok: true });
+    // Another signer (the legal guardian) right after the volunteer: allowed.
+    expect(canSendCode([], [ago(5)], now)).toEqual({ ok: true });
   });
 
   it("allows 5 codes per hour and per dossier", () => {
     const four = [ago(3000), ago(2000), ago(1000), ago(120)];
-    expect(canSendCode(four, now)).toEqual({ ok: true });
-    const refused = canSendCode([ago(3500), ...four], now);
+    expect(canSendCode(four, four, now)).toEqual({ ok: true });
+    const refused = canSendCode([], [ago(3500), ...four], now);
     expect(refused).toMatchObject({ ok: false, retryInSeconds: 100 });
     // Older than an hour: no longer counted.
-    expect(canSendCode([ago(4000), ...four], now)).toEqual({ ok: true });
+    expect(canSendCode([], [ago(4000), ...four], now)).toEqual({ ok: true });
   });
 });
 

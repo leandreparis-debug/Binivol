@@ -25,19 +25,29 @@ export function OpenDossierLink({ open }: OpenDossierLinkProps) {
     if (started.current) return;
     started.current = true;
     const token = window.location.hash.replace(/^#/, "");
-    window.history.replaceState(null, "", window.location.pathname);
-    if (token === "") {
-      setRefused(true);
-      return;
-    }
-    void open({ token })
-      .then((result) => {
-        if (result.ok && result.data.opened) window.location.replace("/dossier");
-        else setRefused(true);
-      })
-      .catch(() => {
+    // After the router's own mount effects (a parent effect runs after this one and
+    // rewrites the address it knows, fragment included): then the fragment goes.
+    const timer = window.setTimeout(() => {
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+      if (token === "") {
         setRefused(true);
-      });
+        return;
+      }
+      // Both outcomes leave this page by a real navigation: the router can no
+      // longer put the fragment back in the address.
+      void open({ token })
+        .then((result) => {
+          window.location.replace(
+            result.ok && result.data.opened ? "/dossier" : "/dossier/lien-invalide",
+          );
+        })
+        .catch(() => {
+          setRefused(true);
+        });
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [open]);
 
   if (refused) return <InvalidLink />;

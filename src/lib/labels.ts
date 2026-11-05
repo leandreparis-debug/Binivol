@@ -184,9 +184,9 @@ export const SIGNATURE_INPUT_LABELS: Record<SignatureInput, string> = {
 };
 
 export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
-  DOSSIER: "Dossier d'engagement",
-  CHARTE: "Charte du bénévole",
-  APTITUDE: "Certificat d'aptitude",
+  DOSSIER: "Dossier bénévole",
+  CHARTE: "Charte du bénévolat",
+  APTITUDE: "Attestation d'aptitude",
   DIPLOMA_COPY: "Copie de diplôme",
   PARENTAL_AUTH: "Autorisation parentale",
   B3_ATTESTATION: "Attestation B3",

@@ -127,7 +127,7 @@ export const countersignAction = defineAction({
       },
       await requestMeta(),
     );
-    refresh();
+    // No revalidation here: the dialog shows its confirmation, « Terminer » refreshes the page.
     return { mailSent: outcome.mailSent, mailMessage: outcome.mailMessage };
   },
 });

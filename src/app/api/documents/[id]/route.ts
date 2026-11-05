@@ -1,6 +1,7 @@
 import { getActor } from "@/server/auth/actor";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
+import { contentDisposition } from "@/server/pdf/fileName";
 import { ForbiddenError } from "@/server/policy/can";
 import { openDocument } from "@/server/services/documents";
 import { getStorage } from "@/server/storage";
@@ -38,7 +39,8 @@ export async function GET(
         ...NO_STORE,
         "Content-Type": meta.mimeType,
         "Content-Length": String(body.length),
-        "Content-Disposition": `attachment; filename="${meta.fileName.replace(/["\\\r\n]/g, "_")}"`,
+        // ASCII fallback plus the exact UTF-8 name (RFC 5987): « ÑÚÑEZ_Łucja_… .pdf ».
+        "Content-Disposition": contentDisposition(meta.fileName),
       },
     });
   } catch (error) {
