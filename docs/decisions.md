@@ -587,3 +587,17 @@ en test, relais du VPS ensuite) et `log` (par défaut), qui écrit le message ch
 
 **Conséquences.** Changer de fournisseur ne demande que les variables `SMTP_*`. Le pilote `log`
 sert aux tests e2e (le lien y est récupéré) sans jamais stocker un jeton en clair.
+
+## ADR-042 — Seed de la démo hébergée : les personnes saisies hors seed sont conservées
+
+**Contexte.** `seed:demo` refuse toute base contenant une personne sans la note du seed, pour ne
+jamais mêler données fictives et réelles. Sur la démo hébergée, des testeurs créent des
+candidats : le seed de l'étape 7 a donc été ignoré en production.
+
+**Décision.** Quand `AUTH_DEMO_ON_VERCEL=true` (démo hébergée, ADR-035), la base est fictive par
+définition : `seedDemo({ hostedDemo: true })` conserve les personnes créées hors seed sans les
+modifier, les liste par référence dans le journal de build, et ajoute ou met à jour ses propres
+données. Partout ailleurs, le refus strict reste inchangé.
+
+**Conséquences.** La démo reçoit les données de chaque étape sans base neuve. Le journal de build
+ne contient que des références (`P-000xx`), jamais de nom.

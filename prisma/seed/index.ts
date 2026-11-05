@@ -57,6 +57,18 @@ export const SEED_VOLUMES = {
 export interface SeedOptions {
   /** Reference day (00:00 UTC). Default: today in Paris. */
   today?: Date;
+  /**
+   * Hosted demo (AUTH_DEMO_ON_VERCEL=true, ADR-035 and ADR-042): the database is
+   * a demo, fictitious by definition. People created outside the seed (typed by
+   * testers) are kept untouched and listed, instead of refusing. Everywhere
+   * else the strict refusal applies.
+   */
+  hostedDemo?: boolean;
+}
+
+/** Result of the demo seed: people found outside the seed (hosted demo only). */
+export interface SeedDemoResult {
+  foreignPeople: { ref: string; createdAt: Date }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -342,10 +354,21 @@ export class RealDataPresentError extends Error {
   }
 }
 
+const NON_SEED_PERSON = {
+  OR: [{ notes: null }, { NOT: { notes: { contains: SEED_MARK } } }],
+} satisfies Prisma.PersonWhereInput;
+
 /** Number of people that are not synthetic seed data. */
 export async function countNonSeedPersons(db: PrismaClient | SeedTx): Promise<number> {
-  return db.person.count({
-    where: { OR: [{ notes: null }, { NOT: { notes: { contains: SEED_MARK } } }] },
+  return db.person.count({ where: NON_SEED_PERSON });
+}
+
+/** People that are not seed data (refs only: nothing personal goes to a log). */
+async function listNonSeedPersons(db: PrismaClient | SeedTx) {
+  return db.person.findMany({
+    where: NON_SEED_PERSON,
+    orderBy: { ref: "asc" },
+    select: { ref: true, createdAt: true },
   });
 }
 
@@ -486,7 +509,10 @@ export async function seedBase(db: PrismaClient): Promise<void> {
  * people. Safe to run again: it only creates what is missing and refreshes the
  * rest, in one transaction. Refuses a database that holds any non-seed person.
  */
-export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Promise<void> {
+export async function seedDemo(
+  db: PrismaClient,
+  options: SeedOptions = {},
+): Promise<SeedDemoResult> {
   faker.seed(FAKER_SEED);
   const today = options.today ?? toParisDay();
   const year = today.getUTCFullYear();
@@ -503,12 +529,14 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
     );
   };
 
+  const hosted = options.hostedDemo === true;
   const realPeople = await countNonSeedPersons(db);
-  if (realPeople > 0) throw new RealDataPresentError(realPeople);
+  if (realPeople > 0 && !hosted) throw new RealDataPresentError(realPeople);
+  const foreignPeople = hosted ? await listNonSeedPersons(db) : [];
 
   await db.$transaction(
     async (tx) => {
-      if ((await countNonSeedPersons(tx)) > 0)
+      if (!hosted && (await countNonSeedPersons(tx)) > 0)
         throw new RealDataPresentError(await countNonSeedPersons(tx));
       await seedBaseIn(tx);
 
@@ -1416,6 +1444,7 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
     },
     { timeout: 180_000, maxWait: 20_000 },
   );
+  return { foreignPeople };
 }
 
 /** Row counts of every table, for the seed report and the tests. */

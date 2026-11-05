@@ -44,6 +44,24 @@ describe("seed:demo", () => {
     await expect(seedDemo(db, { today })).rejects.toBeInstanceOf(RealDataPresentError);
   });
 
+  it("on a hosted demo, keeps and lists the people created outside the seed", async () => {
+    await seedBase(db);
+    const typed = await db.person.create({
+      data: { firstName: "Saisie", lastName: "Testeur", notes: "Créée dans la démo" },
+    });
+    const { foreignPeople } = await seedDemo(db, { today, hostedDemo: true });
+    expect(foreignPeople.map((p) => p.ref)).toEqual([typed.ref]);
+    expect(await db.person.count()).toBe(SEED_VOLUMES.persons + 1);
+    const after = await db.person.findUniqueOrThrow({ where: { id: typed.id } });
+    expect(after).toEqual(typed);
+    // Still strict everywhere else.
+    await expect(seedDemo(db, { today })).rejects.toBeInstanceOf(RealDataPresentError);
+    // Idempotent on the demo too.
+    const first = await countRows(db);
+    await seedDemo(db, { today, hostedDemo: true });
+    expect(await countRows(db)).toEqual(first);
+  });
+
   it("runs on top of the base seed and stays idempotent", async () => {
     await seedBase(db);
     await seedDemo(db, { today });
