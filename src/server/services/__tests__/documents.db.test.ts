@@ -49,13 +49,28 @@ afterAll(async () => {
 const person = () =>
   db.person.findFirstOrThrow({ where: { status: "ACTIVE" }, orderBy: { ref: "asc" } });
 
+describe("retired document kinds", () => {
+  it("refuses a new diploma copy (ADR-049); Pegass is the reference", async () => {
+    const p = await person();
+    await expect(
+      uploadDocument(db, localStorage(root), who("topaze"), {
+        personId: p.id,
+        kind: "DIPLOMA_COPY",
+        expiresAt: null,
+        fileName: "diplome.pdf",
+        bytes: PDF,
+      }),
+    ).rejects.toThrow(/plus conservées/);
+  });
+});
+
 describe("documents with the local driver", () => {
   it("uploads under a random key, then opens with a DOCUMENT_VIEW access log", async () => {
     const storage = localStorage(root);
     const p = await person();
     const id = await uploadDocument(db, storage, who("topaze"), {
       personId: p.id,
-      kind: "DIPLOMA_COPY",
+      kind: "B3_ATTESTATION",
       expiresAt: new Date("2027-12-31T00:00:00.000Z"),
       fileName: `${p.lastName} diplôme.pdf`,
       bytes: PDF,

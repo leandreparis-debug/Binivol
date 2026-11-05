@@ -266,3 +266,11 @@ describe("normalisation at submission", () => {
     expect(n.profile?.licenses).toEqual(["B"]);
   });
 });
+
+describe("attachment kinds", () => {
+  it("never accepts a diploma copy (ADR-049)", async () => {
+    const { DOSSIER_ATTACHMENT_KINDS, RETIRED_DOCUMENT_KINDS } = await import("@/lib/dossierForms");
+    expect(DOSSIER_ATTACHMENT_KINDS).toEqual(["PARENTAL_AUTH", "ADHESION"]);
+    expect(RETIRED_DOCUMENT_KINDS).toEqual(["DIPLOMA_COPY"]);
+  });
+});

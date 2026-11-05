@@ -336,6 +336,21 @@ describe("draft, submission and review", () => {
     expect(storage.files.size).toBe(1);
   });
 
+  it("refuses a diploma copy, even called without the form (ADR-049)", async () => {
+    const c = await confirmedCandidate();
+    await createDossierLink(db, who("diamant"), { personId: c.personId });
+    const draft = await loadDraft(db, c.personId);
+    if (!draft) throw new Error("draft");
+    await expect(
+      addAttachment(db, memoryStorage(), {
+        submissionId: draft.submissionId,
+        kind: "DIPLOMA_COPY" as "ADHESION",
+        fileName: "diplome.pdf",
+        bytes: PDF,
+      }),
+    ).rejects.toThrow("Ce type de pièce n'est plus accepté.");
+  });
+
   it("keeps the draft and says so when the storage is down", async () => {
     const c = await confirmedCandidate();
     await createDossierLink(db, who("diamant"), { personId: c.personId });
@@ -344,7 +359,7 @@ describe("draft, submission and review", () => {
     await expect(
       addAttachment(db, memoryStorage({ failPut: true }), {
         submissionId: draft.submissionId,
-        kind: "DIPLOMA_COPY",
+        kind: "ADHESION",
         fileName: "d.pdf",
         bytes: PDF,
       }),

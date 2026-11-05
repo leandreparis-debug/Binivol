@@ -30,18 +30,18 @@ responsable suivi de « (sur place) ».
 
 ## Étapes du formulaire
 
-| #   | Étape                     | Contenu                                                                                         |
-| --- | ------------------------- | ----------------------------------------------------------------------------------------------- |
-| 1   | Accueil                   | Présentation, durée, pièces à préparer                                                          |
-| 2   | Identité                  | Civilité, nom, nom de naissance, nom d'usage, prénom, second prénom, naissance                  |
-| 3   | Coordonnées               | Adresse, pays, téléphones et e-mails personnels et professionnels                               |
-| 4   | Croix-Rouge               | Déjà bénévole, NIVOL déclaré, e-mail Croix-Rouge déclaré, activités souhaitées (4 au plus)      |
-| 5   | Personne à prévenir       | Une personne : civilité, nom, prénom, lien, adresse, téléphones, e-mail                         |
-| 6   | Profil                    | Profession, secteur, entreprise ; 4 compétences, 3 langues (avec niveaux), 5 diplômes, 4 permis |
-| 7   | Représentant légal        | **Mineurs seulement** : nom, prénom, qualité, téléphone                                         |
-| 8   | Pièces jointes            | Copies de diplômes, autorisation parentale (mineurs), demande d'adhésion                        |
-| 9   | Relecture et consentement | Résumé par étape (« Modifier »), points à compléter, information RGPD, envoi                    |
-| —   | Confirmation              | « Votre dossier a bien été envoyé »                                                             |
+| #   | Étape                     | Contenu                                                                                          |
+| --- | ------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1   | Accueil                   | Présentation, durée, pièces à préparer                                                           |
+| 2   | Identité                  | Civilité, nom, nom de naissance, nom d'usage, prénom, second prénom, naissance                   |
+| 3   | Coordonnées               | Adresse, pays, téléphones et e-mails personnels et professionnels                                |
+| 4   | Croix-Rouge               | Déjà bénévole, NIVOL déclaré, e-mail Croix-Rouge déclaré, activités souhaitées (4 au plus)       |
+| 5   | Personne à prévenir       | Une personne : civilité, nom, prénom, lien, adresse, téléphones, e-mail                          |
+| 6   | Profil                    | Profession, secteur, entreprise ; 4 compétences, 3 langues (avec niveaux), 5 diplômes, 4 permis  |
+| 7   | Représentant légal        | **Mineurs seulement** : nom, prénom, qualité, téléphone                                          |
+| 8   | Pièces jointes            | Autorisation parentale (mineurs), demande d'adhésion ; pas de copie de diplôme (Pegass, ADR-049) |
+| 9   | Relecture et consentement | Résumé par étape (« Modifier »), points à compléter, information RGPD, envoi                     |
+| —   | Confirmation              | « Votre dossier a bien été envoyé »                                                              |
 
 Le B3 et le permis de conduire ne sont **jamais** demandés : le profil ne demande que les
 catégories de permis, et l'étape Pièces jointes le rappelle.
@@ -112,6 +112,11 @@ Un envoi incomplet est refusé, avec le message à l'étape concernée.
 - **Journaux de la plateforme** : grâce au fragment, le jeton n'y figure jamais (ADR-043).
 
 ## Pièces jointes
+
+**Aucune copie de diplôme** n'est demandée ni acceptée (ADR-049) : « Tes diplômes seront vérifiés
+dans Pegass, tu n'as pas à les envoyer. » Le type `DIPLOMA_COPY` reste dans l'énumération (des
+lignes anciennes peuvent exister et restent consultables), mais tout nouveau dépôt de ce type est
+refusé, dans le dossier comme dans l'onglet Documents.
 
 Mêmes règles que les documents (`docs/storage.md`) : signature binaire PDF, JPEG ou PNG,
 10 Mo au plus, clé aléatoire `dossiers/…`, pas d'URL publique. Avant l'envoi, elles sont dans

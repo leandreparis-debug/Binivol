@@ -182,7 +182,7 @@ test.describe("Annuaire et fiche (bureau)", () => {
     const [first] = await directoryLinks(page, "statut=ACTIVE");
     await page.goto(`${first ?? ""}?onglet=documents`);
     const pdf = Buffer.from("%PDF-1.7\n% Document fictif (e2e)\n%%EOF\n");
-    await page.getByLabel("Type de document").selectOption("DIPLOMA_COPY");
+    await page.getByLabel("Type de document").selectOption("OTHER");
     await page.getByLabel("Fichier").setInputFiles({
       name: "attestation-fictive.pdf",
       mimeType: "application/pdf",
@@ -192,7 +192,7 @@ test.describe("Annuaire et fiche (bureau)", () => {
     await expect(page.getByText("Document déposé.")).toBeVisible();
     const download = page.waitForEvent("download");
     await page
-      .getByRole("link", { name: /Télécharger Copie de diplôme.* attestation-fictive\.pdf/ })
+      .getByRole("link", { name: /Télécharger Autre document.* attestation-fictive\.pdf/ })
       .first()
       .click();
     const file = await download;

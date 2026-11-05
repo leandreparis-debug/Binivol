@@ -38,7 +38,14 @@ export const LANGUAGE_LEVEL_LABELS = {
   BILINGUAL: "Bilingue",
 } as const;
 
-export const DOSSIER_ATTACHMENT_KINDS = ["DIPLOMA_COPY", "PARENTAL_AUTH", "ADHESION"] as const;
+/**
+ * Pieces a candidate may attach. No copy of a diploma (ADR-049): Pegass is the
+ * reference for diplomas, and a copy would be personal data kept for nothing.
+ */
+export const DOSSIER_ATTACHMENT_KINDS = ["PARENTAL_AUTH", "ADHESION"] as const;
+
+/** Document kinds refused for any new file (the value stays in the enum for old rows). */
+export const RETIRED_DOCUMENT_KINDS = ["DIPLOMA_COPY"] as const;
 export type DossierAttachmentKind = (typeof DOSSIER_ATTACHMENT_KINDS)[number];
 
 const id = z.string().min(1).max(40);

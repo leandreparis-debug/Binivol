@@ -1,5 +1,6 @@
 "use client";
 
+import { RETIRED_DOCUMENT_KINDS } from "@/lib/dossierForms";
 import { useRef, useState } from "react";
 import { Archive, Download, FileWarning, Upload } from "lucide-react";
 import type { DocumentKind } from "@/generated/prisma/enums";
@@ -64,11 +65,13 @@ function UploadForm({ personId }: { personId: string }) {
     >
       <Field label="Type de document" htmlFor="doc-kind" error={errorOf("kind")} required>
         <Select id="doc-kind" name="kind" defaultValue="OTHER">
-          {(Object.keys(DOCUMENT_KIND_LABELS) as DocumentKind[]).map((kind) => (
-            <option key={kind} value={kind}>
-              {DOCUMENT_KIND_LABELS[kind]}
-            </option>
-          ))}
+          {(Object.keys(DOCUMENT_KIND_LABELS) as DocumentKind[])
+            .filter((kind) => !(RETIRED_DOCUMENT_KINDS as readonly string[]).includes(kind))
+            .map((kind) => (
+              <option key={kind} value={kind}>
+                {DOCUMENT_KIND_LABELS[kind]}
+              </option>
+            ))}
         </Select>
       </Field>
       <Field

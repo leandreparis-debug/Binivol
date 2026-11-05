@@ -287,9 +287,7 @@ export function DossierForm({ view, actions, personId, exitHref }: DossierFormPr
 
   const fields = STEP_FIELDS[current];
   const attachmentKinds: DossierAttachmentKind[] =
-    age !== null && age < 18
-      ? ["DIPLOMA_COPY", "PARENTAL_AUTH", "ADHESION"]
-      : ["DIPLOMA_COPY", "ADHESION"];
+    age !== null && age < 18 ? ["PARENTAL_AUTH", "ADHESION"] : ["ADHESION"];
 
   return (
     <div className="flex flex-col gap-4">
@@ -528,7 +526,7 @@ function Welcome({
         <ul className="mt-1 list-disc pl-5">
           <li>votre adresse et votre date de naissance ;</li>
           <li>les coordonnées d&apos;une personne à prévenir en cas d&apos;urgence ;</li>
-          <li>vos diplômes éventuels (une photo ou un PDF suffit) ;</li>
+          <li>la liste de vos diplômes (sans copie : ils sont vérifiés dans Pegass) ;</li>
           <li>avant 16 ans, l&apos;autorisation parentale signée.</li>
         </ul>
       </div>

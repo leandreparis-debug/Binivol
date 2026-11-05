@@ -447,7 +447,6 @@ export function AttachmentsStep({
   const [message, setMessage] = useState<{ kind: string; text: string } | null>(null);
   const inputs = useRef<Partial<Record<string, HTMLInputElement | null>>>({});
   const hints: Record<DossierAttachmentKind, string> = {
-    DIPLOMA_COPY: "Les copies des diplômes déclarés, si vous les avez.",
     PARENTAL_AUTH: "Signée par votre représentant légal. Obligatoire avant 16 ans.",
     ADHESION: "Si l'unité locale vous l'a demandée.",
   };
@@ -462,6 +461,9 @@ export function AttachmentsStep({
       <p className="text-small text-muted">
         PDF, JPEG ou PNG, 10 Mo au plus par fichier. Ne joignez ni extrait de casier judiciaire, ni
         permis de conduire : ils ne sont pas demandés.
+      </p>
+      <p className="text-small text-ink-2" data-testid="dossier-pegass">
+        Tes diplômes seront vérifiés dans Pegass, tu n&apos;as pas à les envoyer.
       </p>
       {kinds.map((kind) => {
         const files = attachments.filter((a) => a.kind === kind);

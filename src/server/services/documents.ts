@@ -1,3 +1,4 @@
+import { RETIRED_DOCUMENT_KINDS } from "@/lib/dossierForms";
 import type { DocumentKind } from "@/generated/prisma/enums";
 import type { Db } from "../db";
 import { checkDocumentFile, cleanFileName, sha256Hex } from "../documentFile";
@@ -39,6 +40,12 @@ export async function uploadDocument(
   actor: Actor,
   input: UploadInput,
 ): Promise<string> {
+  if ((RETIRED_DOCUMENT_KINDS as readonly string[]).includes(input.kind)) {
+    throw new DomainError(
+      "INVALID_DATA",
+      "Les copies de diplôme ne sont plus conservées : les diplômes se vérifient dans Pegass.",
+    );
+  }
   const type = checkDocumentFile(input.bytes);
   const key = newStorageKey(type.extension);
   const body = Buffer.from(input.bytes);

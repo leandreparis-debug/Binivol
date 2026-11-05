@@ -679,3 +679,17 @@ copie UL et vérifie son empreinte avant l'envoi.
 
 **Conséquences.** Pas de doublon de données personnelles dans le stockage ; un renvoi envoie
 exactement les fichiers signés.
+
+## ADR-049 — Pas de copie de diplôme stockée
+
+**Contexte.** Le dossier en ligne de l'étape 7 acceptait des copies de diplômes. L'ancien outil
+ne les gardait pas : Pegass, l'outil national, fait foi pour les diplômes. Une copie serait une
+donnée personnelle conservée sans usage (minimisation, RGPD).
+
+**Décision.** `DIPLOMA_COPY` est retiré des pièces du dossier, du formulaire et du choix de
+l'onglet Documents ; les services refusent tout nouveau fichier de ce type
+(`RETIRED_DOCUMENT_KINDS`). La valeur reste dans l'énumération pour les lignes existantes. Le
+formulaire dit : « Tes diplômes seront vérifiés dans Pegass, tu n'as pas à les envoyer ».
+
+**Conséquences.** Réversible : remettre la valeur dans `DOSSIER_ATTACHMENT_KINDS` et la retirer
+de `RETIRED_DOCUMENT_KINDS`. Les diplômes déclarés (texte) restent demandés et reportables.

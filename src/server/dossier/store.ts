@@ -167,7 +167,7 @@ export async function saveDraft(
   });
 }
 
-export const ATTACHMENT_KINDS = ["DIPLOMA_COPY", "PARENTAL_AUTH", "ADHESION"] as const;
+export const ATTACHMENT_KINDS = ["PARENTAL_AUTH", "ADHESION"] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
 
 /**
@@ -187,6 +187,10 @@ export async function addAttachment(
   });
   if (draft?.status !== "DRAFT")
     throw new DomainError("INVALID_DATA", "Ce dossier a déjà été envoyé.");
+  // Even called without the form: only the kinds still accepted (no diploma copy, ADR-049).
+  if (!(ATTACHMENT_KINDS as readonly string[]).includes(input.kind)) {
+    throw new DomainError("INVALID_DATA", "Ce type de pièce n'est plus accepté.");
+  }
   const type = checkDocumentFile(input.bytes);
   const key = newStorageKey(type.extension, "dossiers");
   const body = Buffer.from(input.bytes);
