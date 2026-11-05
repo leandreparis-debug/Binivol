@@ -8,12 +8,12 @@ Données personnelles C3 : **aucun fichier n'est public**, aucun n'entre dans Gi
 
 ## Ce qui est stocké
 
-| Où                    | Quoi                                                                                     |
-| --------------------- | ---------------------------------------------------------------------------------------- |
-| Stockage              | le fichier, sous une clé aléatoire `documents/<année>/<32 caractères hex>.<pdf/jpg/png>` |
-| Table `documents`     | type, clé, nom d'origine nettoyé, type MIME détecté, taille, SHA-256, expiration         |
-| Journal `audit_logs`  | dépôt et archivage, avec nom, clé et empreinte **masqués**                               |
-| Journal `access_logs` | chaque téléchargement (`DOCUMENT_VIEW`)                                                  |
+| Où                    | Quoi                                                                                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stockage              | le fichier, sous une clé aléatoire `documents/<année>/<32 caractères hex>.<pdf/jpg/png>` ; pièces d'un brouillon `dossiers/…` ; images de signature `signatures/…` (étape 8) |
+| Table `documents`     | type, clé, nom d'origine nettoyé, type MIME détecté, taille, SHA-256, expiration                                                                                             |
+| Journal `audit_logs`  | dépôt et archivage, avec nom, clé et empreinte **masqués**                                                                                                                   |
+| Journal `access_logs` | chaque téléchargement (`DOCUMENT_VIEW`)                                                                                                                                      |
 
 La clé ne contient jamais le nom de la personne. Un fichier n'est accepté que s'il est un PDF, un
 JPEG ou un PNG d'après sa **signature binaire** (ses premiers octets), 10 Mo au maximum : un

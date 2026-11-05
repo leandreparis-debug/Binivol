@@ -106,9 +106,12 @@ sauvegarde : `docs/storage.md`.
 
 ## Dossier en ligne et e-mails
 
-Le candidat remplit son dossier sur téléphone depuis un lien sécurisé (jeton haché, échangé contre
-un cookie de 2 h), DIAMANT le relit puis reporte les champs choisis dans la fiche :
-`docs/dossier.md`. Les e-mails passent par `MailService` : pilote `log` par défaut (rien ne part,
+Le candidat remplit son dossier sur téléphone depuis un lien sécurisé (`/dossier/ouvrir#<jeton>` :
+jeton haché, après `#`, échangé contre un cookie de 2 h), DIAMANT le relit puis reporte les champs
+choisis dans la fiche : `docs/dossier.md`. Le candidat signe ensuite (tracé ou nom saisi, puis
+code reçu par e-mail ; le représentant légal d'un mineur aussi), un responsable contresigne la
+charte, et Binivol produit les trois PDF officiels aplatis, la preuve de signature et l'e-mail au
+bénévole : `docs/signature.md`. Les e-mails passent par `MailService` : pilote `log` par défaut (rien ne part,
 les messages chiffrés se lisent dans **Administration › Courriels**), `smtp` pour un envoi réel
 (`docs/mail.md`).
 

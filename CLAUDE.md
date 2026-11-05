@@ -104,6 +104,12 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
 - **Dossier en ligne** (`docs/dossier.md`) : le jeton n'est jamais stocké ni journalisé (seule
   son empreinte SHA-256) ; les actions du candidat passent par `definePublicAction` et relisent
   le cookie de dossier ; le NIVOL et l'e-mail CRF déclarés ne sont jamais reportés dans la fiche.
+  Le lien est `/dossier/ouvrir#<jeton>` (jamais dans une adresse reçue par le serveur) ; il est
+  consommé à la signature complète, pas à l'envoi.
+- **Signature et PDF** (`docs/signature.md`) : code à usage unique stocké en HMAC seulement ;
+  PDF officiels remplis par `src/server/pdf/` (correspondance dans `mappings.ts`, empreintes des
+  modèles figées dans `templates.ts`, sorties aplaties) ; **jamais de modèle de remplacement** ni
+  de modification des fichiers de `assets/modeles/`.
 - E-mails uniquement par `MailService` (`src/server/mail/`, `docs/mail.md`).
 - Chaque page appelle `requirePageAccess(action)` (ou `authorizePage` avec la personne) ; le
   middleware n'est pas une sécurité.

@@ -617,3 +617,64 @@ envoyé.
 **Conséquences.** Le jeton n'apparaît dans aucune adresse reçue par le serveur ni dans aucun
 journal d'accès ; il ne voyage que dans le corps d'un `POST` en HTTPS. Sans JavaScript, le lien
 ne s'ouvre pas (le formulaire en a besoin de toute façon).
+
+## ADR-044 — PDF officiels : `pdf-lib`, aplatissement, police Unicode, modèles figés
+
+**Contexte.** L'étape 8 remplit trois PDF officiels (AcroForm) de la Croix-Rouge, y pose des
+signatures et les remet au bénévole. Il faut des fichiers non modifiables, des noms accentués ou
+d'Europe de l'Est corrects, et l'assurance que le champ « Nom_2 » est bien celui qu'on croit.
+
+**Décision.**
+
+- `pdf-lib` et `@pdf-lib/fontkit` (JavaScript pur, aucun service ni binaire externe) ; la police
+  Geist (OFL) est embarquée et sous-ensemblée pour tout texte ; Caveat (OFL) sert au nom saisi
+  comme signature.
+- Les PDF finaux sont **aplatis** : plus aucun champ. Les objets supprimés par l'aplatissement
+  deviennent `null` pour que la table des références reste complète (le modèle est balisé).
+- Les signatures sont des images posées dans le rectangle du champ, avec « Signé
+  électroniquement le JJ/MM/AAAA ».
+- L'empreinte SHA-256 de chaque modèle et de chaque police est **figée dans le code**
+  (`src/server/pdf/templates.ts`) : un modèle modifié bloque la génération avec un message clair.
+- Un défaut du modèle d'attestation (date de naissance réutilisée sur la ligne « Date ») est
+  corrigé à la génération, sans toucher au modèle.
+
+**Conséquences.** Changer de modèle demande une revue de ses champs (test de correspondance) et
+la mise à jour de l'empreinte : c'est voulu. Les PDF générés pèsent de 0,5 à 2 Mo (la charte
+d'origine est lourde).
+
+## ADR-045 — Le lien du dossier est consommé à la signature, plus à l'envoi
+
+**Contexte.** À l'étape 7, l'envoi fermait le lien. À l'étape 8, le candidat doit encore signer
+(et le représentant légal d'un mineur) : il faut rouvrir quelque chose sans rouvrir le
+formulaire.
+
+**Décision.** Après l'envoi, le lien reste ouvert mais ne mène plus qu'aux écrans de signature
+(session `signing`) ; le formulaire n'est plus modifiable. `usedAt` est posé à la **signature
+complète** côté candidat (bénévole, puis représentant légal d'un mineur), dans la transaction de
+la dernière signature. Un nouveau lien créé entre-temps mène au même dossier envoyé, jamais à un
+nouveau brouillon.
+
+**Conséquences.** Un lien transféré permettrait de signer à la place du candidat : le code reçu
+sur son e-mail reste nécessaire, ce qui limite ce risque au partage de la boîte e-mail.
+
+## ADR-046 — Copie bénévole non stockée, passage à GAIA à la contresignature
+
+**Contexte.** Le bénévole reçoit ses documents par e-mail ; l'unité locale garde sa copie. La
+finalisation enchaîne génération, stockage, preuve, e-mail et passage d'étape : il faut savoir
+quoi faire en cas d'échec partiel.
+
+**Décision.**
+
+- La **copie UL** (3 PDF + preuve) est stockée et enregistrée en `Document` (copie `UL`) ; la
+  **copie bénévole** est la même suite d'octets, envoyée en pièces jointes, **pas stockée une
+  seconde fois** ; ses empreintes figurent dans la preuve.
+- Ordre : génération → stockage (tout ou rien) → **une transaction** (signature du représentant,
+  empreintes, documents, `SIGNED`, candidature `FILE` → `GAIA`) → e-mail. L'e-mail est après la
+  transaction : son échec n'annule rien et « Renvoyer l'e-mail » relit les fichiers stockés.
+- La concurrence est réglée par l'état du dossier (`SUBMITTED` → `SIGNED`) et l'unicité
+  (dossier, rôle) des signatures : le second responsable est refusé, aucun document n'est doublé.
+- Sans stockage (démo hébergée sans S3), la signature est refusée dès l'écran, avec un message
+  clair.
+
+**Conséquences.** La candidature passe à `GAIA` même si l'e-mail n'est pas parti : le dossier est
+complet côté unité locale ; l'échec de l'e-mail reste visible dans le bloc « Dossier ».
