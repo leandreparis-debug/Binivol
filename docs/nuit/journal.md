@@ -59,7 +59,89 @@ l'étape). `pnpm db:fresh` passe.
   jour** — la signature HMAC du cookie dépend de `Date.now()`, et la falsification remplaçait
   son premier caractère par « x » ; quand il valait déjà « x » (1 fois sur 64), le cookie restait
   valide. Corrigé : instant fixe et caractère garanti différent.
-- **`git ls-files docs/ assets/`** : voir la fin de cette section.
+- **`git ls-files docs/ assets/`** :
+
+```text
+assets/fonts/Caveat-OFL.txt
+assets/fonts/Caveat-Regular.ttf
+assets/fonts/Geist-Regular.ttf
+"assets/modeles/Code de conduite (d\303\251c. 2024).pdf"
+"assets/modeles/NOM_Pr\303\251nom_Attestation-d_Aptitude.pdf"
+"assets/modeles/NOM_Pr\303\251nom_Charte-du-B\303\251n\303\251volat.pdf"
+"assets/modeles/NOM_Pr\303\251nom_Dossier-B\303\251n\303\251vole.pdf"
+"assets/modeles/R\303\250glement du b\303\251n\303\251volat.pdf"
+docs/auth.md
+docs/captures/403-1440.png
+docs/captures/accueil-1440.png
+docs/captures/accueil-390.png
+docs/captures/admin-comptes-1440.png
+docs/captures/annuaire-1440.png
+docs/captures/annuaire-390.png
+docs/captures/candidats-1440.png
+docs/captures/candidats-390.png
+docs/captures/connexion-1440.png
+docs/captures/connexion-390.png
+docs/captures/connexion-erreur-1440.png
+docs/captures/contresignature-1440.png
+docs/captures/design-1440.png
+docs/captures/design-390.png
+docs/captures/dossier-accueil-390.png
+docs/captures/dossier-bloc-1440.png
+docs/captures/dossier-identite-390.png
+docs/captures/dossier-identite-erreurs-390.png
+docs/captures/dossier-lien-1440.png
+docs/captures/dossier-lien-invalide-390.png
+docs/captures/dossier-profil-390.png
+docs/captures/dossier-relecture-390.png
+docs/captures/dossier-revue-1440.png
+docs/captures/dossier-revue-390.png
+docs/captures/dossier-sur-place-390.png
+docs/captures/fiche-390.png
+docs/captures/fiche-apercu-1440.png
+docs/captures/fiche-formations-1440.png
+docs/captures/fiche-historique-1440.png
+docs/captures/fiche-integration-1440.png
+docs/captures/finalisation-1440.png
+docs/captures/import-simulation-1440.png
+docs/captures/moi-1440.png
+docs/captures/pdf-champs-attestation.png
+docs/captures/pdf-champs-charte.png
+docs/captures/pdf-champs-dossier-p2.png
+docs/captures/pdf-final-attestation.png
+docs/captures/pdf-final-charte.png
+docs/captures/pdf-final-dossier.png
+docs/captures/signature-bloc-1440.png
+docs/captures/signature-code-390.png
+docs/captures/signature-complet-1440.png
+docs/captures/signature-confirmation-390.png
+docs/captures/signature-documents-1440.png
+docs/captures/signature-documents-390.png
+docs/captures/signature-nom-390.png
+docs/captures/signature-trace-390.png
+docs/data-model.md
+docs/decisions.md
+docs/deploy.md
+docs/design-system.md
+docs/dossier.md
+docs/import.md
+docs/integration.md
+docs/mail.md
+docs/nuit/journal.md
+docs/nuit/questions.md
+docs/permissions.md
+docs/plan/etape-08.md
+docs/plan/etape-09.md
+docs/plan/etape-10.md
+docs/plan/etape-11.md
+docs/plan/etape-12.md
+docs/plan/etape-13.md
+docs/plan/etape-14.md
+docs/plan/etape-15.md
+docs/plan/marathon.md
+docs/signature.md
+docs/storage.md
+```
+
 - **Captures** : `docs/captures/signature-{documents,trace,nom,code,confirmation}-390.png`,
   `signature-bloc-1440.png`, `contresignature-1440.png`, `signature-complet-1440.png`,
   `signature-documents-1440.png`, `pdf-champs-{charte,attestation,dossier-p2}.png`,
