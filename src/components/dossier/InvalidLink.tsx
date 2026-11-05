@@ -11,8 +11,9 @@ export function InvalidLink() {
         <h1 className="text-title text-ink">Ce lien n&apos;est plus valable.</h1>
         <p className="text-body text-ink-2">Contactez l&apos;unité locale.</p>
         <p className="text-small text-muted">
-          Si vous avez commencé votre dossier, vos réponses sont enregistrées : l&apos;unité locale
-          peut vous envoyer un nouveau lien pour le reprendre.
+          Si votre session a expiré, rouvrez le lien reçu par e-mail : vos réponses sont
+          enregistrées. Si le lien ne fonctionne plus, l&apos;unité locale peut vous en envoyer un
+          nouveau.
         </p>
       </CardContent>
     </Card>

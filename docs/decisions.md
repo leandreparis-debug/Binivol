@@ -531,3 +531,59 @@ que la migration n'est pas en production. C'est voulu : la base n'évolue que pa
 
 **Conséquences.** Requêtes plus rapides vers la base, traitement en Europe. Sur VPS, le
 serveur sera aussi hébergé en France.
+
+## ADR-038 — Le jeton du dossier est échangé contre un cookie
+
+**Contexte.** Le candidat n'a pas de compte : un lien porte un jeton. Laissé dans l'adresse, il
+finirait dans l'historique, les favoris, l'en-tête `Referer` et les captures d'écran.
+
+**Décision.** Le jeton (32 octets aléatoires, base64url) n'est stocké que par son empreinte
+SHA-256. `GET /dossier/[token]` le vérifie, pose un cookie de session de dossier (`HttpOnly`,
+`SameSite=Lax`, chemin `/dossier`, `Secure` en HTTPS, 2 h glissantes, signé HMAC avec une clé
+dérivée d'`AUTH_SECRET`, contenant seulement l'identifiant du lien), puis redirige vers
+`/dossier`. Les pages `/dossier*` envoient `Referrer-Policy: no-referrer`,
+`Cache-Control: no-store` et `X-Robots-Tag: noindex`. Tout refus donne la même page neutre.
+
+**Conséquences.** Le jeton ne quitte plus la première requête. Il reste visible dans les journaux
+d'accès de l'hébergeur pour cette requête (point ouvert, `docs/dossier.md`). Les actions du
+candidat sont des actions publiques (`definePublicAction`) qui relisent le cookie et le lien à
+chaque appel.
+
+## ADR-039 — Lien réutilisable jusqu'à l'envoi, puis fermé
+
+**Contexte.** Un dossier se remplit rarement d'une traite. Un lien à usage strictement unique
+obligerait à en renvoyer un à chaque reprise.
+
+**Décision.** Le lien reste utilisable jusqu'à sa date de fin pour reprendre le brouillon.
+L'envoi du dossier le marque utilisé (`usedAt`) : il ne s'ouvre plus. Un nouveau lien révoque les
+précédents, et le brouillon déjà saisi le suit.
+
+**Conséquences.** Une personne qui a le lien peut lire et modifier le brouillon tant qu'il n'est
+pas envoyé : d'où une durée courte (7 jours par défaut), la révocation et l'avertissement « Ne
+transférez pas ce message » dans l'e-mail.
+
+## ADR-040 — Revue par DIAMANT avant tout report dans la fiche
+
+**Contexte.** Le dossier est saisi par le candidat : fautes de frappe, champs mal compris, NIVOL
+recopié d'un autre. Écrire directement dans la fiche mélangerait des données non vérifiées aux
+données de l'unité.
+
+**Décision.** Le dossier envoyé reste dans `dossier_submissions`. DIAMANT le compare à la fiche
+(consultation journalisée) et choisit les champs à reporter ; les champs vides de la fiche sont
+cochés par défaut. Le report tient en une transaction auditée. Le NIVOL et l'e-mail Croix-Rouge
+déclarés ne sont jamais reportés (étape 9).
+
+**Conséquences.** Une étape de plus pour DIAMANT, mais aucune donnée n'entre dans la fiche sans
+un responsable. Le dossier envoyé reste la source des PDF de l'étape 8.
+
+## ADR-041 — `MailService`, pilotes `smtp` et `log`
+
+**Contexte.** L'architecture doit rester portable (Vercel puis VPS) : pas de SDK d'envoi propre
+à un fournisseur. Les tests et la démo ne doivent rien envoyer.
+
+**Décision.** `MailService` (`src/server/mail/`) avec deux pilotes : `smtp` (Nodemailer : Brevo
+en test, relais du VPS ensuite) et `log` (par défaut), qui écrit le message chiffré dans
+`outbound_mails`, lisible par TOPAZE dans `/admin/courriels`.
+
+**Conséquences.** Changer de fournisseur ne demande que les variables `SMTP_*`. Le pilote `log`
+sert aux tests e2e (le lien y est récupéré) sans jamais stocker un jeton en clair.

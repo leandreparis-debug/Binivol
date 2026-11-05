@@ -154,12 +154,12 @@ Règles d'usage :
 
 ## Captures
 
-| Écran                | Fichier                              |
-| -------------------- | ------------------------------------ |
-| Accueil 1440 × 900   | `docs/captures/accueil-1440.png`     |
-| Accueil 390 × 844    | `docs/captures/accueil-390.png`      |
-| Design system (1440) | `docs/captures/design-1440.png`      |
-| Design system (390)  | `docs/captures/design-390.png`       |
-| Dossier démo (390)   | `docs/captures/dossier-demo-390.png` |
+| Écran                  | Fichier                                                         |
+| ---------------------- | --------------------------------------------------------------- |
+| Accueil 1440 × 900     | `docs/captures/accueil-1440.png`                                |
+| Accueil 390 × 844      | `docs/captures/accueil-390.png`                                 |
+| Design system (1440)   | `docs/captures/design-1440.png`                                 |
+| Design system (390)    | `docs/captures/design-390.png`                                  |
+| Dossier en ligne (390) | `docs/captures/dossier-identite-390.png` (et `docs/dossier.md`) |
 
 ![Accueil 1440](captures/accueil-1440.png)

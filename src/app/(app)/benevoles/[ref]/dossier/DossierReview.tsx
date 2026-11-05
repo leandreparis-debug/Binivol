@@ -181,7 +181,7 @@ export function DossierReview({ personId }: { personId: string }) {
           </CardContent>
         </Card>
       )}
-      <div className="sticky bottom-20 flex flex-col gap-2 rounded-card bg-surface p-4 sm:bottom-4">
+      <div className="flex flex-col gap-2 rounded-card bg-surface p-4">
         {error && (
           <p role="alert" className="text-small font-medium text-danger-ink">
             {error}

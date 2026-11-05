@@ -51,6 +51,8 @@ erDiagram
   DossierLink |o--o{ DossierSubmission : ""
   DossierSubmission ||--o{ OtpChallenge : "codes"
   DossierSubmission ||--o{ Signature : "signatures"
+  DossierSubmission ||--o{ DossierAttachment : "pièces jointes"
+  DossierAttachment |o--o| Document : "devient"
   OtpChallenge |o--o| Signature : "valide"
 
   ReminderRule |o--o{ Notification : "produit"
@@ -246,13 +248,15 @@ d'après `reference_items.perimeters`.
 
 ### Dossier, documents, signature
 
-| Table                 | Rôle                                     | Champs clés                                                                  | Sens.    |
-| --------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- | -------- |
-| `dossier_links`       | Lien sécurisé envoyé au candidat         | `token_hash` unique, `mode`, `expires_at`, `used_at`, `revoked_at`           | S (hash) |
-| `dossier_submissions` | Contenu du dossier en ligne              | `status`, `data` JSONB (validé par Zod à l'étape 7), `schema_version`        | S        |
-| `otp_challenges`      | Code à usage unique avant signature      | `code_hash`, `email`, `attempts`, `verified_at`                              | S        |
-| `signatures`          | Signature d'un document                  | `signer_role`, `image_key`, `otp_challenge_id`, `ip_hash`, `document_hashes` | S        |
-| `documents`           | Fichier stocké derrière `StorageService` | `kind`, `copy`, `storage_key` unique, `sha256`, `file_missing`               | S        |
+| Table                 | Rôle                                                                                                                         | Champs clés                                                                                                                | Sens.    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `dossier_links`       | Lien sécurisé envoyé au candidat (`REMOTE`) ou mode sur place (`ON_SITE`) ; réutilisable jusqu'à l'envoi (`docs/dossier.md`) | `token_hash` unique (SHA-256, le jeton n'est jamais stocké), `mode`, `expires_at`, `used_at`, `revoked_at`                 | S (hash) |
+| `dossier_submissions` | Contenu du dossier en ligne : brouillon (`DRAFT`), envoyé (`SUBMITTED`), signé (étape 8)                                     | `status`, `data` JSONB (`dossierDraftSchema`, `src/lib/dossierSchema.ts`), `schema_version` (1), `link_id`, `submitted_at` | S        |
+| `dossier_attachments` | Pièce jointe d'un dossier avant l'envoi ; à l'envoi, elle devient un `Document`                                              | `kind` (`DIPLOMA_COPY`, `PARENTAL_AUTH`, `ADHESION`), `storage_key` unique, `sha256`, `document_id`, `archived_at`         | S        |
+| `outbound_mails`      | E-mails du pilote `log` (`docs/mail.md`), lus dans `/admin/courriels`                                                        | `to`, `subject`, `payload` (chiffré AES-256-GCM), `created_by_id`                                                          | S        |
+| `otp_challenges`      | Code à usage unique avant signature                                                                                          | `code_hash`, `email`, `attempts`, `verified_at`                                                                            | S        |
+| `signatures`          | Signature d'un document                                                                                                      | `signer_role`, `image_key`, `otp_challenge_id`, `ip_hash`, `document_hashes`                                               | S        |
+| `documents`           | Fichier stocké derrière `StorageService`                                                                                     | `kind`, `copy`, `storage_key` unique, `sha256`, `file_missing`                                                             | S        |
 
 ### Rappels, notifications, paramètres
 

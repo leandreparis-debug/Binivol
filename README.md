@@ -73,7 +73,7 @@ complet (client Google, variables, Vercel) est dans `docs/auth.md`, les droits d
 | `pnpm db:fresh`          | **Local seulement** : supprime et recrée la base, migrations et seed démo         |
 | `pnpm db:reset`          | Alias de `db:fresh`                                                               |
 | `pnpm db:seed:base`      | Référentiel, paramètres, règles de rappel : **seul seed de production**           |
-| `pnpm db:seed:demo`      | Seed de base + comptes démo et 60 personnes fictives (refuse de vraies données)   |
+| `pnpm db:seed:demo`      | Seed de base + comptes démo et 62 personnes fictives (refuse de vraies données)   |
 | `pnpm db:seed`           | Alias de `db:seed:demo`                                                           |
 | `pnpm import:classeur`   | Import de l'ancien classeur (`<fichier.xlsx> [--dry-run]`), voir `docs/import.md` |
 | `pnpm fixtures:classeur` | Régénère les classeurs fictifs de `tests/fixtures/`                               |
@@ -103,6 +103,14 @@ dossier, `./storage` par défaut, ignoré par Git) ou `s3` (Supabase Storage, Mi
 `STORAGE_DRIVER`. Jamais d'URL publique : les fichiers sont servis par
 `GET /api/documents/[id]`, qui vérifie les droits et journalise la consultation. Configuration et
 sauvegarde : `docs/storage.md`.
+
+## Dossier en ligne et e-mails
+
+Le candidat remplit son dossier sur téléphone depuis un lien sécurisé (jeton haché, échangé contre
+un cookie de 2 h), DIAMANT le relit puis reporte les champs choisis dans la fiche :
+`docs/dossier.md`. Les e-mails passent par `MailService` : pilote `log` par défaut (rien ne part,
+les messages chiffrés se lisent dans **Administration › Courriels**), `smtp` pour un envoi réel
+(`docs/mail.md`).
 
 ## Base de données
 
@@ -143,25 +151,27 @@ Règles : pas de suppression physique (archivage ou annulation tracée), journau
 
 ```
 .github/workflows/ci.yml   CI : pnpm verify + Playwright
-docs/                      auth.md, data-model.md, decisions.md (ADR), design-system.md, import.md, integration.md, permissions.md (généré), storage.md
+docs/                      auth.md, data-model.md, decisions.md (ADR), deploy.md, design-system.md, dossier.md, import.md, integration.md, mail.md, permissions.md (généré), storage.md
 e2e/                       tests Playwright (+ axe)
 prisma/                    schema.prisma, migrations/, seed.ts, seed/ (données fictives)
 scripts/                   generate-icons.ts, admin.ts, db-fresh.ts, import-classeur.ts, make-fixture-classeur.ts
 tests/fixtures/            classeurs .xlsx 100 % fictifs (les seuls .xlsx du dépôt)
 src/app/                   App Router
-  (app)/                   coquille connectée : /, /benevoles (annuaire), /benevoles/[ref] (fiche), /candidats (intégration), /formations, /rappels, /design
-  (public)/                parcours candidat sans connexion : /dossier/demo
+  (app)/                   coquille connectée : /, /benevoles (annuaire), /benevoles/[ref] (fiche), /benevoles/[ref]/dossier (revue du dossier), /candidats (intégration), /formations, /rappels, /admin/courriels, /design
+  (public)/                parcours candidat sans connexion : /dossier/[token] (ouverture du lien), /dossier (formulaire), /dossier/lien-invalide
+  (onsite)/                mode sur place du dossier, hors coquille : /benevoles/[ref]/dossier/sur-place
   api/health/              sonde de vie
   api/documents/[id]/      téléchargement d'un document (droits + access_logs)
   globals.css              tokens de la DA (bloc @theme)
 src/components/
   brand/                   BinivolMark, BinivolLogo
   person/                  DeadlineDot, DeadlineBar, QualificationPills, TabNav
+  dossier/                 formulaire du dossier en ligne (étapes, champs, relecture), page neutre
   layout/                  TopBar, BottomNav, AppShell, PageHeader
   ui/                      composants de base écrits à la main
 src/generated/prisma/      client Prisma généré (non versionné)
 src/lib/                   utilitaires : cn, dates, age, deadlines, phone, timeline, personForms, initials, labels, nivol, status, env
-src/server/                accès aux données : db, audit, sensitive, timeline, candidacy/ (machine de passage), storage/, auth/, policy/, actions/, services/, repositories/
+src/server/                accès aux données : db, audit, sensitive, timeline, candidacy/ (machine de passage), dossier/ (jeton, cookie, brouillon, revue), mail/ (MailService), storage/, auth/, policy/, actions/, services/, repositories/
 src/test/                  setup Vitest, harnais de la base de test (db/)
 ```
 

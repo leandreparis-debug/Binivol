@@ -162,25 +162,28 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     await expectNoSeriousViolation(candidate.page);
 
     await fillAdultSteps(candidate.page, "1995-04-12");
+    await candidate.context.close();
 
-    // Resume after a reload: the draft is kept, « Reprendre » goes to the first step to finish.
-    await candidate.page.reload();
-    await expect(candidate.page.getByRole("button", { name: "Reprendre" })).toBeVisible();
-    await next(candidate.page, "Relecture et envoi");
-    await expect(candidate.page.getByText("Comptable")).toBeVisible();
-    await candidate.page.getByRole("button", { name: "Envoyer mon dossier" }).click();
-    await expect(candidate.page.getByText(/Cochez la case/)).toBeVisible();
-    await candidate.page.getByText(/J'ai lu l'information/).click();
-    await candidate.page.getByRole("button", { name: "Envoyer mon dossier" }).click();
-    await expect(title(candidate.page)).toHaveText("Votre dossier a bien été envoyé");
-    await expectNoSeriousViolation(candidate.page);
+    // Second time: the browser was closed, the link opens the same draft again.
+    const again = await phone(browser);
+    await again.page.goto(url);
+    await expect(again.page).toHaveURL(/\/dossier$/);
+    await expect(again.page.getByRole("button", { name: "Reprendre" })).toBeVisible();
+    await next(again.page, "Relecture et envoi");
+    await expect(again.page.getByText("Comptable")).toBeVisible();
+    await again.page.getByRole("button", { name: "Envoyer mon dossier" }).click();
+    await expect(again.page.getByText(/Cochez la case/)).toBeVisible();
+    await again.page.getByText(/J'ai lu l'information/).click();
+    await again.page.getByRole("button", { name: "Envoyer mon dossier" }).click();
+    await expect(title(again.page)).toHaveText("Votre dossier a bien été envoyé");
+    await expectNoSeriousViolation(again.page);
 
     // Used after submission: the same link now gets the neutral page.
-    await candidate.page.goto(url);
-    await expect(candidate.page.getByRole("heading", { level: 1 })).toHaveText(
+    await again.page.goto(url);
+    await expect(again.page.getByRole("heading", { level: 1 })).toHaveText(
       "Ce lien n'est plus valable.",
     );
-    await candidate.context.close();
+    await again.context.close();
 
     // Review: page empty → checked by default; NIVOL never reportable.
     await page.goto(`/benevoles/${ref}?onglet=integration`);
@@ -195,6 +198,10 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     await page.getByRole("button", { name: /Reporter dans la fiche/ }).click();
     await expect(page.getByRole("status").filter({ hasText: "Report effectué" })).toBeVisible();
     await expect(page.getByTestId("review-street")).toContainText("Identique");
+
+    // The page now holds the reported values.
+    await page.goto(`/benevoles/${ref}?onglet=apercu`);
+    await expect(page.getByText("06 39 98 00 01")).toBeVisible();
   });
 
   test("un candidat de 15 ans : représentant légal et autorisation parentale", async ({

@@ -98,7 +98,13 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   ou par `definePublicAction` pour les seules actions sans session (connexion, déconnexion).
   Un test d'architecture le vérifie.
 - **Les données sensibles ne se lisent que par `src/server/sensitive.ts`**, qui journalise
-  chaque consultation dans `access_logs`. Un test d'architecture le vérifie.
+  chaque consultation dans `access_logs`, **et le dossier en ligne que par
+  `src/server/dossier/store.ts`** (revue journalisée, contexte « dossier »). Un test
+  d'architecture le vérifie.
+- **Dossier en ligne** (`docs/dossier.md`) : le jeton n'est jamais stocké ni journalisé (seule
+  son empreinte SHA-256) ; les actions du candidat passent par `definePublicAction` et relisent
+  le cookie de dossier ; le NIVOL et l'e-mail CRF déclarés ne sont jamais reportés dans la fiche.
+- E-mails uniquement par `MailService` (`src/server/mail/`, `docs/mail.md`).
 - Chaque page appelle `requirePageAccess(action)` (ou `authorizePage` avec la personne) ; le
   middleware n'est pas une sécurité.
 - **Jamais de donnée sensible dans le rendu initial d'une page** : elle s'affiche à la demande,

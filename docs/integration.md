@@ -6,15 +6,15 @@ actif. Le code est dans `src/server/candidacy/` (règles pures), `src/server/ser
 
 ## Le parcours en 6 étapes
 
-| N°  | Étape               | Code            | Ce qui s'y passe                                                                           |
-| --- | ------------------- | --------------- | ------------------------------------------------------------------------------------------ |
-| 1   | Premier contact     | `FIRST_CONTACT` | un message, un appel, un salon, le site internet                                           |
-| 2   | Rencontre           | `MEETING`       | un entretien à l'unité locale (date et heure : `meetingAt`)                                |
-| 3   | Engagement confirmé | `CONFIRMED`     | la personne veut s'engager                                                                 |
-| 4   | Dossier             | `FILE`          | remplissage et signature du dossier (passage manuel ; en ligne aux étapes 7 et 8)          |
-| 5   | Création Gaia       | `GAIA`          | compte dans l'outil national, NIVOL et e-mail CRF (passage manuel ; assistant à l'étape 9) |
-| 6   | Intégré             | `DONE`          | bénévole actif, par la **finalisation** uniquement                                         |
-| —   | Abandon             | `ABANDONED`     | depuis n'importe quelle étape ouverte, avec un motif                                       |
+| N°  | Étape               | Code            | Ce qui s'y passe                                                                                               |
+| --- | ------------------- | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | Premier contact     | `FIRST_CONTACT` | un message, un appel, un salon, le site internet                                                               |
+| 2   | Rencontre           | `MEETING`       | un entretien à l'unité locale (date et heure : `meetingAt`)                                                    |
+| 3   | Engagement confirmé | `CONFIRMED`     | la personne veut s'engager                                                                                     |
+| 4   | Dossier             | `FILE`          | dossier en ligne (`docs/dossier.md`) : créer le lien depuis « Confirmé » y fait passer ; signature à l'étape 8 |
+| 5   | Création Gaia       | `GAIA`          | compte dans l'outil national, NIVOL et e-mail CRF (passage manuel ; assistant à l'étape 9)                     |
+| 6   | Intégré             | `DONE`          | bénévole actif, par la **finalisation** uniquement                                                             |
+| —   | Abandon             | `ABANDONED`     | depuis n'importe quelle étape ouverte, avec un motif                                                           |
 
 Une seule candidature **ouverte** par personne (index partiel `candidacies_one_open`).
 
