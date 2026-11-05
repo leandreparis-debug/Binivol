@@ -99,6 +99,9 @@ const PERSON_TABLE: Partial<Record<PolicyAction, Expected>> = {
   "person.status.change": {},
   "person.nivol.correct": {},
   "candidacy.finalize.undo": {},
+  "person.return": {
+    DIAMANT: set("releve", "neReleve", "candidat", "nouveau"),
+  },
   "training.read": { ...personRead, FORMAT: VOLUNTEERS },
   "training.write": formatOnly,
   "trainingWish.manage": formatOnly,

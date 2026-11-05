@@ -22,6 +22,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Consulter les données sensibles (naissance, adresse, personnes à prévenir, B3, autorisation parentale) (`person.sensitive.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | — | Si la personne relève du profil | Si la personne relève du profil |
 | Modifier l'identité et les coordonnées (`person.update`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Changer le statut d'une personne (`person.status.change`) | une personne | Oui | — | — | — | — | — |
+| Enregistrer le retour d'un ancien bénévole (`person.return`) | une personne | Oui | — | — | — | — | Oui, sauf personne archivée |
 | Corriger le NIVOL (motif obligatoire) (`person.nivol.correct`) | une personne | Oui | — | — | — | — | — |
 | Consulter les formations suivies et les souhaits (`training.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | Oui, sauf candidat ou personne archivée | Si la personne relève du profil | Si la personne relève du profil |
 | Saisir et modifier les formations suivies (`training.write`) | une personne | Oui | — | — | Oui, sauf candidat ou personne archivée | — | — |

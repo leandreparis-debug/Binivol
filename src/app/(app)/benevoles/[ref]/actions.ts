@@ -70,6 +70,39 @@ export const changeStatusAction = defineAction({
   },
 });
 
+/** « Retour d'un ancien » (TOPAZE, DIAMANT): LEFT → ACTIVE with a reason. */
+export const returnFormerAction = defineAction({
+  action: "person.return",
+  input: z.object({
+    personId: z.string().min(1).max(40),
+    reason: z.string().trim().min(3, "Le motif du retour est obligatoire.").max(500),
+  }),
+  resource: (input) => personResource(input.personId),
+  handler: async ({ input, actor }) => {
+    await changePersonStatus(
+      getDb(),
+      actor,
+      {
+        personId: input.personId,
+        status: "ACTIVE",
+        leftAt: null,
+        leftReason: null,
+        leftComment: null,
+        pausedAt: null,
+        pauseUntil: null,
+        pauseReason: null,
+        endAppointments: false,
+        endMentorships: false,
+        reason: input.reason,
+      },
+      undefined,
+      { onlyReturn: true },
+    );
+    refresh();
+    return null;
+  },
+});
+
 export const updateIdentityAction = defineAction({
   action: "person.update",
   input: identitySchema,

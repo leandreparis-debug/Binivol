@@ -355,6 +355,10 @@ model Person {
   archivedAt             DateTime?    @map("archived_at") @db.Timestamptz(3)
   /// Date after which the GDPR purge (step 14) may delete the person.
   purgeEligibleAt        DateTime?    @map("purge_eligible_at") @db.Date
+  /// Pause (status PAUSED, step 11): start, planned return, short reason.
+  pausedAt               DateTime?    @map("paused_at") @db.Date
+  pauseUntil             DateTime?    @map("pause_until") @db.Date
+  pauseReason            String?      @map("pause_reason")
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById            String?      @map("created_by_id")
@@ -401,6 +405,8 @@ model PersonSensitive {
   country                   String?
   b3CheckedAt               DateTime? @map("b3_checked_at") @db.Date
   b3Status                  B3Status? @map("b3_status")
+  /// Who checked the B3 (step 11). No copy of the record is ever stored.
+  b3CheckedById             String?   @map("b3_checked_by_id")
   parentalAuthorization     Boolean?  @default(false) @map("parental_authorization")
   parentalAuthorizationDate DateTime? @map("parental_authorization_date") @db.Date
   createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)

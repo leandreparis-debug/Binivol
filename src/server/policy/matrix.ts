@@ -79,6 +79,11 @@ export const MATRIX = {
   "person.sensitive.read": personRead,
   "person.update": diamantInScope("person"),
   "person.status.change": topazeOnly("person"),
+  // Return of a former volunteer (LEFT → ACTIVE, step 11): TOPAZE and DIAMANT.
+  "person.return": {
+    target: "person",
+    grants: [TOPAZE, { profiles: ["DIAMANT"], when: "notArchived" }],
+  },
   // The NIVOL is normally set by the Gaia assistant (step 9): only TOPAZE corrects it.
   "person.nivol.correct": topazeOnly("person"),
   "training.read": {

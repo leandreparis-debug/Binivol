@@ -9,6 +9,7 @@ export const POLICY_ACTIONS = [
   "person.sensitive.read",
   "person.update",
   "person.status.change",
+  "person.return",
   "person.nivol.correct",
   "training.read",
   "training.write",

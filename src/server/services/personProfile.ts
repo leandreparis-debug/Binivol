@@ -69,6 +69,8 @@ export async function lookupPerson(db: DbOrTx, actor: Actor, ref: string): Promi
 export interface PersonPermissions {
   update: boolean;
   changeStatus: boolean;
+  /** « Retour d'un ancien » (LEFT → ACTIVE), TOPAZE and DIAMANT. */
+  returnFormer: boolean;
   correctNivol: boolean;
   readSensitive: boolean;
   readTrainings: boolean;
@@ -86,6 +88,7 @@ export function permissionsOn(actor: Actor, facts: PersonFacts): PersonPermissio
   return {
     update: on("person.update"),
     changeStatus: on("person.status.change"),
+    returnFormer: on("person.return"),
     correctNivol: on("person.nivol.correct"),
     readSensitive: on("person.sensitive.read"),
     readTrainings: on("training.read"),

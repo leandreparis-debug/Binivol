@@ -241,6 +241,7 @@ function Header({ header, day }: { header: PersonHeader; day: Date }) {
           can={{
             update: header.permissions.update,
             changeStatus: header.permissions.changeStatus,
+            returnFormer: header.permissions.returnFormer,
             correctNivol: header.permissions.correctNivol,
           }}
         />

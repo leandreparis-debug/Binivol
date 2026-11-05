@@ -5,13 +5,19 @@ import { Hash, Pencil, RefreshCw } from "lucide-react";
 import type { LeftReason, PersonStatus } from "@/generated/prisma/enums";
 import { FormMessage, useFormAction } from "@/components/person/useFormAction";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/ui/Dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { CIVILITY_LABELS, LEFT_REASON_LABELS, PERSON_STATUS_LABELS } from "@/lib/labels";
 import { NIVOL_EXAMPLE } from "@/lib/nivol";
 import { LEFT_REASONS, STATUS_CHOICES } from "@/lib/personForms";
 import { formatPhone } from "@/lib/phone";
-import { changeStatusAction, correctNivolAction, updateIdentityAction } from "./actions";
+import {
+  changeStatusAction,
+  correctNivolAction,
+  returnFormerAction,
+  updateIdentityAction,
+} from "./actions";
 
 /** Identity fields the edit form starts from (no sensitive field). */
 export interface IdentityValues {
@@ -36,7 +42,7 @@ export interface PersonActionsProps {
   nivol: string | null;
   legacyImport: boolean;
   identity: IdentityValues;
-  can: { update: boolean; changeStatus: boolean; correctNivol: boolean };
+  can: { update: boolean; changeStatus: boolean; correctNivol: boolean; returnFormer: boolean };
 }
 
 const DIALOG_CLASS = "max-h-[calc(100dvh-2rem)] overflow-y-auto";
@@ -96,6 +102,12 @@ function StatusDialog({ personId, status, nivol, legacyImport }: PersonActionsPr
                   leftAt: text(form, "leftAt"),
                   leftReason: text(form, "leftReason") as LeftReason | "",
                   leftComment: text(form, "leftComment"),
+                  pausedAt: text(form, "pausedAt"),
+                  pauseUntil: text(form, "pauseUntil"),
+                  pauseReason: text(form, "pauseReason"),
+                  endAppointments: form.get("endAppointments") === "on",
+                  endMentorships: form.get("endMentorships") === "on",
+                  reason: text(form, "reason"),
                 }),
               {
                 onSuccess: () => {
@@ -151,14 +163,98 @@ function StatusDialog({ personId, status, nivol, legacyImport }: PersonActionsPr
               <Field label="Commentaire" htmlFor="left-comment" error={errorOf("leftComment")}>
                 <Textarea id="left-comment" name="leftComment" rows={3} />
               </Field>
+              <Checkbox
+                name="endAppointments"
+                defaultChecked
+                label="Terminer les nominations en cours à cette date"
+              />
+              <Checkbox
+                name="endMentorships"
+                defaultChecked
+                label="Clore les parrainages en cours à cette date"
+              />
               <p className="text-small text-muted">
                 La date de purge est calculée à partir de la date de départ et de la durée de
                 conservation.
               </p>
             </>
           )}
+          {choice === "PAUSED" && (
+            <>
+              <Field label="Début de la pause" htmlFor="pause-at" error={errorOf("pausedAt")}>
+                <Input id="pause-at" name="pausedAt" type="date" />
+              </Field>
+              <Field
+                label="Reprise prévue"
+                htmlFor="pause-until"
+                hint="Un rappel sera créé à cette date."
+                error={errorOf("pauseUntil")}
+              >
+                <Input id="pause-until" name="pauseUntil" type="date" />
+              </Field>
+              <Field label="Motif" htmlFor="pause-reason" error={errorOf("pauseReason")}>
+                <Input id="pause-reason" name="pauseReason" maxLength={200} />
+              </Field>
+            </>
+          )}
+          {status === "LEFT" && choice === "ACTIVE" && (
+            <Field
+              label="Motif du retour"
+              htmlFor="status-reason"
+              error={errorOf("reason")}
+              required
+            >
+              <Textarea id="status-reason" name="reason" rows={2} maxLength={500} />
+            </Field>
+          )}
           <FormMessage feedback={feedback} />
           <FormButtons pending={pending} label="Enregistrer le statut" />
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** « Retour d'un ancien » (DIAMANT): LEFT → ACTIVE, with a reason. */
+function ReturnDialog({ personId }: { personId: string }) {
+  const [open, setOpen] = useState(false);
+  const { pending, feedback, errorOf, run, reset } = useFormAction<null>();
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) reset();
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="outline" leftIcon={<RefreshCw aria-hidden="true" />}>
+          Retour d&apos;un ancien
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title="Retour d'un ancien bénévole"
+        description="La personne redevient active ; sa date de purge est effacée. Le retour est tracé."
+        className={DIALOG_CLASS}
+      >
+        <form
+          noValidate
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            run(() => returnFormerAction({ personId, reason: text(form, "reason") }), {
+              onSuccess: () => {
+                setOpen(false);
+              },
+            });
+          }}
+        >
+          <Field label="Motif du retour" htmlFor="return-reason" error={errorOf("reason")} required>
+            <Textarea id="return-reason" name="reason" rows={2} maxLength={500} />
+          </Field>
+          <FormMessage feedback={feedback} />
+          <FormButtons pending={pending} label="Enregistrer le retour" />
         </form>
       </DialogContent>
     </Dialog>
@@ -345,11 +441,13 @@ function NivolDialog({ personId, nivol }: PersonActionsProps) {
 /** Buttons of the person header, shown only when `can()` allows them. */
 export function PersonActions(props: PersonActionsProps) {
   const { can } = props;
-  if (!can.update && !can.changeStatus && !can.correctNivol) return null;
+  const returnOnly = !can.changeStatus && can.returnFormer && props.status === "LEFT";
+  if (!can.update && !can.changeStatus && !can.correctNivol && !returnOnly) return null;
   return (
     <div className="flex flex-wrap gap-2">
       {can.update && <IdentityDialog {...props} />}
       {can.changeStatus && props.status !== "CANDIDATE" && <StatusDialog {...props} />}
+      {returnOnly && <ReturnDialog personId={props.personId} />}
       {can.correctNivol && <NivolDialog {...props} />}
     </div>
   );

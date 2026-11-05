@@ -129,8 +129,24 @@ export const statusChangeSchema = z
       .optional()
       .transform((v) => (v === "" || v === undefined ? null : v)),
     leftComment: optionalText(1000),
+    /** Pause (step 11): start (default today), planned return, short reason. */
+    pausedAt: optionalIsoDay,
+    pauseUntil: optionalIsoDay,
+    pauseReason: optionalText(200),
+    /** Departure: end the current appointments and mentorships (checked by default). */
+    endAppointments: z.boolean().optional().default(true),
+    endMentorships: z.boolean().optional().default(true),
+    /** Return of a former volunteer (LEFT → ACTIVE), or any change: a reason for the history. */
+    reason: optionalText(500),
   })
   .superRefine((value, ctx) => {
+    if (value.pausedAt && value.pauseUntil && value.pauseUntil < value.pausedAt) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["pauseUntil"],
+        message: "La reprise prévue est avant le début de la pause.",
+      });
+    }
     if (value.status !== "LEFT") return;
     if (!value.leftAt) {
       ctx.addIssue({

@@ -10,7 +10,9 @@ import { withAudit } from "../audit";
 import type { Db } from "../db";
 import { DomainError, translateDbError } from "../errors";
 import type { Actor } from "../policy/types";
+import { toParisDay } from "@/lib/dates";
 import { numericSettings } from "../settings";
+import { decideStatusChange } from "../statusRules";
 
 /**
  * Write side of the person page. The caller (a `defineAction`) has already
@@ -34,52 +36,116 @@ export function addYearsUtc(day: Date, years: number): Date {
 export type StatusChange = z.output<typeof statusChangeSchema>;
 
 /**
- * Changes the status (TOPAZE):
- * - LEFT: departure date and reason required; `purgeEligibleAt` = departure
- *   + RETENTION_YEARS_AFTER_LEAVE years;
+ * Changes the status (TOPAZE; the return of a former volunteer also DIAMANT),
+ * by the pure rules of `statusRules.ts`, in **one transaction**:
+ * - PAUSED: start (default today), planned return and reason kept on the
+ *   person; leaving PAUSED clears them (« reprise », traced);
+ * - LEFT: date and reason required; `purgeEligibleAt` = departure +
+ *   RETENTION_YEARS_AFTER_LEAVE years; optionally the current appointments
+ *   end and the current mentorships close on the departure day;
  * - ACTIVE: a valid NIVOL is required, unless the person was imported;
+ *   LEFT → ACTIVE (« retour d'un ancien ») needs a reason;
  * - leaving LEFT clears `leftAt`, `leftReason`, `leftComment` and
  *   `purgeEligibleAt`.
  * The audit keeps the history (shown in the timeline).
  */
-export async function changePersonStatus(db: Db, actor: Actor, input: StatusChange): Promise<void> {
+export async function changePersonStatus(
+  db: Db,
+  actor: Actor,
+  input: StatusChange,
+  today: Date = toParisDay(),
+  options: { onlyReturn?: boolean } = {},
+): Promise<{ endedAppointments: number; endedMentorships: number }> {
   const { retentionYears } = await numericSettings(db);
   try {
-    await withAudit(db, auditActor(actor), async (tx, audit) => {
+    return await withAudit(db, auditActor(actor), async (tx, audit) => {
       const before = await tx.person.findUniqueOrThrow({ where: { id: input.personId } });
-      if (before.status === "CANDIDATE") {
-        throw new DomainError(
-          "INVALID_DATA",
-          "Un candidat change de statut par son intégration (étape 6), pas ici.",
-        );
+      const decision = decideStatusChange(before.status, input.status);
+      if (!decision.allowed) throw new DomainError("INVALID_DATA", decision.reason);
+      if (options.onlyReturn && decision.kind !== "return") {
+        throw new DomainError("INVALID_DATA", "Seule une personne partie peut faire son retour.");
       }
       if (input.status === "ACTIVE" && !before.nivol && !before.legacyImport) {
         throw new DomainError(
           "NIVOL_REQUIRED",
-          "Impossible de passer en Actif sans NIVOL : il est attribué par Gaia (assistant à venir).",
+          "Impossible de passer en Actif sans NIVOL : il est attribué par Gaia (assistant Gaia).",
         );
       }
-      const data =
-        input.status === "LEFT"
-          ? {
-              status: input.status,
-              leftAt: input.leftAt,
-              leftReason: input.leftReason,
-              leftComment: input.leftComment,
-              purgeEligibleAt: input.leftAt ? addYearsUtc(input.leftAt, retentionYears) : null,
-            }
-          : {
-              status: input.status,
-              leftAt: null,
-              leftReason: null,
-              leftComment: null,
-              purgeEligibleAt: null,
-            };
+      if (decision.requires.includes("reason") && !input.reason) {
+        throw new DomainError("INVALID_DATA", "Le motif du retour est obligatoire.");
+      }
+      const leaving = input.status === "LEFT";
+      const pausing = input.status === "PAUSED";
+      const data = {
+        status: input.status,
+        leftAt: leaving ? input.leftAt : null,
+        leftReason: leaving ? input.leftReason : null,
+        leftComment: leaving ? input.leftComment : null,
+        purgeEligibleAt: leaving && input.leftAt ? addYearsUtc(input.leftAt, retentionYears) : null,
+        pausedAt: pausing ? (input.pausedAt ?? today) : null,
+        pauseUntil: pausing ? input.pauseUntil : null,
+        pauseReason: pausing ? input.pauseReason : null,
+      };
       const after = await tx.person.update({
         where: { id: input.personId },
         data: { ...data, updatedById: actor.userId },
       });
       audit.updated("Person", input.personId, before, after);
+      if (input.reason) {
+        audit.log({
+          action: "UPDATE",
+          entity: "Person",
+          entityId: input.personId,
+          field: "statusReason",
+          newValue: { kind: decision.kind, reason: input.reason },
+        });
+      }
+      let endedAppointments = 0;
+      let endedMentorships = 0;
+      if (leaving && input.leftAt) {
+        const end = input.leftAt;
+        if (input.endAppointments) {
+          const current = await tx.appointment.findMany({
+            where: {
+              personId: input.personId,
+              cancelledAt: null,
+              OR: [{ endDate: null }, { endDate: { gt: end } }],
+            },
+          });
+          for (const a of current) {
+            const ended = await tx.appointment.update({
+              where: { id: a.id },
+              data: {
+                endDate: a.startDate && a.startDate > end ? a.startDate : end,
+                updatedById: actor.userId,
+              },
+            });
+            audit.updated("Appointment", a.id, a, ended);
+            endedAppointments += 1;
+          }
+        }
+        if (input.endMentorships) {
+          const current = await tx.mentorship.findMany({
+            where: {
+              OR: [{ menteeId: input.personId }, { mentorId: input.personId }],
+              AND: [{ OR: [{ endDate: null }, { endDate: { gt: end } }] }],
+            },
+          });
+          for (const m of current) {
+            const ended = await tx.mentorship.update({
+              where: { id: m.id },
+              data: {
+                endDate: m.startDate > end ? m.startDate : end,
+                note: [m.note, "Clos au départ."].filter(Boolean).join(" "),
+                updatedById: actor.userId,
+              },
+            });
+            audit.updated("Mentorship", m.id, m, ended);
+            endedMentorships += 1;
+          }
+        }
+      }
+      return { endedAppointments, endedMentorships };
     });
   } catch (error) {
     throw translateDbError(error);
