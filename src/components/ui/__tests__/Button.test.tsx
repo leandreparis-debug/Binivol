@@ -41,7 +41,7 @@ describe("Button", () => {
   it("renders the child element with asChild", () => {
     render(
       <Button asChild variant="accent">
-        <a href="/benevoles">Voir les bénévoles</a>
+        <a href="https://exemple.test/aide">Voir les bénévoles</a>
       </Button>,
     );
     const link = screen.getByRole("link", { name: "Voir les bénévoles" });

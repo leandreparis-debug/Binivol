@@ -7,8 +7,8 @@ import { classifyDeadline, type DeadlineClass } from "@/lib/deadlines";
  *
  * Per reference, only PASSED and not cancelled records count. Its expiry is
  * the **latest known** `expiresAt` among them (a renewal replaces an older
- * one). Without any dated record the expiry is unknown (« sans date »), and a
- * reference with no validity rule never expires. The deadline filters of the
+ * one). A dated qualification without expiry (no validity rule) is « à jour »;
+ * without any known date, the deadline is unknown (« sans date »). The deadline filters of the
  * directory apply the same rule in SQL (`deadlineSql`).
  */
 
@@ -50,15 +50,20 @@ export function qualificationsOf(
     const latest = (a: Date | null, b: Date | null) =>
       a === null ? b : b === null ? a : a.getTime() >= b.getTime() ? a : b;
     const expiresAt = latest(current?.expiresAt ?? null, record.expiresAt);
+    const obtainedAt = latest(current?.obtainedAt ?? null, record.date);
     byReference.set(record.referenceId, {
       referenceId: record.referenceId,
       code: record.code,
       label: record.label,
       category: record.category,
       sortOrder: record.sortOrder,
-      obtainedAt: latest(current?.obtainedAt ?? null, record.date),
+      obtainedAt,
       expiresAt,
-      deadline: classifyDeadline(expiresAt, day, alertDays),
+      // Known date and no expiry: a permanent qualification, up to date.
+      deadline:
+        expiresAt === null && obtainedAt !== null
+          ? "ok"
+          : classifyDeadline(expiresAt, day, alertDays),
     });
   }
   return [...byReference.values()].sort(

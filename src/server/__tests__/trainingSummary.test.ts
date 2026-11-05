@@ -73,7 +73,8 @@ describe("directorySummary and deadlineCounts", () => {
   });
 
   it("counts each class", () => {
-    expect(deadlineCounts(states)).toEqual({ ok: 1, soon: 1, expired: 1, none: 3 });
+    // C, F and G are dated without expiry: permanent, so up to date.
+    expect(deadlineCounts(states)).toEqual({ ok: 4, soon: 1, expired: 1, none: 0 });
   });
 
   it("has no deadline without dated qualifications", () => {

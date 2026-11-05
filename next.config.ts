@@ -21,8 +21,9 @@ const nextConfig: NextConfig = {
   // Enables `forbidden()` and `forbidden.tsx`: refused pages answer with a real 403.
   experimental: {
     authInterrupts: true,
-    // The legacy workbook (5 MB max) is sent to a Server Action.
-    serverActions: { bodySizeLimit: "6mb" },
+    // Server Actions receive the legacy workbook (5 MB max) and documents (10 MB max).
+    // 12 MB lets an 11 MB file reach the server, which refuses it with a clear message.
+    serverActions: { bodySizeLimit: "12mb" },
   },
   headers() {
     return Promise.resolve([{ source: "/(.*)", headers: securityHeaders }]);

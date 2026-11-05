@@ -21,7 +21,9 @@ describe("storage keys", () => {
     const b = newStorageKey("pdf", "documents", new Date("2026-11-05T10:00:00Z"));
     expect(a).toMatch(/^documents\/2026\/[0-9a-f]{32}\.pdf$/);
     expect(a).not.toBe(b);
-    expect(() => { assertValidKey(a); }).not.toThrow();
+    expect(() => {
+      assertValidKey(a);
+    }).not.toThrow();
   });
 
   it.each([
@@ -34,7 +36,9 @@ describe("storage keys", () => {
     "documents//a.pdf",
     "documents/./a.pdf",
   ])("refuses the key %j", (key) => {
-    expect(() => { assertValidKey(key); }).toThrow(InvalidStorageKeyError);
+    expect(() => {
+      assertValidKey(key);
+    }).toThrow(InvalidStorageKeyError);
   });
 });
 

@@ -341,3 +341,16 @@ export async function qualificationOptions(db: DbOrTx): Promise<{ code: string; 
     select: { code: true, label: true },
   });
 }
+
+/** True when the actor sees archived people in the directory (TOPAZE), from `can()`. */
+export function directoryShowsArchived(actor: Pick<Actor, "profiles">): boolean {
+  return can(actor, "person.directory.read", {
+    person: {
+      personId: "",
+      status: "ACTIVE",
+      perimeters: new Set(),
+      inDiamantScope: false,
+      archived: true,
+    },
+  }).allowed;
+}
