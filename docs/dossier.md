@@ -98,9 +98,11 @@ Un envoi incomplet est refusé, avec le message à l'étape concernée.
 - **Refus neutre** : jeton inconnu, expiré, révoqué ou utilisé → une seule page, « Ce lien
   n'est plus valable. Contactez l'unité locale. » La tentative est journalisée
   (`LOGIN_DENIED`, entité `DossierLink`, raison), **sans le jeton**.
-- **Usage** (ADR-039) : le lien reste réutilisable pour reprendre le brouillon jusqu'à l'envoi,
-  puis `usedAt` le ferme. Un nouveau lien révoque les précédents ; le brouillon déjà saisi est
-  **rattaché au nouveau lien**.
+- **Usage** (ADR-039, ADR-044) : le lien reste réutilisable pour reprendre le brouillon jusqu'à
+  l'envoi. Entre l'envoi et la signature, il ne rouvre que les **écrans de signature** (le
+  formulaire ne se modifie plus) ; `usedAt` le ferme à la **signature complète** (le bénévole, et
+  le représentant légal pour un mineur). Un nouveau lien révoque les précédents ; le dossier en
+  cours (brouillon ou envoyé non signé) est **rattaché au nouveau lien**.
 - **Session expirée** : les actions répondent « Votre session a expiré… » ; ce qui est à l'écran
   reste affiché, et rouvrir le lien (s'il est valable) relance la session.
 - **Actions publiques** : `src/app/(public)/dossier/actions.ts`, cinq actions par
@@ -130,64 +132,107 @@ personne. Stockage indisponible : message clair, le brouillon est conservé.
 - La comparaison ne figure pas dans le rendu initial : elle se charge par une action
   (`readDossierReviewAction`) qui écrit un `AccessLog` `SENSITIVE_VIEW`, contexte « dossier ».
 
-## Correspondance avec les PDF (pour l'étape 8)
+## Correspondance avec les PDF (étape 8)
 
-Les cases à cocher valent `/Oui` ou `/Off`. Les dates se découpent en jour, mois, année.
+La correspondance est dans `src/server/pdf/mappings.ts` (un objet par modèle, nom exact du champ
+vers valeur) ; un test charge chaque modèle et vérifie que tous ses champs sont remplis, signés
+ou notés « volontairement vides ». Les cases valent `/Oui` ou `/Off`. Les dates sont découpées en
+`JJ`, `MM`, `AAAA` au fuseau de Paris ; la date de signature est celle de la signature du
+bénévole. Les PDF finaux sont **aplatis** : plus aucun champ modifiable (ADR-045).
 
-### Dossier-Bénévole (89 champs ; 85 viennent du dossier, 4 de la signature)
+Lecture des modèles : chaque champ a été rempli avec son propre nom, puis les pages converties
+en images (`pdftoppm`). Images : `docs/captures/pdf-champs-dossier-1.png` à `-3.png`,
+`pdf-champs-charte.png`, `pdf-champs-attestation.png`.
 
-| Champ(s) AcroForm                                                  | Donnée du dossier                                                                   |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `Nom`, `Prénom`, `Prénom - 2`                                      | `identity.lastName`, `identity.firstName`, `identity.secondFirstName`               |
-| `Nom d'usage`, `Nom de naissance`                                  | `identity.usageName`, `identity.birthName`                                          |
-| `Civilité - Mme`, `Civilité - M`                                   | `identity.civility` (`MME` / `M`)                                                   |
-| `Jour naissance`, `Mois naissance`, `Année naissance`              | `identity.birthDate` (AAAA-MM-JJ)                                                   |
-| `Ville naissance`, `Département naissance`, `Pays naissance`       | `identity.birthCity`, `identity.birthDepartment`, `identity.birthCountry`           |
-| `Numéro et voie résidence`, `Complément adresse résidence`         | `contact.street`, `contact.addressComplement`                                       |
-| `Code postal et ville résidence`, `Pays résidence`                 | `contact.postalCode` + `contact.city`, `contact.country`                            |
-| `Téléphone personnel`, `Email personnel`                           | `contact.phone`, `contact.email`                                                    |
-| `Téléphone professionnel`, `Email professionnel`                   | `contact.proPhone`, `contact.proEmail`                                              |
-| `Structure de rattachement`                                        | `structure` (paramètre `UL_NAME`, écrit à l'envoi)                                  |
-| `Déjà bénévole - OUI`, `Déjà bénévole - NON`                       | `crf.alreadyVolunteer`                                                              |
-| `NIVOL - Oui`, `NIVOL - Non`, `NIVOL`                              | `crf.hasNivol`, `crf.nivol` (déclaré)                                               |
-| `Mail CRf - OUI`, `Mail CRf - NON`, `Mail CRf`                     | `crf.hasCrfEmail`, `crf.crfEmail` (déclaré)                                         |
-| `Civilité urgence - Mme`, `Civilité urgence - M`                   | `emergency.civility`                                                                |
-| `Nom urgence`, `Prénom urgence`, `Lien de parenté urgence`         | `emergency.lastName`, `emergency.firstName`, `emergency.relationship`               |
-| `Adresse urgence`, `Code Postal et ville urgence`, `Pays urgence`  | `emergency.address`, `emergency.postalCode` + `emergency.city`, `emergency.country` |
-| `Email urgence`, `Téléphone 1 urgence`, `Téléphone 2 urgence`      | `emergency.email`, `emergency.phone1`, `emergency.phone2`                           |
-| `Activité 1` à `Activité 4`                                        | `crf.activities[0..3]`                                                              |
-| `Compétence 1` à `Compétence 4`                                    | `profile.skills[i].label`                                                           |
-| `Compétence n - Débutant` / `- Confirmé` / `- Expert` (12 cases)   | `profile.skills[i].level` (`BEGINNER`, `CONFIRMED`, `EXPERT`)                       |
-| `Profession`, `Secteur professionnel`, `Entreprise`                | `profile.profession`, `profile.sector`, `profile.company`                           |
-| `Langue 1` à `Langue 3`                                            | `profile.languages[i].label`                                                        |
-| `Langue n - Notions` / `- Courant` / `- Bilingue` (9 cases)        | `profile.languages[i].level` (`NOTIONS`, `FLUENT`, `BILINGUAL`)                     |
-| `Diplome 1` à `Diplome 5`                                          | `profile.diplomas[0..4]`                                                            |
-| `Permis 1` à `Permis 4`                                            | `profile.licenses[0..3]` (catégories)                                               |
-| `Jour signature`, `Mois signature`, `Année signature`, `Signature` | étape 8 (signature)                                                                 |
+### Dossier-Bénévole (89 champs : 85 remplis, 1 signature, aucun vide)
 
-### Charte-du-Bénévolat (18 champs ; 7 viennent du dossier)
+Lecture : la page 1 (couverture) porte `Nom`, `Prénom` et `Structure de rattachement`. En page
+2, la ligne « Prénom* » est le champ **`Prénom - 2`** (pas un second prénom) et la ligne « Nom
+de naissance* » est obligatoire : on y met le nom de naissance, ou le nom à défaut. Les cases
+correspondent bien à leur libellé (vérifié sur l'image).
 
-| Champ(s) AcroForm                                            | Donnée                                                                                      |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `Nom`, `Prénom`                                              | `identity.lastName`, `identity.firstName` (bénévole)                                        |
-| `Nom_2`, `Prénom_2`                                          | **à confirmer** sur le PDF (étape 8) : bénévole, représentant CRF ou parent                 |
-| `Nom_3`, `Prénom_3`                                          | **à confirmer** sur le PDF (étape 8) : bénévole, représentant CRF ou parent                 |
-| `Qualité`                                                    | qualité du représentant de la Croix-Rouge (étape 8)                                         |
-| `Structure de rattachement 1`, `Structure de rattachement 2` | `structure` (découpée si trop longue)                                                       |
-| `nom / qualité`, `numéro de téléphone`                       | `guardian.lastName` + `guardian.firstName` / `guardian.quality`, `guardian.phone` (mineurs) |
-| `Fait à`, `Jour`, `Mois`, `Année`                            | lieu et date de signature (étape 8)                                                         |
-| `Signature parent`, `Signature 01`, `Signature`              | signatures (étape 8)                                                                        |
+| Champ(s) AcroForm                                                 | Donnée                                                           |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `Nom`, `Prénom` (page 1)                                          | `identity.lastName`, `identity.firstName`                        |
+| `Structure de rattachement` (page 1)                              | paramètre `UL_NAME`                                              |
+| `Nom de naissance`, `Nom d'usage`                                 | `identity.birthName` (à défaut `lastName`), `identity.usageName` |
+| `Prénom - 2` (ligne « Prénom* » de la page 2)                     | `identity.firstName`, suivi de `secondFirstName` s'il existe     |
+| `Civilité - Mme`, `Civilité - M`                                  | `identity.civility`                                              |
+| `Jour naissance`, `Mois naissance`, `Année naissance`             | `identity.birthDate`                                             |
+| `Ville naissance`, `Département naissance`, `Pays naissance`      | `identity.birthCity`, `birthDepartment`, `birthCountry`          |
+| `Numéro et voie résidence`, `Complément adresse résidence`        | `contact.street`, `contact.addressComplement`                    |
+| `Code postal et ville résidence`, `Pays résidence`                | `contact.postalCode` + `city`, `contact.country`                 |
+| `Téléphone personnel`, `Email personnel`                          | `contact.phone` (formaté), `contact.email`                       |
+| `Téléphone professionnel`, `Email professionnel`                  | `contact.proPhone`, `contact.proEmail`                           |
+| `Déjà bénévole - OUI` / `- NON`                                   | `crf.alreadyVolunteer`                                           |
+| `NIVOL - Oui` / `- Non`, `NIVOL`                                  | `crf.hasNivol`, `crf.nivol` (déclaré par le candidat)            |
+| `Mail CRf - OUI` / `- NON`, `Mail CRf`                            | `crf.hasCrfEmail`, `crf.crfEmail` (déclaré)                      |
+| `Civilité urgence - Mme` / `- M`                                  | `emergency.civility`                                             |
+| `Nom urgence`, `Prénom urgence`, `Lien de parenté urgence`        | `emergency.lastName`, `firstName`, `relationship`                |
+| `Adresse urgence`, `Code Postal et ville urgence`, `Pays urgence` | `emergency.address`, `postalCode` + `city`, `country`            |
+| `Email urgence`, `Téléphone 1 urgence`, `Téléphone 2 urgence`     | `emergency.email`, `phone1`, `phone2`                            |
+| `Jour signature`, `Mois signature`, `Année signature`             | date de la signature du bénévole                                 |
+| `Signature`                                                       | **signature du bénévole** (image ou nom saisi)                   |
+| `Activité 1` à `Activité 4`                                       | `crf.activities`                                                 |
+| `Compétence 1` à `4`, et `- Débutant` / `- Confirmé` / `- Expert` | `profile.skills[i].label` et `.level`                            |
+| `Profession`, `Secteur professionnel`, `Entreprise`               | `profile.profession`, `sector`, `company`                        |
+| `Langue 1` à `3`, et `- Notions` / `- Courant` / `- Bilingue`     | `profile.languages[i].label` et `.level`                         |
+| `Diplome 1` à `Diplome 5`                                         | `profile.diplomas`                                               |
+| `Permis 1` à `Permis 4`                                           | `profile.licenses` (« Permis B »…)                               |
 
-### Attestation-d_Aptitude (8 champs ; 6 viennent du dossier)
+### Charte-du-Bénévolat (18 champs : 15 remplis, 3 signatures)
 
-| Champ AcroForm                                                                                     | Donnée                                                                  |
-| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `Prénom et nom du bénévole`                                                                        | `identity.firstName` + `identity.lastName`                              |
-| `Jour de naissance du bénévole`, `Mois de naissance du bénévole`, `Année de naissance du bénévole` | `identity.birthDate`                                                    |
-| `Lieu de naissance du bénévole`                                                                    | `identity.birthCity` (+ département)                                    |
-| `Nom et ville de la structure`                                                                     | `structure`                                                             |
-| `NIVOL`                                                                                            | NIVOL de la fiche (attribué par Gaia, étape 9), jamais le NIVOL déclaré |
-| `Signature`                                                                                        | étape 8                                                                 |
+Lecture sur le PDF (page 3, `docs/captures/pdf-champs-charte.png`) :
+
+- **« Pour le bénévole »** (colonne gauche) : `Fait à`, `Jour` / `Mois` / `Année`, `Nom`,
+  `Prénom`, puis « Personne à contacter en cas d'urgence (nom / qualité / numéro de
+  téléphone) » : `nom / qualité` et `numéro de téléphone` ; enfin « Votre signature » :
+  `Signature`.
+- **« Pour la Croix-Rouge française »** (colonne droite) : `Nom_2`, `Prénom_2`, `Qualité`,
+  `Structure de rattachement 1` (ligne courte) et `2`, puis la signature `Signature 01`.
+- **« Pour le bénévole mineur de moins de 16 ans »** (en bas à droite) : « Le parent /
+  représentant légal », `Nom_3`, `Prénom_3`, et `Signature parent`.
+
+| Champ(s) AcroForm                      | Donnée                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------ |
+| `Fait à`                               | paramètre `UL_CITY` (« Versailles »)                                     |
+| `Jour`, `Mois`, `Année`                | date de la signature du bénévole                                         |
+| `Nom`, `Prénom`                        | le bénévole                                                              |
+| `nom / qualité`, `numéro de téléphone` | la personne à prévenir : « Prénom Nom / lien de parenté », téléphone 1   |
+| `Signature`                            | **signature du bénévole**                                                |
+| `Nom_2`, `Prénom_2`, `Qualité`         | le **représentant de la Croix-Rouge** qui contresigne (qualité éditable) |
+| `Structure de rattachement 1`, `2`     | `UL_NAME`, découpé sur les deux lignes                                   |
+| `Signature 01`                         | **signature du représentant de la Croix-Rouge**                          |
+| `Nom_3`, `Prénom_3`                    | le **représentant légal** (mineur), vide sinon                           |
+| `Signature parent`                     | **signature du représentant légal** (mineur)                             |
+
+La charte limite le bloc parent aux « moins de 16 ans » ; Binivol fait signer le représentant
+légal de **tout mineur** (moins de 18 ans), comme le demande le cahier : point à confirmer.
+
+### Attestation-d_Aptitude (8 champs : 6 remplis, 1 signature, 1 volontairement vide)
+
+Lecture : la ligne « Date » à côté de la signature réutilise les trois champs de la date de
+naissance (chaque champ a **deux widgets**). Binivol détache le second widget de chacun et y
+écrit la date de signature : sinon la date de naissance s'afficherait comme date de signature.
+
+| Champ AcroForm                                          | Donnée                                                                                |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `Prénom et nom du bénévole`                             | `identity.firstName` + `lastName`                                                     |
+| `Jour/Mois/Année de naissance du bénévole` (1er widget) | `identity.birthDate`                                                                  |
+| mêmes champs, 2e widget (ligne « Date »)                | date de la signature du bénévole                                                      |
+| `Lieu de naissance du bénévole`                         | `identity.birthCity` (département)                                                    |
+| `Nom et ville de la structure`                          | « Croix-Rouge française, » + `UL_NAME`                                                |
+| `NIVOL`                                                 | **volontairement vide** : le NIVOL n'existe pas encore ; l'étape 9 (Gaia) le complète |
+| `Signature`                                             | **signature du bénévole**                                                             |
+
+### Noms des fichiers
+
+`NOM_Prénom_Dossier-Bénévole.pdf`, `NOM_Prénom_Charte-du-Bénévolat.pdf`,
+`NOM_Prénom_Attestation-d_Aptitude.pdf` (et `NOM_Prénom_Preuve-de-signature.pdf`) : NOM en
+capitales, Prénom avec une capitale à chaque partie, accents gardés, espaces en `-`, caractères
+interdits retirés (`documentFileName`, `src/lib/fileNames.ts`). Le téléchargement envoie
+`Content-Disposition` avec `filename*` (RFC 5987). Les valeurs trop longues pour un champ sont
+réduites (police jusqu'à 6 pt), puis coupées proprement avec « … », jamais débordantes.
 
 ## Seed
 
@@ -195,15 +240,18 @@ Les cases à cocher valent `/Oui` ou `/Off`. Les dates se découpent en jour, mo
 
 - `P-00058` (Dossier) : un lien actif et un brouillon à moitié rempli, plus un ancien lien
   révoqué ;
-- `P-00061` (Dossier) : un dossier envoyé d'une personne majeure, prêt à relire ; il déclare un
-  NIVOL déjà attribué, pour montrer l'avertissement ;
-- `P-00062` (Dossier) : un dossier envoyé d'un mineur de 15 ans, rempli sur place, avec son
-  autorisation parentale (document `fileMissing`) ;
-- `P-00059` (Gaia) : le dossier signé de l'étape 2, avec des données complètes ;
+- `P-00061` (Dossier) : un dossier d'une personne majeure, **signé par le bénévole, à
+  contresigner** ; il déclare un NIVOL déjà attribué, pour montrer l'avertissement de la revue ;
+- `P-00062` (Dossier) : un dossier d'un mineur de 15 ans, rempli et **signé sur place par le
+  bénévole, en attente du représentant légal**, avec son autorisation parentale (document
+  `fileMissing`) ;
+- `P-00059` (Gaia) : un dossier **complet** (contresigné), dont les 3 PDF et la preuve sont des
+  documents UL marqués `fileMissing` : le seed n'écrit pas dans le stockage ;
 - un lien expiré (candidature abandonnée).
 
-Les jetons du seed sont tirés au hasard et jetés : aucun n'est connu. Les tests créent leurs
-liens par le service.
+Les signatures du seed sont des noms saisis (aucun fichier à relire) : la contresignature de
+`P-00061` fonctionne en local avec le pilote de stockage `local`. Les jetons du seed sont tirés
+au hasard et jetés : aucun n'est connu. Les tests créent leurs liens par le service.
 
 ## Captures
 
@@ -225,4 +273,4 @@ liens par le service.
 - Le texte `RGPD_NOTICE` du seed est un **brouillon à faire valider par le DPO**.
 - La liste des activités proposées (`ACTIVITY_OPTIONS`, `src/lib/dossierForms.ts`) est à
   confirmer avec l'unité locale.
-- L'attribution de `Nom_2` / `Nom_3` dans la Charte est à vérifier sur le PDF (étape 8).
+- La charte réserve le bloc parent aux moins de 16 ans ; Binivol le fait signer pour tout mineur.

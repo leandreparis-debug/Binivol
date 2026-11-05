@@ -104,11 +104,13 @@ dossier, `./storage` par défaut, ignoré par Git) ou `s3` (Supabase Storage, Mi
 `GET /api/documents/[id]`, qui vérifie les droits et journalise la consultation. Configuration et
 sauvegarde : `docs/storage.md`.
 
-## Dossier en ligne et e-mails
+## Dossier en ligne, signature et e-mails
 
 Le candidat remplit son dossier sur téléphone depuis un lien sécurisé (jeton haché, échangé contre
 un cookie de 2 h), DIAMANT le relit puis reporte les champs choisis dans la fiche :
-`docs/dossier.md`. Les e-mails passent par `MailService` : pilote `log` par défaut (rien ne part,
+`docs/dossier.md`. Il signe ensuite les trois documents officiels (tracé ou nom saisi, code reçu
+par e-mail), un responsable contresigne la charte, et Binivol remplit, aplatit, range et envoie
+les PDF, avec une preuve de signature : `docs/signature.md`. Les e-mails passent par `MailService` : pilote `log` par défaut (rien ne part,
 les messages chiffrés se lisent dans **Administration › Courriels**), `smtp` pour un envoi réel
 (`docs/mail.md`).
 
@@ -151,7 +153,9 @@ Règles : pas de suppression physique (archivage ou annulation tracée), journau
 
 ```
 .github/workflows/ci.yml   CI : pnpm verify + Playwright
-docs/                      auth.md, data-model.md, decisions.md (ADR), deploy.md, design-system.md, dossier.md, import.md, integration.md, mail.md, permissions.md (généré), storage.md
+assets/modeles/            les 5 PDF officiels (empreintes figées dans src/server/pdf/templates.ts)
+assets/fonts/              Geist et Caveat (OFL), embarquées dans les PDF
+docs/                      auth.md, data-model.md, decisions.md (ADR), deploy.md, design-system.md, dossier.md, import.md, integration.md, mail.md, permissions.md (généré), signature.md, storage.md, plan/
 e2e/                       tests Playwright (+ axe)
 prisma/                    schema.prisma, migrations/, seed.ts, seed/ (données fictives)
 scripts/                   generate-icons.ts, admin.ts, db-fresh.ts, import-classeur.ts, make-fixture-classeur.ts
@@ -171,7 +175,7 @@ src/components/
   ui/                      composants de base écrits à la main
 src/generated/prisma/      client Prisma généré (non versionné)
 src/lib/                   utilitaires : cn, dates, age, deadlines, phone, timeline, personForms, initials, labels, nivol, status, env
-src/server/                accès aux données : db, audit, sensitive, timeline, candidacy/ (machine de passage), dossier/ (jeton, cookie, brouillon, revue), mail/ (MailService), storage/, auth/, policy/, actions/, services/, repositories/
+src/server/                accès aux données : db, audit, sensitive, timeline, candidacy/ (machine de passage), dossier/ (jeton, cookie, brouillon, revue, signature), pdf/ (modèles, remplissage, preuve), signature/ (code, tracé), mail/ (MailService), storage/, auth/, policy/, actions/, services/, repositories/
 src/test/                  setup Vitest, harnais de la base de test (db/)
 ```
 

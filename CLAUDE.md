@@ -105,6 +105,11 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   son empreinte SHA-256) ; les actions du candidat passent par `definePublicAction` et relisent
   le cookie de dossier ; le NIVOL et l'e-mail CRF déclarés ne sont jamais reportés dans la fiche.
 - E-mails uniquement par `MailService` (`src/server/mail/`, `docs/mail.md`).
+- **Signature électronique** (`docs/signature.md`) : codes stockés en HMAC seulement, PDF
+  officiels remplis depuis `src/server/pdf/mappings.ts` et **aplatis**, modèles de
+  `assets/modeles/` vérifiés par leur SHA-256 figé dans le code (jamais de modèle de
+  remplacement), rien n'est régénéré en silence (nouvelle version, l'ancienne archivée). Le
+  module `src/server/dossier/signing.ts` est le troisième module sensible autorisé.
 - Chaque page appelle `requirePageAccess(action)` (ou `authorizePage` avec la personne) ; le
   middleware n'est pas une sécurité.
 - **Jamais de donnée sensible dans le rendu initial d'une page** : elle s'affiche à la demande,

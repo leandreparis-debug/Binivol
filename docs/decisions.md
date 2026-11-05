@@ -617,3 +617,65 @@ cookie (ADR-038). L'ancienne route est retirée : aucun vrai lien n'avait été 
 **Conséquences.** Le jeton n'apparaît dans aucune adresse reçue ni dans aucun journal d'accès ;
 un test e2e le vérifie. L'ouverture demande JavaScript (message `<noscript>` sinon), ce qui est
 déjà le cas du formulaire.
+
+## ADR-044 — Le lien est consommé à la signature, plus à l'envoi
+
+**Contexte.** À l'étape 7, l'envoi du dossier marquait le lien utilisé. L'étape 8 ajoute la
+signature après l'envoi : le candidat doit pouvoir revenir signer avec le même lien.
+
+**Décision.** Entre l'envoi et la signature, le lien ne rouvre que les écrans de signature (le
+formulaire n'est plus modifiable). `usedAt` est posé quand toutes les signatures requises sont
+réunies : le bénévole, et le représentant légal pour un mineur. Un nouveau lien reprend le
+dossier envoyé non signé.
+
+**Conséquences.** Le lien reste actif plus longtemps qu'avant, mais il ne permet plus de changer
+le contenu ; sa durée (7 jours) et la révocation restent les garde-fous.
+
+## ADR-045 — `pdf-lib` pour remplir et aplatir les PDF officiels
+
+**Contexte.** Les trois documents officiels sont des PDF AcroForm. Il faut les remplir, y poser
+des signatures et rendre le résultat non modifiable, sans service externe ni binaire système.
+
+**Décision.** `pdf-lib` (pur JavaScript, licence MIT) avec `@pdf-lib/fontkit` : remplissage par
+nom exact de champ (`src/server/pdf/mappings.ts`), images de signature dans le rectangle du
+champ, puis aplatissement (plus aucun champ, plus d'AcroForm). Les défauts des modèles sont
+traités dans le code et documentés (champ à deux widgets de l'attestation, cases sans
+apparence « Off »).
+
+**Conséquences.** La génération tourne partout où Node tourne (Vercel, VPS). Les fichiers
+finaux ont une empreinte stable une fois produits ; un test relit chaque PDF généré.
+
+## ADR-046 — Police Unicode embarquée (Geist), et Caveat pour les noms saisis
+
+**Contexte.** Les polices standard des PDF (WinAnsi) ne couvrent pas « Ł », « Ő » ou « Ș » :
+un nom d'Europe de l'Est serait mal rendu.
+
+**Décision.** Geist (OFL), embarquée en sous-ensemble dans chaque PDF, dans `assets/fonts/` avec
+sa licence et son empreinte. Les signatures saisies au clavier sont dessinées en Caveat (OFL),
+en deux sous-ensembles (latin, latin étendu) choisis caractère par caractère.
+
+**Conséquences.** Les fichiers grossissent de quelques dizaines de Ko ; tous les noms
+s'affichent.
+
+## ADR-047 — Empreinte des modèles figée dans le code
+
+**Contexte.** Un modèle remplacé par erreur (ou modifié) produirait des documents officiels
+faux, sans que personne ne s'en aperçoive.
+
+**Décision.** Le SHA-256 de chaque modèle de `assets/modeles/` (et des polices) est écrit dans
+`src/server/pdf/templates.ts`. Un fichier différent bloque la génération avec un message clair ;
+un test le vérifie.
+
+**Conséquences.** Changer un modèle officiel est un changement de code relu (nouvelle empreinte,
+mapping vérifié par le test de couverture des champs).
+
+## ADR-048 — La copie bénévole n'est pas stockée une seconde fois
+
+**Contexte.** Le bénévole reçoit ses trois PDF par e-mail ; l'unité locale garde sa copie.
+
+**Décision.** Les PDF envoyés sont les mêmes fichiers que la copie UL : seule la copie UL est
+rangée dans le stockage ; leur empreinte figure dans la preuve. « Renvoyer l'e-mail » relit la
+copie UL et vérifie son empreinte avant l'envoi.
+
+**Conséquences.** Pas de doublon de données personnelles dans le stockage ; un renvoi envoie
+exactement les fichiers signés.
