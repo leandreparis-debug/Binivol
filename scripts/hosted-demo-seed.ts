@@ -12,7 +12,8 @@ import { seedDemo } from "../prisma/seed/index";
 
 async function main() {
   const env = parseEnv(process.env);
-  if (!isHostedDemo(env)) {
+  // Second guard, besides the build plan: production deployments only.
+  if (!isHostedDemo(env) || process.env.VERCEL_ENV !== "production") {
     process.stdout.write("Démo hébergée inactive : aucun seed de démonstration.\n");
     return;
   }

@@ -11,7 +11,7 @@
     "postinstall": "prisma generate",
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "prisma migrate deploy && tsx scripts/hosted-demo-seed.ts && next build",
+    "vercel-build": "tsx scripts/vercel-build.ts",
     "start": "next start",
     "lint": "eslint --max-warnings=0 .",
     "format": "prettier --write .",

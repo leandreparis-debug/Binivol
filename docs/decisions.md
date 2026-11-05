@@ -509,3 +509,25 @@ connexion démo est acceptée sur Vercel **seulement** si `AUTH_DEMO_ON_VERCEL=t
 **Conséquences.** Quiconque passe la protection Vercel entre comme TOPAZE, sur des données
 fictives. Cette exception ne doit jamais s'appliquer à la base de production : la mise en ligne
 réelle (étape 15) retire les deux variables et passe par Google.
+
+## ADR-036 — Le build Vercel ne migre et ne seede qu'en production
+
+**Contexte.** À l'étape 6, chaque déploiement (prévisualisations comprises) lançait
+`prisma migrate deploy` et le seed démo : une branche aurait pu modifier la base partagée.
+
+**Décision.** `planVercelBuild()` (pure, testée) : migrations seulement si
+`VERCEL_ENV=production` ; seed démo seulement en production avec `AUTH_DEMO_LOGIN=true` et
+`AUTH_DEMO_ON_VERCEL=true` ; `next build` toujours. Le script de seed revérifie la production.
+
+**Conséquences.** Une prévisualisation qui apporte une migration peut échouer à l'exécution tant
+que la migration n'est pas en production. C'est voulu : la base n'évolue que par `main`.
+
+## ADR-037 — Fonctions Vercel en `cdg1` (Paris)
+
+**Contexte.** Le premier déploiement tournait à Washington (`iad1`), loin de Supabase
+(`eu-west-3`, Paris) : latence et données personnelles hors d'Europe pendant le traitement.
+
+**Décision.** `vercel.json` fixe `"regions": ["cdg1"]`.
+
+**Conséquences.** Requêtes plus rapides vers la base, traitement en Europe. Sur VPS, le
+serveur sera aussi hébergé en France.

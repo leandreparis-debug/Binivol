@@ -122,6 +122,17 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   `AUTH_DEMO_ON_VERCEL=true` ; l'import de classeur y est alors refusé. Jamais en production
   réelle.
 
+## Base hébergée (Supabase) et déploiement
+
+- **Aucune commande ne modifie le schéma ou les données de la base hébergée en dehors du build
+  de production** (`pnpm vercel-build`, `src/server/deploy/buildPlan.ts`). Une prévisualisation
+  ne migre ni ne seede jamais.
+- **Pas de `migrate reset`, de `db push`, ni de SQL d'écriture lancé à la main sur Supabase.**
+- **Les secrets ne passent jamais par la conversation** : on les saisit directement dans Vercel
+  (ou sur le VPS). Ni mot de passe, ni clé, ni jeton dans un message, un commit ou un log.
+- Fonctions en `cdg1` (Paris, `vercel.json`), au plus près de Supabase `eu-west-3`
+  (`docs/deploy.md`).
+
 ## Workflow
 
 - Conventional Commits : `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `ci:`.
