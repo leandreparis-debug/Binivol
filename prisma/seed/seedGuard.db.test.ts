@@ -16,12 +16,21 @@ describe("seed:base", () => {
     const counts = await countRows(db);
     expect(counts).toMatchObject({
       reference_items: 24,
-      settings: 10,
+      settings: 12,
       reminder_rules: 6,
       persons: 0,
       users: 0,
     });
     expect(counts.audit_logs).toBe(0);
+  });
+
+  it("never overwrites a setting edited by TOPAZE", async () => {
+    await seedBase(db);
+    await db.setting.update({ where: { key: "UL_CITY" }, data: { value: "Le Chesnay" } });
+    await seedBase(db);
+    expect((await db.setting.findUniqueOrThrow({ where: { key: "UL_CITY" } })).value).toBe(
+      "Le Chesnay",
+    );
   });
 });
 

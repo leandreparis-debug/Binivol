@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { NIVOL_PATTERN } from "@/lib/nivol";
 import { dossierAge, migrateDossierData, submissionIssues } from "@/lib/dossierSchema";
+import { DEFAULT_SIGNED_DOSSIER_MAIL } from "@/server/mail/templates";
 import { linkState } from "@/server/services/dossiers";
 import { perimetersOf } from "@/server/perimeter";
 import { getTestDb } from "@/test/db/testDatabase";
@@ -214,7 +215,8 @@ describe("seed", () => {
       ["seed_link_active", "active"],
       ["seed_link_adult", "used"],
       ["seed_link_expired", "expired"],
-      ["seed_link_minor", "used"],
+      // Signed by the volunteer only: not consumed (ADR-045), expired since.
+      ["seed_link_minor", "expired"],
       ["seed_link_revoked", "revoked"],
     ]);
     expect(links.every((l) => /^[0-9a-f]{64}$/.test(l.tokenHash))).toBe(true);
@@ -272,6 +274,8 @@ describe("seed", () => {
       CANDIDACY_FOLLOW_UP_DAYS: 7,
       DOSSIER_LINK_DAYS: 7,
       UL_NAME: "Unité locale de Versailles",
+      UL_CITY: "Versailles",
+      VOLUNTEER_DOSSIER_MAIL: DEFAULT_SIGNED_DOSSIER_MAIL,
       RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });
     expect(await db.reminderRule.count()).toBe(6);

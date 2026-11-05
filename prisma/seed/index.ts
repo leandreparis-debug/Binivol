@@ -11,6 +11,8 @@ import type {
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
 import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
+import { DEFAULT_SIGNED_DOSSIER_MAIL } from "../../src/server/mail/templates";
+import { officialFileName } from "../../src/server/pdf/fileName";
 import { computeExpiresAt } from "../../src/server/reference";
 import { REFERENCE_ITEMS } from "./referenceData";
 
@@ -150,6 +152,17 @@ async function save<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
     const existing = await delegate.findUnique({ where: { id }, select: { id: true } });
     if (existing) await delegate.update({ where: { id }, data: rest as never });
     else await delegate.create({ data: row as never });
+  }
+}
+
+/**
+ * Creates the missing rows only: what TOPAZE edited (settings) is never
+ * overwritten by a later deployment.
+ */
+async function saveMissing<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
+  for (const row of rows) {
+    const existing = await delegate.findUnique({ where: { id: row.id }, select: { id: true } });
+    if (!existing) await delegate.create({ data: row as never });
   }
 }
 
@@ -375,7 +388,7 @@ export async function countNonSeedPersons(db: PrismaClient | SeedTx): Promise<nu
 
 async function seedBaseIn(tx: SeedTx): Promise<void> {
   // -- Settings -----------------------------------------------------------
-  const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = [
+  const settingRows: [string, Prisma.InputJsonValue, string][] = [
     ["ALERT_DAYS_BEFORE_EXPIRY", 60, "Nombre de jours avant échéance déclenchant une alerte."],
     ["RETENTION_YEARS_AFTER_LEAVE", 5, "Durée de conservation après le départ, en années (RGPD)."],
     ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
@@ -383,6 +396,12 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
     ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
     ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
+    ["UL_CITY", "Versailles", "Ville de l'unité locale : « Fait à » des documents signés."],
+    [
+      "VOLUNTEER_DOSSIER_MAIL",
+      DEFAULT_SIGNED_DOSSIER_MAIL,
+      "E-mail envoyé au bénévole avec ses documents signés ({prenom}, {structure}, {pieces}).",
+    ],
     [
       "RGPD_NOTICE",
       RGPD_NOTICE_DRAFT,
@@ -398,14 +417,18 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
       12,
       "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
     ],
-  ].map(([key, value, description]) => ({
-    id: `seed_setting_${String(key).toLowerCase()}`,
-    key: String(key),
-    value: value as Prisma.InputJsonValue,
-    description: String(description),
-    ...audit,
-  }));
-  await save(tx.setting, settings);
+  ];
+  const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = settingRows.map(
+    ([key, value, description]) => ({
+      id: `seed_setting_${key.toLowerCase()}`,
+      key,
+      value,
+      description,
+      ...audit,
+    }),
+  );
+  // Settings are edited by TOPAZE: a deployment only adds the missing ones.
+  await saveMissing(tx.setting, settings);
 
   // -- Reference list --------------------------------------------------------
   await save<Prisma.ReferenceItemUncheckedCreateInput>(
@@ -1215,7 +1238,8 @@ export async function seedDemo(
           mode: "ON_SITE" as const,
           createdAt: addDays(today, -2),
           expiresAt: addDays(today, -1),
-          usedAt: addDays(today, -2),
+          // Signed by the volunteer, not yet by her guardian: not consumed (ADR-045).
+          usedAt: null,
           revokedAt: null,
         },
       ];
@@ -1238,6 +1262,36 @@ export async function seedDemo(
             },
           });
       }
+      const signedName = (kind: "DOSSIER" | "CHARTE" | "APTITUDE" | "PROOF") =>
+        officialFileName(gaiaCandidate.lastName, gaiaCandidate.firstName, kind);
+      const signedDocuments: WithId<Prisma.DocumentUncheckedCreateInput>[] = (
+        [
+          ["dossier", "DOSSIER", "DOSSIER"],
+          ["charte", "CHARTE", "CHARTE"],
+          ["aptitude", "APTITUDE", "APTITUDE"],
+          ["preuve", "OTHER", "PROOF"],
+        ] as const
+      ).map(([suffix, kind, name]) => {
+        const key = `seed/${gaiaCandidate.id}/${suffix}.pdf`;
+        return {
+          id: `seed_doc_${pad(gaiaCandidate.index)}_${suffix}`,
+          personId: gaiaCandidate.id,
+          kind,
+          copy: "UL",
+          storageKey: key,
+          fileName: signedName(name),
+          mimeType: "application/pdf",
+          sizeBytes: 0,
+          sha256: sha256(key),
+          fileMissing: true,
+          submissionId: "seed_sub_signed",
+          uploadedById: userId("diamant"),
+          ...audit,
+        };
+      });
+      const signedHashes = Object.fromEntries(
+        signedDocuments.filter((d) => d.kind !== "OTHER").map((d) => [d.fileName, d.sha256]),
+      );
       await save<Prisma.DossierSubmissionUncheckedCreateInput>(tx.dossierSubmission, [
         {
           id: "seed_sub_draft",
@@ -1276,7 +1330,8 @@ export async function seedDemo(
           data: seedDossierData(gaiaCandidate, today, "complete"),
           schemaVersion: DOSSIER_SCHEMA_VERSION,
           submittedAt: addDays(today, -6),
-          signedAt: addDays(today, -6),
+          signedAt: addDays(today, -5),
+          mailSentAt: addDays(today, -5),
           ...audit,
         },
       ]);
@@ -1304,10 +1359,64 @@ export async function seedDemo(
           otpChallengeId: "seed_otp_signed",
           userAgent: "Seed/1.0 (fictif)",
           ipHash: sha256("seed-ip"),
-          documentHashes: { "dossier-fictif.pdf": sha256(`seed/${gaiaCandidate.id}/dossier.pdf`) },
+          documentHashes: signedHashes,
+          ...audit,
+        },
+        {
+          id: "seed_sig_crf",
+          submissionId: "seed_sub_signed",
+          signerRole: "CRF_REPRESENTATIVE",
+          signerName: "Diane Fictive",
+          signerQuality: "DIAMANT · Animation des équipes",
+          imageKey: `seed/${gaiaCandidate.id}/signature-crf.png`,
+          signedAt: addDays(today, -5),
+          method: "SESSION",
+          verifiedEmail: seedUserEmail("diamant"),
+          verifiedByName: "Diane Fictive",
+          userAgent: "Seed/1.0 (fictif)",
+          ipHash: sha256("seed-ip-crf"),
+          documentHashes: signedHashes,
+          ...audit,
+        },
+        // Signed by the volunteer, waiting for the counter-signature.
+        {
+          id: "seed_sig_adult_volunteer",
+          submissionId: "seed_sub_adult",
+          signerRole: "VOLUNTEER",
+          signerName: `${adultFile.firstName} ${adultFile.lastName}`,
+          signerQuality: "Bénévole",
+          imageKey: `seed/${adultFile.id}/signature.png`,
+          signedAt: addDays(today, -1),
+          method: "OTP_EMAIL",
+          verifiedEmail: `${slug(adultFile.firstName)}.${slug(adultFile.lastName)}${adultFile.index}@exemple.test`,
+          userAgent: "Seed/1.0 (fictif)",
+          ipHash: sha256("seed-ip-adult"),
+          ...audit,
+        },
+        // A minor signed in person, waiting for her legal guardian.
+        {
+          id: "seed_sig_minor_volunteer",
+          submissionId: "seed_sub_minor",
+          signerRole: "VOLUNTEER",
+          signerName: `${minorFile.firstName} ${minorFile.lastName}`,
+          signerQuality: "Bénévole",
+          imageKey: `seed/${minorFile.id}/signature.png`,
+          signedAt: addDays(today, -2),
+          method: "IN_PERSON",
+          inputKind: "TYPED",
+          verifiedByName: "Diane Fictive",
+          userAgent: "Seed/1.0 (fictif)",
+          ipHash: sha256("seed-ip-minor"),
           ...audit,
         },
       ]);
+      // The complete dossier: its final documents (UL copy) and the proof, marked
+      // `fileMissing` (the seed never writes to the storage).
+      for (const document of signedDocuments) {
+        const existing = documents.findIndex((d) => d.id === document.id);
+        if (existing >= 0) documents.splice(existing, 1, document);
+        else documents.push(document);
+      }
       await save(tx.document, documents);
       // The parental authorisation of the minor's dossier became her document.
       const minorAuth = required(
