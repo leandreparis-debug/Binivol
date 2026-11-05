@@ -70,6 +70,13 @@ export const envObject = z.object({
   /** Sender, e.g. « Binivol <no-reply@exemple.org> ». */
   SMTP_FROM: z.string().trim().min(3).optional(),
 
+  // --- Scheduled tasks (docs/taches.md) -------------------------------------
+  /**
+   * Shared secret of the daily task route (`Authorization: Bearer …`). Unset:
+   * the route refuses every call. Typed in Vercel (or on the VPS), never in a file.
+   */
+  CRON_SECRET: z.string().min(32).optional(),
+
   // --- Document storage (StorageService, docs/storage.md) -------------------
   /** `local` (a folder on disk: development, VPS) or `s3` (S3-compatible: Supabase Storage, MinIO…). */
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),

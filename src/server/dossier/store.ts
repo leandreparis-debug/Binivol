@@ -727,3 +727,19 @@ export async function applyDossier(
 }
 
 export { LIST_KEYS };
+
+/**
+ * Ids, among `personIds`, of the people who signed a dossier (reminder
+ * « dossier non signé », step 12). Dates only, nothing of the dossier.
+ */
+export async function signedDossierPersonIds(
+  db: DbOrTx,
+  personIds: readonly string[],
+): Promise<Set<string>> {
+  if (personIds.length === 0) return new Set();
+  const rows = await db.dossierSubmission.findMany({
+    where: { personId: { in: [...personIds] }, signedAt: { not: null } },
+    select: { personId: true },
+  });
+  return new Set(rows.map((r) => r.personId));
+}

@@ -10,6 +10,7 @@ import { toParisDay } from "@/lib/dates";
 import { withAudit, type Actor as AuditActor } from "../audit";
 import type { Db, DbOrTx } from "../db";
 import { DomainError } from "../errors";
+import { notifyUrgence, type UrgenceOutcome } from "./urgence";
 import { authorize, can, canSome } from "../policy/can";
 import { loadFunctionFacts, loadPersonFactsMany, newVolunteerMonths } from "../policy/facts";
 import type { Actor, PersonFacts } from "../policy/types";
@@ -354,7 +355,7 @@ export interface GroupEntryInput {
 }
 
 export type GroupEntryResult =
-  | { saved: true; recordIds: string[]; warnings: Warning[] }
+  | { saved: true; recordIds: string[]; warnings: Warning[]; urgence: UrgenceOutcome }
   | { saved: false; warnings: Warning[]; warningsKey: string };
 
 /** States of every competence of these people on `day` (prerequisites, Trouver). */
@@ -536,7 +537,14 @@ export async function recordTrainingGroup(
     }
     return created;
   });
-  return { saved: true, recordIds, warnings };
+  // After the transaction: the entry is kept whatever happens to the e-mail.
+  const urgence = await notifyUrgence(db, actor, {
+    reference,
+    result: input.result,
+    date,
+    recordIds,
+  });
+  return { saved: true, recordIds, warnings, urgence };
 }
 
 async function closeWish(
@@ -576,7 +584,7 @@ export async function setTrainingResults(
     if (!f) throw new DomainError("INVALID_DATA", "Personne introuvable.");
     authorize(actor, "training.write", { person: f });
   }
-  return withAudit(db, auditActor(actor), async (tx, audit) => {
+  const count = await withAudit(db, auditActor(actor), async (tx, audit) => {
     for (const r of rows) {
       const date = input.date ?? r.date ?? r.session?.startDate ?? null;
       const after = await tx.trainingRecord.update({
@@ -594,6 +602,19 @@ export async function setTrainingResults(
     }
     return rows.length;
   });
+  // One notice per training of the batch, after the transaction.
+  for (const referenceId of new Set(rows.map((r) => r.referenceId))) {
+    const lines = rows.filter((r) => r.referenceId === referenceId);
+    const first = lines[0];
+    if (!first) continue;
+    await notifyUrgence(db, actor, {
+      reference: first.reference,
+      result: input.result,
+      date: input.date ?? first.date ?? first.session?.startDate ?? null,
+      recordIds: lines.map((r) => r.id),
+    });
+  }
+  return count;
 }
 
 /** Cancels a line (reason required): never deleted, ignored by the states. */

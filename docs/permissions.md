@@ -50,6 +50,9 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Importer l'ancien classeur (`import.run`) | — | Oui | — | — | — | — | — |
 | Consulter les e-mails du pilote de démonstration (`mail.log.read`) | — | Oui | — | — | — | — | — |
 | Consulter ses notifications (`notification.readOwn`) | — | Oui | Oui | Oui | Oui | Oui | Oui |
+| Voir les alertes formations et nominations d'une personne (`alert.training.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | Oui, sauf candidat ou personne archivée | Si la personne relève du profil | — |
+| Voir les alertes d'intégration et de suivi d'une personne (relances, points, pauses, fiche) (`alert.integration.read`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
+| Voir les alertes réservées à TOPAZE (B3, purge, NIVOL, référentiel) (`alert.admin.read`) | une personne | Oui | — | — | — | — | — |
 
 ## Fiche d'une personne
 

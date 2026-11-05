@@ -16,6 +16,8 @@ import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossier
 import { computeExpiresAt } from "../../src/server/reference";
 import { FINAL_MAIL_DEFAULT } from "../../src/server/settings";
 import { REFERENCE_ITEMS } from "./referenceData";
+import { AUTOMATION_DEFAULTS, AUTOMATION_KEYS } from "../../src/server/automationSettings";
+import { DEFAULT_REMINDER_RULES } from "../../src/server/reminders/defaults";
 
 /**
  * Synthetic seed. 100 % invented people, marked « Donnée fictive (seed) ».
@@ -391,7 +393,6 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["RETENTION_YEARS_AFTER_LEAVE", 5, "Durée de conservation après le départ, en années (RGPD)."],
     ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
     ["DATA_CLASSIFICATION", "C3 CONFIDENTIEL", "Classification des données de l'outil."],
-    ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
     ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
     ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
     ["UL_CITY", "Versailles", "« Fait à » de la charte du bénévolat."],
@@ -421,6 +422,11 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
       "Ancienneté, en mois, en dessous de laquelle un bénévole relève de DIAMANT.",
     ],
   ];
+  // Alerts, reminders and automatic e-mails (step 12): defaults of `automationSettings`.
+  for (const field of Object.keys(AUTOMATION_KEYS) as (keyof typeof AUTOMATION_KEYS)[]) {
+    const [key, description] = AUTOMATION_KEYS[field];
+    settingRows.push([key, AUTOMATION_DEFAULTS[field], description]);
+  }
   const settings: WithId<Prisma.SettingUncheckedCreateInput>[] = settingRows.map(
     ([key, value, description]) => ({
       id: `seed_setting_${key.toLowerCase()}`,
@@ -457,67 +463,10 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
   // The legacy workbook has no prerequisite; the links are edited by TOPAZE
   // and FORMAT (step 10): a deployment never touches them.
 
-  const rules: WithId<Prisma.ReminderRuleUncheckedCreateInput>[] = [
-    {
-      id: "seed_rule_candidacy_idle",
-      key: "CANDIDACY_IDLE",
-      label: "Candidature sans action depuis 14 jours",
-      trigger: "CANDIDACY_IDLE",
-      offsetDays: 14,
-      recipients: ["DIAMANT"],
-      channels: ["IN_APP", "EMAIL_DIGEST"],
-    },
-    {
-      id: "seed_rule_dossier_unsigned",
-      key: "DOSSIER_UNSIGNED",
-      label: "Dossier envoyé et non signé depuis 7 jours",
-      trigger: "DOSSIER_UNSIGNED",
-      offsetDays: 7,
-      recipients: ["DIAMANT"],
-      channels: ["IN_APP"],
-    },
-    {
-      id: "seed_rule_training_expiring",
-      key: "TRAINING_EXPIRING",
-      label: "Formation arrivant à échéance dans 60 jours",
-      trigger: "TRAINING_EXPIRING",
-      offsetDays: 60,
-      recipients: ["FORMAT", "ACTION", "LASER"],
-      channels: ["IN_APP", "EMAIL_DIGEST"],
-      params: { setting: "ALERT_DAYS_BEFORE_EXPIRY" },
-    },
-    {
-      id: "seed_rule_followup_due",
-      key: "FOLLOWUP_DUE",
-      label: "Point de suivi à faire",
-      trigger: "FOLLOWUP_DUE",
-      offsetDays: 0,
-      recipients: ["DIAMANT"],
-      channels: ["IN_APP"],
-    },
-    {
-      id: "seed_rule_person_inactive",
-      key: "PERSON_INACTIVE",
-      label: "Bénévole sans activité depuis 6 mois",
-      trigger: "PERSON_INACTIVE",
-      offsetDays: 180,
-      recipients: ["TOPAZE"],
-      channels: ["EMAIL_DIGEST"],
-    },
-    {
-      id: "seed_rule_b3_annual",
-      key: "B3_ANNUAL",
-      label: "Vérification annuelle du B3",
-      trigger: "B3_ANNUAL",
-      offsetDays: 365,
-      recipients: ["TOPAZE"],
-      channels: ["IN_APP"],
-      active: false,
-    },
-  ];
-  await save(
+  // Reminder rules (step 12): edited by TOPAZE, a deployment only adds the missing ones.
+  await saveMissing<Prisma.ReminderRuleUncheckedCreateInput>(
     tx.reminderRule,
-    rules.map((r) => ({ ...r, ...audit })),
+    DEFAULT_REMINDER_RULES.map((r) => ({ ...r, ...audit })),
   );
 }
 

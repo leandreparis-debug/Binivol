@@ -37,6 +37,9 @@ export const POLICY_ACTIONS = [
   "import.run",
   "mail.log.read",
   "notification.readOwn",
+  "alert.training.read",
+  "alert.integration.read",
+  "alert.admin.read",
 ] as const;
 
 export type PolicyAction = (typeof POLICY_ACTIONS)[number];

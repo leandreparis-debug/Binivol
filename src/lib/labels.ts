@@ -5,6 +5,9 @@
  * Imports only `enums.ts` from the generated client, which is browser-safe.
  */
 import type {
+  AutomatedMessageKind,
+  AutomatedMessageStatus,
+  JobRunStatus,
   AbandonReason,
   AccessScope,
   Aptitude,
@@ -202,6 +205,8 @@ export const REMINDER_TRIGGER_LABELS: Record<ReminderTrigger, string> = {
   FOLLOWUP_DUE: "Point de suivi à faire",
   PERSON_INACTIVE: "Bénévole sans activité",
   B3_ANNUAL: "Vérification annuelle du B3",
+  PAUSE_RETURN: "Reprise de pause arrivée",
+  GREETINGS_REVIEW: "Relecture des textes d'anniversaire",
 };
 
 export const NOTIFICATION_CHANNEL_LABELS: Record<NotificationChannel, string> = {
@@ -234,6 +239,27 @@ export const IMPORT_STATUS_LABELS: Record<ImportStatus, string> = {
   FAILED: "Échec",
 };
 
+export const JOB_RUN_STATUS_LABELS: Record<JobRunStatus, string> = {
+  RUNNING: "En cours",
+  DONE: "Terminée",
+  FAILED: "Échec",
+};
+
+export const AUTOMATED_MESSAGE_KIND_LABELS: Record<AutomatedMessageKind, string> = {
+  DIGEST: "Récapitulatif des alertes",
+  URGENCE_NOTICE: "Prévenance du pôle Urgence",
+  URGENCE_SUMMARY: "Récapitulatif Urgence",
+  BIRTHDAY: "Anniversaire",
+  ENGAGEMENT_ANNIVERSARY: "Anniversaire d'engagement",
+  DOSSIER_REMINDER: "Relance de dossier",
+};
+
+export const AUTOMATED_MESSAGE_STATUS_LABELS: Record<AutomatedMessageStatus, string> = {
+  SENT: "Envoyé",
+  FAILED: "Échec",
+  SKIPPED: "Sans destinataire",
+};
+
 /** Every label table, keyed by the enum name in `prisma/schema.prisma`. */
 export const ENUM_LABELS = {
   Profile: PROFILE_LABELS,
@@ -263,6 +289,9 @@ export const ENUM_LABELS = {
   AuditAction: AUDIT_ACTION_LABELS,
   AccessScope: ACCESS_SCOPE_LABELS,
   ImportStatus: IMPORT_STATUS_LABELS,
+  JobRunStatus: JOB_RUN_STATUS_LABELS,
+  AutomatedMessageKind: AUTOMATED_MESSAGE_KIND_LABELS,
+  AutomatedMessageStatus: AUTOMATED_MESSAGE_STATUS_LABELS,
 } as const;
 
 export type EnumName = keyof typeof ENUM_LABELS;
@@ -286,6 +315,10 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
   "candidacy.create": "Créer un candidat ou réengager une personne",
   "b3.manage": "Enregistrer la vérification du B3 et en voir l'issue",
   "person.return": "Enregistrer le retour d'un ancien bénévole",
+  "alert.training.read": "Voir les alertes formations et nominations d'une personne",
+  "alert.integration.read":
+    "Voir les alertes d'intégration et de suivi d'une personne (relances, points, pauses, fiche)",
+  "alert.admin.read": "Voir les alertes réservées à TOPAZE (B3, purge, NIVOL, référentiel)",
   "candidacy.finalize.undo": "Annuler une intégration finalisée par erreur (7 jours)",
   "dossier.manage": "Gérer les dossiers en ligne",
   "mentorship.manage": "Gérer les parrainages",

@@ -114,6 +114,9 @@ const PERSON_TABLE: Partial<Record<PolicyAction, Expected>> = {
   "document.read": personRead,
   "document.upload": diamantOnly,
   "document.archived.read": {},
+  "alert.training.read": { ...personRead, DIAMANT: NONE, FORMAT: VOLUNTEERS },
+  "alert.integration.read": diamantOnly,
+  "alert.admin.read": {},
 };
 
 /** Resource-less actions: profiles allowed. */

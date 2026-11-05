@@ -510,3 +510,71 @@ export async function b3ToCheck(db: DbOrTx, actor: Actor, day: Date): Promise<B3
     lastCheckedAt: r.sensitive?.b3CheckedAt ?? null,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// Alerts and greetings (step 12). Derived facts only, never displayed as such:
+// an age, the date of the last B3 check (never its outcome), whether a
+// parental authorisation is recorded, whose birthday falls on a day. Like
+// `agesOf`, not journaled (no one views a sensitive value).
+// ---------------------------------------------------------------------------
+
+export interface AlertSensitiveFacts {
+  age: number | null;
+  b3CheckedAt: Date | null;
+  parentalAuthorization: boolean;
+}
+
+/** Facts the alert rules need, for many people in one query. Missing ids → all unknown. */
+export async function alertSensitiveFacts(
+  db: DbOrTx,
+  personIds: readonly string[],
+  day: Date,
+): Promise<Map<string, AlertSensitiveFacts>> {
+  const result = new Map<string, AlertSensitiveFacts>(
+    personIds.map((id) => [id, { age: null, b3CheckedAt: null, parentalAuthorization: false }]),
+  );
+  if (personIds.length === 0) return result;
+  const rows = await db.personSensitive.findMany({
+    where: { personId: { in: [...personIds] } },
+    select: {
+      personId: true,
+      birthDate: true,
+      b3CheckedAt: true,
+      parentalAuthorization: true,
+    },
+  });
+  for (const row of rows) {
+    result.set(row.personId, {
+      age: row.birthDate ? ageOn(row.birthDate, day) : null,
+      b3CheckedAt: row.b3CheckedAt,
+      parentalAuthorization: row.parentalAuthorization === true,
+    });
+  }
+  return result;
+}
+
+/**
+ * Ids of the people whose birthday is `day` (Paris calendar day). Someone
+ * born on 29 February is celebrated on 28 February in a non-leap year. The
+ * age is never returned.
+ */
+export async function birthdaysOn(
+  db: DbOrTx,
+  personIds: readonly string[],
+  day: Date,
+): Promise<string[]> {
+  if (personIds.length === 0) return [];
+  const month = day.getUTCMonth() + 1;
+  const date = day.getUTCDate();
+  const year = day.getUTCFullYear();
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const alsoLeapDay = month === 2 && date === 28 && !leap;
+  const rows = await db.$queryRaw<{ person_id: string }[]>`
+    SELECT person_id FROM person_sensitive
+    WHERE person_id = ANY(${[...personIds]}::text[]) AND birth_date IS NOT NULL
+      AND (
+        (EXTRACT(MONTH FROM birth_date) = ${month} AND EXTRACT(DAY FROM birth_date) = ${date})
+        OR (${alsoLeapDay} AND EXTRACT(MONTH FROM birth_date) = 2 AND EXTRACT(DAY FROM birth_date) = 29)
+      )`;
+  return rows.map((r) => r.person_id);
+}

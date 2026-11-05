@@ -202,6 +202,10 @@ enum ReminderTrigger {
   FOLLOWUP_DUE
   PERSON_INACTIVE
   B3_ANNUAL
+  /// Planned return of a pause reached (step 12).
+  PAUSE_RETURN
+  /// 31/12: TOPAZE re-reads the greeting texts (step 12).
+  GREETINGS_REVIEW
 }
 
 enum NotificationChannel {
@@ -359,6 +363,8 @@ model Person {
   pausedAt               DateTime?    @map("paused_at") @db.Date
   pauseUntil             DateTime?    @map("pause_until") @db.Date
   pauseReason            String?      @map("pause_reason")
+  /// The person refused the birthday and engagement greetings (step 12).
+  greetingOptOut         Boolean      @default(false) @map("greeting_opt_out")
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById            String?      @map("created_by_id")
@@ -1065,6 +1071,61 @@ model OutboundMail {
 
   @@index([createdAt])
   @@map("outbound_mails")
+}
+
+enum JobRunStatus {
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// One run of a scheduled job per day (step 12): the lock that makes the daily task idempotent.
+model JobRun {
+  id         String       @id @default(cuid(2))
+  job        String
+  /// Paris calendar day of the run.
+  day        DateTime     @db.Date
+  status     JobRunStatus @default(RUNNING)
+  startedAt  DateTime     @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime?    @map("finished_at") @db.Timestamptz(3)
+  /// Counts only (never a name or an address).
+  summary    Json         @default("{}")
+  error      String?
+
+  @@unique([job, day])
+  @@map("job_runs")
+}
+
+enum AutomatedMessageKind {
+  DIGEST
+  URGENCE_NOTICE
+  URGENCE_SUMMARY
+  BIRTHDAY
+  ENGAGEMENT_ANNIVERSARY
+  DOSSIER_REMINDER
+}
+
+enum AutomatedMessageStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/// An automatic e-mail (step 12): never sent twice for the same `dedupeKey`; a failure is
+/// kept and shown to TOPAZE. No address and no content here (the `log` driver keeps those).
+model AutomatedMessage {
+  id         String                 @id @default(cuid(2))
+  dedupeKey  String                 @unique @map("dedupe_key")
+  kind       AutomatedMessageKind
+  status     AutomatedMessageStatus
+  personId   String?                @map("person_id")
+  recipients Int                    @default(0)
+  error      String?
+  createdAt  DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([kind, createdAt])
+  @@map("automated_messages")
 }
 
 model Setting {

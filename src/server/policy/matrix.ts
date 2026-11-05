@@ -136,6 +136,17 @@ export const MATRIX = {
   "import.run": topazeOnly("none"),
   "mail.log.read": topazeOnly("none"),
   "notification.readOwn": { target: "none", grants: [{ profiles: ALL_PROFILES, when: "always" }] },
+  // Alerts (step 12): who sees which subject, mapped from each rule in `./alerts.ts`.
+  "alert.training.read": {
+    target: "person",
+    grants: [
+      TOPAZE,
+      { profiles: ["FORMAT"], when: "notArchivedNotCandidate" },
+      { profiles: ["ACTION", "LASER", "FORMAT_GP"], when: "inScope" },
+    ],
+  },
+  "alert.integration.read": diamantInScope("person"),
+  "alert.admin.read": topazeOnly("person"),
 } as const satisfies Record<PolicyAction, ActionRule>;
 
 /** Every action of the matrix, in the documented order. */
