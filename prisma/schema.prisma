@@ -423,6 +423,8 @@ model PersonSkill {
   personId    String     @map("person_id")
   label       String
   level       SkillLevel
+  /// Removed from the person page: archived, never deleted (step 5).
+  archivedAt  DateTime?  @map("archived_at") @db.Timestamptz(3)
   createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById String?    @map("created_by_id")
@@ -439,6 +441,8 @@ model PersonLanguage {
   personId    String        @map("person_id")
   label       String
   level       LanguageLevel
+  /// Removed from the person page: archived, never deleted (step 5).
+  archivedAt  DateTime?     @map("archived_at") @db.Timestamptz(3)
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById String?       @map("created_by_id")
@@ -451,14 +455,16 @@ model PersonLanguage {
 }
 
 model PersonLicense {
-  id          String   @id @default(cuid(2))
-  personId    String   @map("person_id")
+  id          String    @id @default(cuid(2))
+  personId    String    @map("person_id")
   /// Driving licence category (B, C, D, BE…).
   category    String
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById String?  @map("created_by_id")
-  updatedById String?  @map("updated_by_id")
+  /// Removed from the person page: archived, never deleted (step 5).
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id")
+  updatedById String?   @map("updated_by_id")
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
@@ -503,6 +509,8 @@ model PersonAnnex {
   code        String
   label       String?
   validUntil  DateTime? @map("valid_until") @db.Date
+  /// Removed from the person page: archived, never deleted (step 5).
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById String?   @map("created_by_id")

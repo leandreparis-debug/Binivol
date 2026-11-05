@@ -79,6 +79,8 @@ export const MATRIX = {
   "person.sensitive.read": personRead,
   "person.update": diamantInScope("person"),
   "person.status.change": topazeOnly("person"),
+  // The NIVOL is normally set by the Gaia assistant (step 9): only TOPAZE corrects it.
+  "person.nivol.correct": topazeOnly("person"),
   "training.read": {
     target: "person",
     grants: [
@@ -105,6 +107,7 @@ export const MATRIX = {
   "followUp.manage": diamantInScope("person"),
   "document.read": personRead,
   "document.upload": diamantInScope("person"),
+  "document.archived.read": topazeOnly("person"),
   "user.manage": topazeOnly("none"),
   "reference.manage": topazeOnly("none"),
   "setting.manage": topazeOnly("none"),

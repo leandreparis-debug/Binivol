@@ -3,9 +3,10 @@ import { adultBornOnOrBefore, ageOn } from "@/lib/age";
 import type { DbOrTx } from "./db";
 import { inTransaction } from "./db";
 import { DomainError } from "./errors";
-import { authorize, ForbiddenError } from "./policy/can";
+import type { DocumentCopy, DocumentKind } from "@/generated/prisma/enums";
+import { authorize, can, ForbiddenError } from "./policy/can";
 import { loadPersonFacts } from "./policy/facts";
-import type { Actor } from "./policy/types";
+import type { Actor, PersonFacts } from "./policy/types";
 
 /**
  * **The only path to sensitive data** (birth, address, people to notify, B3,
@@ -163,6 +164,56 @@ export async function readDocument(
 }
 
 export { ForbiddenError };
+
+/** A document of the « Documents » tab (metadata only, no storage key). */
+export interface DocumentListItem {
+  id: string;
+  kind: DocumentKind;
+  copy: DocumentCopy;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  fileMissing: boolean;
+  expiresAt: Date | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  uploadedBy: string | null;
+}
+
+/**
+ * Documents of a person (`document.read`). Archived documents are included
+ * only for `document.archived.read` (TOPAZE). Listing metadata is not a
+ * consultation: the access log is written when a file is opened
+ * (`readDocument`, route `GET /api/documents/[id]`).
+ */
+export async function listPersonDocuments(
+  db: DbOrTx,
+  actor: Actor,
+  personId: string,
+  facts?: PersonFacts,
+): Promise<DocumentListItem[]> {
+  const person = facts ?? (await personFactsOrThrow(db, personId));
+  authorize(actor, "document.read", { person });
+  const withArchived = can(actor, "document.archived.read", { person }).allowed;
+  const rows = await db.document.findMany({
+    where: { personId, ...(withArchived ? {} : { archivedAt: null }) },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      kind: true,
+      copy: true,
+      fileName: true,
+      mimeType: true,
+      sizeBytes: true,
+      fileMissing: true,
+      expiresAt: true,
+      archivedAt: true,
+      createdAt: true,
+      uploadedBy: { select: { name: true } },
+    },
+  });
+  return rows.map(({ uploadedBy, ...row }) => ({ ...row, uploadedBy: uploadedBy?.name ?? null }));
+}
 
 // ---------------------------------------------------------------------------
 // Age (step 5). The directory and the person page show the age and a « Mineur »

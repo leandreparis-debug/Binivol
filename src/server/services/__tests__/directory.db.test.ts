@@ -112,14 +112,9 @@ describe("directory: visibility, count and pagination", () => {
     });
     expect(page.rows).toEqual([]);
     expect(page.total).toBe(0);
-    const diamant = await listDirectory(
-      db,
-      who("diamant"),
-      query({ statut: "CANDIDATE" }),
-      {
-        day,
-      },
-    );
+    const diamant = await listDirectory(db, who("diamant"), query({ statut: "CANDIDATE" }), {
+      day,
+    });
     expect(diamant.total).toBe(6);
   });
 

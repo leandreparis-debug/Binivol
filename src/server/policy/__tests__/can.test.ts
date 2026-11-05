@@ -90,6 +90,7 @@ const PERSON_TABLE: Partial<Record<PolicyAction, Expected>> = {
   "person.sensitive.read": personRead,
   "person.update": diamantOnly,
   "person.status.change": {},
+  "person.nivol.correct": {},
   "training.read": { ...personRead, FORMAT: VOLUNTEERS },
   "training.write": formatOnly,
   "trainingWish.manage": formatOnly,
@@ -100,6 +101,7 @@ const PERSON_TABLE: Partial<Record<PolicyAction, Expected>> = {
   "followUp.manage": diamantOnly,
   "document.read": personRead,
   "document.upload": diamantOnly,
+  "document.archived.read": {},
 };
 
 /** Resource-less actions: profiles allowed. */

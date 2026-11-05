@@ -22,6 +22,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Consulter les données sensibles (naissance, adresse, personnes à prévenir, B3, autorisation parentale) (`person.sensitive.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | — | Si la personne relève du profil | Si la personne relève du profil |
 | Modifier l'identité et les coordonnées (`person.update`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Changer le statut d'une personne (`person.status.change`) | une personne | Oui | — | — | — | — | — |
+| Corriger le NIVOL (motif obligatoire) (`person.nivol.correct`) | une personne | Oui | — | — | — | — | — |
 | Consulter les formations suivies et les souhaits (`training.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | Oui, sauf candidat ou personne archivée | Si la personne relève du profil | Si la personne relève du profil |
 | Saisir et modifier les formations suivies (`training.write`) | une personne | Oui | — | — | Oui, sauf candidat ou personne archivée | — | — |
 | Gérer les sessions de formation (`trainingSession.manage`) | — | Oui | — | — | Oui | — | — |
@@ -33,7 +34,8 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Gérer les parrainages (`mentorship.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Gérer les points de suivi (`followUp.manage`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Consulter les documents (`document.read`) | une personne | Oui | Si la personne relève du profil | Si la personne relève du profil | — | Si la personne relève du profil | Si la personne relève du profil |
-| Déposer des documents (`document.upload`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
+| Déposer et archiver des documents (`document.upload`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
+| Consulter les documents archivés (`document.archived.read`) | une personne | Oui | — | — | — | — | — |
 | Gérer les comptes et leurs profils (`user.manage`) | — | Oui | — | — | — | — | — |
 | Gérer le référentiel des formations et fonctions (`reference.manage`) | — | Oui | — | — | — | — | — |
 | Gérer les paramètres (`setting.manage`) | — | Oui | — | — | — | — | — |
