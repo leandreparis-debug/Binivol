@@ -115,15 +115,15 @@ describe("visibility in SQL mirrors can()", () => {
     for (const [key, actor] of actors) {
       counts[key] = (await sqlVisible(actor, "person.directory.read")).length;
     }
-    // 60 people, 6 candidates, 2 archived (one of them a candidate).
+    // 62 people, 8 candidates, 2 archived (one of them a candidate).
     expect(counts).toEqual({
-      topaze: 60,
+      topaze: 62,
       action: 53,
       laser: 53,
       format: 53,
       "format-gp": 53,
-      diamant: 58,
-      "format-diamant": 58,
+      diamant: 60,
+      "format-diamant": 60,
     });
   });
 

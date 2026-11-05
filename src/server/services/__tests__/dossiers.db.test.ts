@@ -24,6 +24,13 @@ import {
   revokeDossierLink,
   sendDossierLink,
 } from "@/server/services/dossiers";
+import {
+  formActor,
+  onSiteContext,
+  saveDossierForm,
+  submitDossierForm,
+} from "@/server/services/dossierForm";
+import { listOutboundMails } from "@/server/services/outboundMails";
 import { memoryStorage } from "@/server/storage/memory";
 import { getTestDb } from "@/test/db/testDatabase";
 import { newCandidateSchema } from "@/lib/candidacyForms";
@@ -415,5 +422,32 @@ describe("draft, submission and review", () => {
     expect(link.mode).toBe("ON_SITE");
     expect((await resolveDossierLink(db, linkId))?.mode).toBe("ON_SITE");
     expect(await openOnSite(db, who("diamant"), c.personId)).toBe(linkId);
+  });
+
+  it("on-site saves and submits under the responsible's name, then the mode closes", async () => {
+    const c = await confirmedCandidate();
+    await openOnSite(db, who("diamant"), c.personId);
+    const context = await onSiteContext(db, c.personId);
+    if (!context) throw new Error("on-site");
+    const audit = formActor(context, who("diamant"));
+    expect(audit.label).toMatch(/\(sur place\)$/);
+    await saveDossierForm(db, context, completeDossier(), audit);
+    expect(await submitDossierForm(db, context, completeDossier(), audit)).toEqual({
+      submitted: true,
+    });
+    expect(await onSiteContext(db, c.personId)).toBeNull();
+    const logs = await db.auditLog.findMany({
+      where: { entity: "DossierSubmission", actorLabel: audit.label },
+    });
+    expect(logs.length).toBeGreaterThan(0);
+  });
+});
+
+describe("mail log (/admin/courriels)", () => {
+  it("is TOPAZE only, and decrypts the kept e-mails", async () => {
+    await logMail(db, null).send({ to: "lu@exemple.test", subject: "Sujet", text: "Corps fictif" });
+    const mails = await listOutboundMails(db, who("topaze"));
+    expect(mails[0]).toMatchObject({ to: "lu@exemple.test", text: "Corps fictif" });
+    await expect(listOutboundMails(db, who("diamant"))).rejects.toThrow();
   });
 });

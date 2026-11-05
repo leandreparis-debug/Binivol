@@ -30,20 +30,20 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-desktop",
-      testIgnore: /(import|candidates)\.spec\.ts/,
+      testIgnore: /(import|candidates|dossier)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     {
       // The import adds 24 people and the candidate tests create candidates: they run
       // after every other test, so the directory counts checked there stay those of the seed.
       name: "chromium-desktop-late",
-      testMatch: /(import|candidates)\.spec\.ts/,
+      testMatch: /(import|candidates|dossier)\.spec\.ts/,
       dependencies: ["chromium-desktop", "chromium-mobile"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     {
       name: "chromium-mobile-late",
-      testMatch: /candidates\.spec\.ts/,
+      testMatch: /(candidates|dossier)\.spec\.ts/,
       dependencies: ["chromium-desktop", "chromium-mobile"],
       use: {
         ...devices["Desktop Chrome"],
@@ -55,7 +55,7 @@ export default defineConfig({
     },
     {
       name: "chromium-mobile",
-      testIgnore: /(import|candidates)\.spec\.ts/,
+      testIgnore: /(import|candidates|dossier)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 844 },

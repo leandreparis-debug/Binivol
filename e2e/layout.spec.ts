@@ -14,7 +14,7 @@ const PAGES = [
   "/design",
   "/moi",
   "/admin/comptes",
-  "/dossier/demo",
+  "/dossier/lien-invalide",
   "/connexion",
 ];
 
@@ -50,21 +50,14 @@ test.describe("Dossier candidat (mobile)", () => {
     );
   });
 
-  test("/dossier/demo s'affiche sans session, sans débordement, avec des champs d'au moins 16 px", async ({
+  test("la page neutre du dossier s'affiche sans session, sans débordement ni navigation", async ({
     page,
   }) => {
-    await page.goto("/dossier/demo");
-    await expect(page.getByRole("heading", { level: 1, name: "Votre dossier" })).toBeVisible();
+    await page.goto("/dossier/lien-invalide");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Ce lien n'est plus valable." }),
+    ).toBeVisible();
     await expectNoHorizontalScroll(page);
-    const controls = page.locator("input, select, textarea");
-    const count = await controls.count();
-    expect(count).toBeGreaterThanOrEqual(3);
-    for (let i = 0; i < count; i += 1) {
-      const fontSize = await controls
-        .nth(i)
-        .evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
-      expect(fontSize, `champ ${i} : taille de police`).toBeGreaterThanOrEqual(16);
-    }
     await expect(page.getByRole("navigation")).toHaveCount(0);
   });
 });

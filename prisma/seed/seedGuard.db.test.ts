@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getTestDb, resetDatabase } from "@/test/db/testDatabase";
-import { countRows, RealDataPresentError, seedBase, seedDemo } from "./index";
+import { countRows, RealDataPresentError, SEED_VOLUMES, seedBase, seedDemo } from "./index";
 
 const db = getTestDb();
 const today = new Date("2026-11-04T00:00:00.000Z");
@@ -50,6 +50,6 @@ describe("seed:demo", () => {
     const first = await countRows(db);
     await seedDemo(db, { today });
     expect(await countRows(db)).toEqual(first);
-    expect(first.persons).toBe(60);
+    expect(first.persons).toBe(SEED_VOLUMES.persons);
   });
 });

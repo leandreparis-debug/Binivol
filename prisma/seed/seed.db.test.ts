@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { NIVOL_PATTERN } from "@/lib/nivol";
+import { dossierAge, migrateDossierData, submissionIssues } from "@/lib/dossierSchema";
+import { linkState } from "@/server/services/dossiers";
 import { perimetersOf } from "@/server/perimeter";
 import { getTestDb } from "@/test/db/testDatabase";
 import {
@@ -47,7 +49,7 @@ describe("seed", () => {
       (p) => p.ref,
     );
     expect(refs[0]).toBe("P-00001");
-    expect(refs.at(-1)).toBe("P-00060");
+    expect(refs.at(-1)).toBe("P-00062");
   });
 
   it("marks every person as synthetic", async () => {
@@ -68,9 +70,12 @@ describe("seed", () => {
     ).toBe(1);
   });
 
-  it("includes three minors with parental authorisation", async () => {
+  it("includes three minor volunteers with parental authorisation", async () => {
     const minors = await db.personSensitive.findMany({
-      where: { birthDate: { gt: new Date(Date.UTC(2008, 10, 4)) } },
+      where: {
+        birthDate: { gt: new Date(Date.UTC(2008, 10, 4)) },
+        person: { status: { not: "CANDIDATE" } },
+      },
       select: { parentalAuthorization: true, parentalAuthorizationDate: true, birthDate: true },
     });
     expect(minors).toHaveLength(SEED_VOLUMES.minors);
@@ -81,7 +86,11 @@ describe("seed", () => {
       expect(m.parentalAuthorization).toBe(true);
       expect(m.parentalAuthorizationDate).not.toBeNull();
     }
-    expect(await db.document.count({ where: { kind: "PARENTAL_AUTH" } })).toBe(3);
+    expect(
+      await db.document.count({
+        where: { kind: "PARENTAL_AUTH", person: { status: { not: "CANDIDATE" } } },
+      }),
+    ).toBe(3);
   });
 
   it("covers every candidacy stage, with one abandoned", async () => {
@@ -90,12 +99,14 @@ describe("seed", () => {
       "ABANDONED",
       "CONFIRMED",
       "FILE",
+      "FILE",
+      "FILE",
       "FIRST_CONTACT",
       "GAIA",
       "MEETING",
     ]);
-    // 5 candidates + 1 person who left, re-engaged (step 6).
-    expect(await db.candidacy.count({ where: { closedAt: null } })).toBe(6);
+    // 7 candidates + 1 person who left, re-engaged (step 6).
+    expect(await db.candidacy.count({ where: { closedAt: null } })).toBe(8);
   });
 
   it("loads the exact legacy reference list, in its order, plus the 3 hypotheses", async () => {
@@ -196,11 +207,49 @@ describe("seed", () => {
     expect(await db.followUp.count({ where: { doneAt: null } })).toBeGreaterThan(0);
   });
 
-  it("stores two dossier links (one expired), hashed only", async () => {
-    const links = await db.dossierLink.findMany();
+  it("stores the dossier links of step 7 (active, revoked, expired, used), hashed only", async () => {
+    const links = await db.dossierLink.findMany({ orderBy: { id: "asc" } });
     expect(links).toHaveLength(SEED_VOLUMES.dossierLinks);
-    expect(links.filter((l) => l.expiresAt < today)).toHaveLength(1);
+    expect(links.map((l) => [l.id, linkState(l, today)])).toEqual([
+      ["seed_link_active", "active"],
+      ["seed_link_adult", "used"],
+      ["seed_link_expired", "expired"],
+      ["seed_link_minor", "used"],
+      ["seed_link_revoked", "revoked"],
+    ]);
     expect(links.every((l) => /^[0-9a-f]{64}$/.test(l.tokenHash))).toBe(true);
+  });
+
+  it("stores a half-filled draft and complete submitted dossiers (one of a minor of 15)", async () => {
+    const subs = await db.dossierSubmission.findMany({
+      orderBy: { id: "asc" },
+      include: { attachments: true, person: { select: { status: true } } },
+    });
+    expect(subs.map((s) => [s.id, s.status, s.schemaVersion])).toEqual([
+      ["seed_sub_adult", "SUBMITTED", 1],
+      ["seed_sub_draft", "DRAFT", 1],
+      ["seed_sub_minor", "SUBMITTED", 1],
+      ["seed_sub_signed", "SIGNED", 1],
+    ]);
+    for (const s of subs.filter((x) => x.status !== "DRAFT")) {
+      const data = migrateDossierData(s.data, s.schemaVersion).data;
+      const issues = submissionIssues(data, {
+        day: today,
+        attachmentKinds: s.attachments.map((a) => a.kind),
+      });
+      expect(issues, s.id).toEqual([]);
+    }
+    const minor = subs.find((s) => s.id === "seed_sub_minor");
+    const data = migrateDossierData(minor?.data, 1).data;
+    expect(dossierAge(data, today)).toBe(15);
+    expect(minor?.attachments.map((a) => [a.kind, Boolean(a.documentId)])).toEqual([
+      ["PARENTAL_AUTH", true],
+    ]);
+    const draft = subs.find((s) => s.id === "seed_sub_draft");
+    expect(
+      submissionIssues(migrateDossierData(draft?.data, 1).data, { day: today, attachmentKinds: [] })
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it("writes no file: documents point to absent seed keys", async () => {

@@ -17,10 +17,10 @@ async function expectNoSeriousViolation(page: Page) {
 }
 
 test.describe("Accessibilité (axe)", () => {
-  test("aucune violation serious ou critical sur /connexion et /dossier/demo (sans session)", async ({
+  test("aucune violation serious ou critical sur /connexion et la page neutre du dossier (sans session)", async ({
     page,
   }) => {
-    for (const path of ["/connexion", "/connexion?error=unknown", "/dossier/demo"]) {
+    for (const path of ["/connexion", "/connexion?error=unknown", "/dossier/lien-invalide"]) {
       await page.goto(path);
       await expectNoSeriousViolation(page);
     }
@@ -28,7 +28,14 @@ test.describe("Accessibilité (axe)", () => {
 
   test("aucune violation serious ou critical sur les pages de TOPAZE", async ({ page }) => {
     await loginAs(page, "topaze");
-    for (const path of ["/", "/benevoles", "/design", "/moi", "/admin/comptes"]) {
+    for (const path of [
+      "/",
+      "/benevoles",
+      "/design",
+      "/moi",
+      "/admin/comptes",
+      "/admin/courriels",
+    ]) {
       await page.goto(path);
       await expectNoSeriousViolation(page);
     }

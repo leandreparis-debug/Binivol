@@ -10,6 +10,7 @@ import type {
   TrainingResult,
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
+import type { DossierDraft } from "../../src/lib/dossierSchema";
 import { computeExpiresAt } from "../../src/server/reference";
 import { REFERENCE_ITEMS } from "./referenceData";
 
@@ -43,13 +44,14 @@ export const FAKER_SEED = 20261104;
 
 /** Volumes announced in the step 2 specification. */
 export const SEED_VOLUMES = {
-  persons: 60,
-  byStatus: { ACTIVE: 42, CANDIDATE: 6, PAUSED: 4, SUSPENDED: 1, INACTIVE: 3, LEFT: 4 },
+  persons: 62,
+  byStatus: { ACTIVE: 42, CANDIDATE: 8, PAUSED: 4, SUSPENDED: 1, INACTIVE: 3, LEFT: 4 },
   minors: 3,
   users: 7,
   referenceItems: REFERENCE_ITEMS.length,
   mentorships: 5,
-  dossierLinks: 2,
+  /** Active (half-filled draft), revoked, expired, and two used by a submitted dossier. */
+  dossierLinks: 5,
 } as const satisfies { byStatus: Record<PersonStatus, number> } & Record<string, unknown>;
 
 export interface SeedOptions {
@@ -128,6 +130,85 @@ async function save<T>(delegate: Delegate, rows: WithId<T>[]): Promise<void> {
   }
 }
 
+const isoDay = (date: Date) => date.toISOString().slice(0, 10);
+
+/**
+ * Online dossier of a seed candidate (schemaVersion 1), invented like the
+ * rest. `half`: identity and part of the contact details (a draft being
+ * typed); `complete`: everything a submission requires (minors included).
+ */
+export function seedDossierData(
+  p: Pick<PersonPlan, "index" | "civility" | "firstName" | "lastName" | "minor">,
+  today: Date,
+  level: "half" | "complete",
+  declaredNivol: string | null = null,
+): DossierDraft {
+  const [postalCode, city] = POSTAL_CITIES[p.index % POSTAL_CITIES.length] ?? POSTAL_CITIES[0];
+  const emailLocal = `${slug(p.firstName)}.${slug(p.lastName)}${p.index}`;
+  const birthDate = p.minor
+    ? addDays(addYears(today, -15), -45)
+    : addDays(addYears(today, -(22 + (p.index % 30))), -((p.index * 13) % 300));
+  const identity: DossierDraft["identity"] = {
+    civility: p.civility,
+    lastName: p.lastName,
+    firstName: p.firstName,
+    birthDate: isoDay(birthDate),
+    birthCity: "Versailles",
+    birthDepartment: "78",
+    birthCountry: "France",
+  };
+  const contact: DossierDraft["contact"] = {
+    street: `${String(p.index)} rue des Exemples`,
+    postalCode,
+    city,
+    country: "France",
+    phone: fictionalMobile(p.index),
+    email: `${emailLocal}@exemple.test`,
+  };
+  if (level === "half") {
+    return { identity, contact: { phone: contact.phone, email: contact.email } };
+  }
+  return {
+    identity,
+    contact,
+    crf: {
+      alreadyVolunteer: false,
+      hasNivol: declaredNivol !== null,
+      ...(declaredNivol ? { nivol: declaredNivol } : {}),
+      hasCrfEmail: false,
+      activities: ["Secourisme (postes de secours)", "Formation grand public"],
+    },
+    emergency: {
+      civility: "MME",
+      lastName: p.lastName,
+      firstName: "Dominique",
+      relationship: p.minor ? "Mère" : "Sœur",
+      phone1: fictionalMobile(7000 + p.index),
+      email: `dominique.${slug(p.lastName)}${p.index}@exemple.test`,
+    },
+    profile: {
+      profession: p.minor ? "Lycéen" : "Comptable",
+      sector: p.minor ? "Étudiant" : "Services",
+      skills: [{ label: "Informatique", level: "CONFIRMED" }],
+      languages: [{ label: "Anglais", level: "FLUENT" }],
+      diplomas: ["PSC1 (autre organisme)"],
+      licenses: p.minor ? [] : ["B"],
+    },
+    ...(p.minor
+      ? {
+          guardian: {
+            lastName: p.lastName,
+            firstName: "Dominique",
+            quality: "Mère",
+            phone: fictionalMobile(7000 + p.index),
+          },
+        }
+      : {}),
+    consent: { rgpd: true },
+    structure: "Unité locale de Versailles",
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Plan
 // ---------------------------------------------------------------------------
@@ -144,6 +225,11 @@ interface PersonPlan {
   recentlyIntegrated: boolean;
   nivol: string | null;
   legacyImport: boolean;
+  /**
+   * Step 7: a candidate whose online dossier is submitted and waiting for the
+   * review. Binivol only knows what was given at the first contact.
+   */
+  dossierSubmitted: boolean;
 }
 
 const CANDIDATE_STAGES: CandidacyStage[] = [
@@ -153,6 +239,9 @@ const CANDIDATE_STAGES: CandidacyStage[] = [
   "FILE",
   "GAIA",
   "ABANDONED",
+  // Step 7: two submitted dossiers to review, an adult and a minor of 15.
+  "FILE",
+  "FILE",
 ];
 const LEFT_REASONS: LeftReason[] = ["MOVED", "AVAILABILITY", "TRANSFER", "PERSONAL"];
 const STAGE_PATH: CandidacyStage[] = [
@@ -185,7 +274,10 @@ function planPersons(): PersonPlan[] {
     ...Array<PersonStatus>(4).fill("LEFT"),
   ];
   // Volunteers first (older numbers), candidates last (recent contacts).
-  const order = [...faker.helpers.shuffle(statuses), ...Array<PersonStatus>(6).fill("CANDIDATE")];
+  const order = [
+    ...faker.helpers.shuffle(statuses),
+    ...Array<PersonStatus>(CANDIDATE_STAGES.length).fill("CANDIDATE"),
+  ];
   let activeSeen = 0;
   let candidateSeen = 0;
   return order.map((status, i) => {
@@ -198,6 +290,7 @@ function planPersons(): PersonPlan[] {
     let recentlyIntegrated = false;
     let legacyImport = false;
     let stage: CandidacyStage | undefined;
+    let dossierSubmitted = false;
     if (status === "ACTIVE") {
       activeSeen += 1;
       minor = [6, 19, 33].includes(activeSeen);
@@ -206,6 +299,9 @@ function planPersons(): PersonPlan[] {
     }
     if (status === "CANDIDATE") {
       stage = CANDIDATE_STAGES[candidateSeen];
+      dossierSubmitted = candidateSeen >= 6;
+      // The last candidate is 15: legal guardian and parental authorisation.
+      minor = candidateSeen === 7;
       candidateSeen += 1;
     }
     const nivol = status === "CANDIDATE" || legacyImport ? null : seedNivol(index);
@@ -221,6 +317,7 @@ function planPersons(): PersonPlan[] {
       recentlyIntegrated,
       nivol,
       legacyImport,
+      dossierSubmitted,
     };
   });
 }
@@ -557,7 +654,9 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
           POSTAL_CITIES[p.index % POSTAL_CITIES.length] ?? POSTAL_CITIES[0];
         const emailLocal = `${slug(p.firstName)}.${slug(p.lastName)}${p.index}`;
         const birthDate = p.minor
-          ? addDays(addYears(today, -16), -(p.index * 7) % 300)
+          ? isCandidate
+            ? addDays(addYears(today, -15), -45)
+            : addDays(addYears(today, -16), -(p.index * 7) % 300)
           : addDays(
               addYears(today, -faker.number.int({ min: 19, max: 68 })),
               -faker.number.int({ min: 0, max: 360 }),
@@ -595,23 +694,31 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
                 ? false
                 : null,
           legacyDriveFolderId: null,
-          profession: faker.person.jobTitle(),
-          sector: faker.helpers.arrayElement([
-            "Santé",
-            "Éducation",
-            "Industrie",
-            "Services",
-            "Étudiant",
-            "Retraité",
-            "Fonction publique",
-          ]),
-          company: p.index % 2 === 0 ? faker.company.name() : null,
+          profession: p.dossierSubmitted ? null : faker.person.jobTitle(),
+          sector: p.dossierSubmitted
+            ? null
+            : faker.helpers.arrayElement([
+                "Santé",
+                "Éducation",
+                "Industrie",
+                "Services",
+                "Étudiant",
+                "Retraité",
+                "Fonction publique",
+              ]),
+          company: !p.dossierSubmitted && p.index % 2 === 0 ? faker.company.name() : null,
           notes: SEED_MARK,
           legacyImport: p.legacyImport,
           archivedAt: null,
           purgeEligibleAt: leftAt ? addYears(leftAt, 5) : null,
           ...audit,
         });
+
+        if (p.dossierSubmitted) {
+          // Everything else is in the submitted dossier, waiting for the review.
+          if (p.minor) doc(p, "PARENTAL_AUTH", "UL");
+          continue;
+        }
 
         const b3Status = isCandidate ? "NOT_REQUESTED" : p.index % 10 === 0 ? "REQUESTED" : "CLEAR";
         sensitive.push({
@@ -1028,31 +1135,69 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
       const fileCandidate = candidateAt("FILE");
       const gaiaCandidate = candidateAt("GAIA");
       const abandoned = candidateAt("ABANDONED");
-      for (const link of [
+      const [adultDossier, minorDossier] = candidates.filter((c) => c.dossierSubmitted);
+      const adultFile = required(adultDossier, "candidat au dossier envoyé (majeur)");
+      const minorFile = required(minorDossier, "candidat au dossier envoyé (mineur)");
+      // The adult declares a NIVOL already held by a volunteer: the review warns.
+      const declaredNivol = required(
+        people.find((p) => p.status === "ACTIVE" && p.nivol),
+        "bénévole avec NIVOL",
+      ).nivol;
+      const dossierLinks = [
+        {
+          id: "seed_link_revoked",
+          personId: fileCandidate.id,
+          mode: "REMOTE" as const,
+          createdAt: addDays(today, -9),
+          expiresAt: addDays(today, -2),
+          usedAt: null,
+          revokedAt: addDays(today, -4),
+        },
         {
           id: "seed_link_active",
           personId: fileCandidate.id,
           mode: "REMOTE" as const,
-          expiresAt: addDays(today, 10),
-          usedAt: addDays(today, -2),
+          createdAt: addDays(today, -4),
+          expiresAt: addDays(today, 3),
+          usedAt: null,
+          revokedAt: null,
         },
         {
           id: "seed_link_expired",
           personId: abandoned.id,
           mode: "REMOTE" as const,
+          createdAt: addDays(today, -12),
           expiresAt: addDays(today, -5),
           usedAt: null,
+          revokedAt: null,
         },
-      ]) {
+        {
+          id: "seed_link_adult",
+          personId: adultFile.id,
+          mode: "REMOTE" as const,
+          createdAt: addDays(today, -3),
+          expiresAt: addDays(today, 4),
+          usedAt: addDays(today, -1),
+          revokedAt: null,
+        },
+        {
+          id: "seed_link_minor",
+          personId: minorFile.id,
+          mode: "ON_SITE" as const,
+          createdAt: addDays(today, -2),
+          expiresAt: addDays(today, -1),
+          usedAt: addDays(today, -2),
+          revokedAt: null,
+        },
+      ];
+      for (const link of dossierLinks) {
         const existing = await tx.dossierLink.findUnique({
           where: { id: link.id },
           select: { id: true },
         });
+        const { id, expiresAt, usedAt, revokedAt } = link;
         if (existing)
-          await tx.dossierLink.update({
-            where: { id: link.id },
-            data: { expiresAt: link.expiresAt, usedAt: link.usedAt },
-          });
+          await tx.dossierLink.update({ where: { id }, data: { expiresAt, usedAt, revokedAt } });
         // The token is random and immediately discarded: only its hash is stored.
         else
           await tx.dossierLink.create({
@@ -1060,6 +1205,7 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
               ...link,
               tokenHash: sha256(randomBytes(32).toString("base64url")),
               createdById: userId("diamant"),
+              updatedById: userId("diamant"),
             },
           });
       }
@@ -1069,8 +1215,28 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
           personId: fileCandidate.id,
           linkId: "seed_link_active",
           status: "DRAFT",
-          data: { etape: 2, synthetique: true },
+          data: seedDossierData(fileCandidate, today, "half"),
           schemaVersion: 1,
+          ...audit,
+        },
+        {
+          id: "seed_sub_adult",
+          personId: adultFile.id,
+          linkId: "seed_link_adult",
+          status: "SUBMITTED",
+          data: seedDossierData(adultFile, today, "complete", declaredNivol),
+          schemaVersion: 1,
+          submittedAt: addDays(today, -1),
+          ...audit,
+        },
+        {
+          id: "seed_sub_minor",
+          personId: minorFile.id,
+          linkId: "seed_link_minor",
+          status: "SUBMITTED",
+          data: seedDossierData(minorFile, today, "complete"),
+          schemaVersion: 1,
+          submittedAt: addDays(today, -2),
           ...audit,
         },
         {
@@ -1078,7 +1244,7 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
           personId: gaiaCandidate.id,
           linkId: null,
           status: "SIGNED",
-          data: { etape: 3, synthetique: true },
+          data: seedDossierData(gaiaCandidate, today, "complete"),
           schemaVersion: 1,
           submittedAt: addDays(today, -6),
           signedAt: addDays(today, -6),
@@ -1114,6 +1280,25 @@ export async function seedDemo(db: PrismaClient, options: SeedOptions = {}): Pro
         },
       ]);
       await save(tx.document, documents);
+      // The parental authorisation of the minor's dossier became her document.
+      const minorAuth = required(
+        documents.find((d) => d.personId === minorFile.id && d.kind === "PARENTAL_AUTH"),
+        "autorisation parentale du dossier mineur",
+      );
+      await save<Prisma.DossierAttachmentUncheckedCreateInput>(tx.dossierAttachment, [
+        {
+          id: "seed_att_minor_parental",
+          submissionId: "seed_sub_minor",
+          kind: "PARENTAL_AUTH",
+          storageKey: minorAuth.storageKey,
+          fileName: minorAuth.fileName,
+          mimeType: minorAuth.mimeType,
+          sizeBytes: minorAuth.sizeBytes,
+          sha256: minorAuth.sha256,
+          documentId: minorAuth.id,
+          ...audit,
+        },
+      ]);
 
       // -- Reminder rules and notifications ---------------------------------------------
       const someone = required(

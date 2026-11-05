@@ -96,8 +96,8 @@ describe("directory: visibility, count and pagination", () => {
       query({ statut: "CANDIDATE,ACTIVE,PAUSED,SUSPENDED,INACTIVE,LEFT" }),
       7,
     );
-    expect(rows).toHaveLength(60);
-    expect(new Set(rows.map((r) => r.id)).size).toBe(60);
+    expect(rows).toHaveLength(62);
+    expect(new Set(rows.map((r) => r.id)).size).toBe(62);
     const names = rows.map((r) =>
       r.lastName
         .normalize("NFD")
@@ -118,7 +118,7 @@ describe("directory: visibility, count and pagination", () => {
     const diamant = await listDirectory(db, who("diamant"), query({ statut: "CANDIDATE" }), {
       day,
     });
-    expect(diamant.total).toBe(6);
+    expect(diamant.total).toBe(8);
   });
 
   it("links a line to the person page only with person.full.read or training.read, and hides trainings without training.read", async () => {
