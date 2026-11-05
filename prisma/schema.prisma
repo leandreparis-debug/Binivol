@@ -165,6 +165,22 @@ enum SignerRole {
   CRF_REPRESENTATIVE
 }
 
+/// How the signer was identified (step 8).
+enum SignatureMethod {
+  /// Six-digit code e-mailed to the signer.
+  OTP_EMAIL
+  /// Identity checked in person by the signed-in responsible (on-site mode).
+  IN_PERSON
+  /// The responsible's own Google session (counter-signature of the charter).
+  SESSION
+}
+
+/// What the signer produced: a drawn trace, or the full name typed (keyboard, screen readers).
+enum SignatureInput {
+  DRAWN
+  TYPED
+}
+
 enum DocumentKind {
   DOSSIER
   CHARTE
@@ -838,7 +854,12 @@ model DossierSubmission {
   data          Json             @default("{}")
   schemaVersion Int              @default(1) @map("schema_version")
   submittedAt   DateTime?        @map("submitted_at") @db.Timestamptz(3)
+  /// Counter-signed and the final documents stored (status SIGNED).
   signedAt      DateTime?        @map("signed_at") @db.Timestamptz(3)
+  /// The documents e-mailed to the volunteer (and the guardian of a minor).
+  mailSentAt    DateTime?        @map("mail_sent_at") @db.Timestamptz(3)
+  /// Last failed sending of that e-mail (cleared once sent): « Renvoyer l'e-mail ».
+  mailFailedAt  DateTime?        @map("mail_failed_at") @db.Timestamptz(3)
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById   String?          @map("created_by_id")
@@ -849,6 +870,7 @@ model DossierSubmission {
   otpChallenges OtpChallenge[]
   signatures    Signature[]
   attachments   DossierAttachment[]
+  documents     Document[]
 
   @@index([personId])
   @@map("dossier_submissions")
@@ -881,17 +903,20 @@ model DossierAttachment {
 
 /// One-time code sent by e-mail before signing. Only the hash of the code is stored.
 model OtpChallenge {
-  id           String    @id @default(cuid(2))
-  submissionId String    @map("submission_id")
-  codeHash     String    @map("code_hash")
+  id           String     @id @default(cuid(2))
+  submissionId String     @map("submission_id")
+  /// Who must type the code (the volunteer, or the legal guardian of a minor).
+  signerRole   SignerRole @default(VOLUNTEER) @map("signer_role")
+  /// HMAC-SHA256 of the code (server key), never the code.
+  codeHash     String     @map("code_hash")
   email        String
-  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
-  attempts     Int       @default(0)
-  verifiedAt   DateTime? @map("verified_at") @db.Timestamptz(3)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById  String?   @map("created_by_id")
-  updatedById  String?   @map("updated_by_id")
+  expiresAt    DateTime   @map("expires_at") @db.Timestamptz(3)
+  attempts     Int        @default(0)
+  verifiedAt   DateTime?  @map("verified_at") @db.Timestamptz(3)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?    @map("created_by_id")
+  updatedById  String?    @map("updated_by_id")
 
   submission DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   signature  Signature?
@@ -901,29 +926,36 @@ model OtpChallenge {
 }
 
 model Signature {
-  id             String     @id @default(cuid(2))
-  submissionId   String     @map("submission_id")
-  signerRole     SignerRole @map("signer_role")
-  signerName     String     @map("signer_name")
-  signerQuality  String?    @map("signer_quality")
+  id             String          @id @default(cuid(2))
+  submissionId   String          @map("submission_id")
+  signerRole     SignerRole      @map("signer_role")
+  signerName     String          @map("signer_name")
+  signerQuality  String?         @map("signer_quality")
   /// Storage key of the signature image (StorageService).
-  imageKey       String     @map("image_key")
-  signedAt       DateTime   @map("signed_at") @db.Timestamptz(3)
-  otpChallengeId String?    @unique @map("otp_challenge_id")
-  userAgent      String?    @map("user_agent")
+  imageKey       String          @map("image_key")
+  signedAt       DateTime        @map("signed_at") @db.Timestamptz(3)
+  otpChallengeId String?         @unique @map("otp_challenge_id")
+  method         SignatureMethod @default(OTP_EMAIL)
+  inputKind      SignatureInput  @default(DRAWN) @map("input_kind")
+  /// E-mail that received the code (OTP_EMAIL).
+  verifiedEmail  String?         @map("verified_email")
+  /// Responsible who checked the identity in person (IN_PERSON) or counter-signed (SESSION).
+  verifiedByName String?         @map("verified_by_name")
+  userAgent      String?         @map("user_agent")
   /// HMAC/SHA-256 of the IP address, never the address itself.
-  ipHash         String?    @map("ip_hash")
+  ipHash         String?         @map("ip_hash")
   /// File name → SHA-256 of each signed document.
-  documentHashes Json       @default("{}") @map("document_hashes")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById    String?    @map("created_by_id")
-  updatedById    String?    @map("updated_by_id")
+  documentHashes Json            @default("{}") @map("document_hashes")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById    String?         @map("created_by_id")
+  updatedById    String?         @map("updated_by_id")
 
   submission   DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   otpChallenge OtpChallenge?     @relation(fields: [otpChallengeId], references: [id], onDelete: SetNull)
 
-  @@index([submissionId])
+  /// One signature per role and dossier: a second counter-signature is refused.
+  @@unique([submissionId, signerRole])
   @@map("signatures")
 }
 
@@ -942,16 +974,20 @@ model Document {
   fileMissing  Boolean      @default(false) @map("file_missing")
   expiresAt    DateTime?    @map("expires_at") @db.Date
   uploadedById String?      @map("uploaded_by_id")
+  /// The signed dossier this document was generated from (step 8), if any.
+  submissionId String?      @map("submission_id")
   archivedAt   DateTime?    @map("archived_at") @db.Timestamptz(3)
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById  String?      @map("created_by_id")
   updatedById  String?      @map("updated_by_id")
 
-  person     Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-  uploadedBy User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  person     Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+  uploadedBy User?              @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  submission DossierSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
 
   @@index([personId, kind])
+  @@index([submissionId])
   @@map("documents")
 }
 
@@ -1013,6 +1049,8 @@ model OutboundMail {
   subject     String
   /// Encrypted JSON `{ text, html }` (`src/server/mail/sealed.ts`).
   payload     String
+  /// Attachments by name, size and SHA-256 only (the files are not kept).
+  attachments Json     @default("[]")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   createdById String?  @map("created_by_id")
 

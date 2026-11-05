@@ -26,6 +26,8 @@ import type {
   ReferenceCategory,
   ReferenceKind,
   ReminderTrigger,
+  SignatureInput,
+  SignatureMethod,
   SignerRole,
   SkillLevel,
   SubmissionStatus,
@@ -170,6 +172,17 @@ export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
   CRF_REPRESENTATIVE: "Représentant de la Croix-Rouge",
 };
 
+export const SIGNATURE_METHOD_LABELS: Record<SignatureMethod, string> = {
+  OTP_EMAIL: "Code reçu par e-mail",
+  IN_PERSON: "Identité vérifiée en présence",
+  SESSION: "Session du responsable",
+};
+
+export const SIGNATURE_INPUT_LABELS: Record<SignatureInput, string> = {
+  DRAWN: "Tracé",
+  TYPED: "Nom saisi",
+};
+
 export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   DOSSIER: "Dossier d'engagement",
   CHARTE: "Charte du bénévole",
@@ -247,6 +260,8 @@ export const ENUM_LABELS = {
   DossierLinkMode: DOSSIER_LINK_MODE_LABELS,
   SubmissionStatus: SUBMISSION_STATUS_LABELS,
   SignerRole: SIGNER_ROLE_LABELS,
+  SignatureMethod: SIGNATURE_METHOD_LABELS,
+  SignatureInput: SIGNATURE_INPUT_LABELS,
   DocumentKind: DOCUMENT_KIND_LABELS,
   DocumentCopy: DOCUMENT_COPY_LABELS,
   ReminderTrigger: REMINDER_TRIGGER_LABELS,
