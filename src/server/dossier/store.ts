@@ -1,4 +1,4 @@
-import type { DocumentKind } from "@/generated/prisma/enums";
+import type { DocumentKind, SubmissionStatus } from "@/generated/prisma/enums";
 import { formatDate } from "@/lib/dates";
 import {
   DOSSIER_SCHEMA_VERSION,
@@ -54,7 +54,7 @@ export interface DraftAttachment {
 
 export interface DraftView {
   submissionId: string;
-  status: "DRAFT" | "SUBMITTED" | "SIGNED" | "VOID";
+  status: SubmissionStatus;
   data: DossierDraft;
   warnings: string[];
   updatedAt: Date;
@@ -107,8 +107,9 @@ export async function ensureDraft(
   prefill: DossierDraft,
   actor: AuditActor,
 ): Promise<string> {
+  // A dossier sent but not signed yet follows the new link too (to sign it).
   const existing = await tx.dossierSubmission.findFirst({
-    where: { personId, status: "DRAFT" },
+    where: { personId, status: { in: ["DRAFT", "SUBMITTED"] } },
     orderBy: { updatedAt: "desc" },
     select: { id: true, linkId: true },
   });
@@ -130,6 +131,19 @@ export async function ensureDraft(
     },
   });
   return created.id;
+}
+
+/** The dossier sent and waiting for its signatures, for a person (null otherwise). */
+export async function submissionToSign(
+  db: DbOrTx,
+  personId: string,
+): Promise<{ submissionId: string; linkId: string | null } | null> {
+  const row = await db.dossierSubmission.findFirst({
+    where: { personId, status: "SUBMITTED" },
+    orderBy: { submittedAt: "desc" },
+    select: { id: true, linkId: true },
+  });
+  return row ? { submissionId: row.id, linkId: row.linkId } : null;
 }
 
 /** Saves a draft (last write wins, two tabs never crash). Refused once submitted. */
@@ -301,16 +315,8 @@ export async function submitDraft(
         data: { documentId: document.id },
       });
     }
-    if (before.linkId) {
-      await tx.dossierLink.update({ where: { id: before.linkId }, data: { usedAt: submittedAt } });
-      audit.log({
-        action: "UPDATE",
-        entity: "DossierLink",
-        entityId: before.linkId,
-        field: "usedAt",
-        newValue: submittedAt,
-      });
-    }
+    // The link stays open, for the signature screens only: it is marked used
+    // once every required signer has signed (signing.ts, ADR-044).
     return { ok: true as const, submittedAt };
   });
 }

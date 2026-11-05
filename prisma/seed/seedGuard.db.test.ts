@@ -16,7 +16,7 @@ describe("seed:base", () => {
     const counts = await countRows(db);
     expect(counts).toMatchObject({
       reference_items: 24,
-      settings: 10,
+      settings: 12,
       reminder_rules: 6,
       persons: 0,
       users: 0,

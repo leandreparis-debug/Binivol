@@ -27,6 +27,7 @@ import type {
   ReferenceKind,
   ReminderTrigger,
   SignerRole,
+  SignatureMethod,
   SkillLevel,
   SubmissionStatus,
   TrainingResult,
@@ -159,9 +160,16 @@ export const DOSSIER_LINK_MODE_LABELS: Record<DossierLinkMode, string> = {
 
 export const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
   DRAFT: "Brouillon",
-  SUBMITTED: "Envoyé",
-  SIGNED: "Signé",
+  SUBMITTED: "Envoyé, à signer",
+  SIGNED: "Signé, à contresigner",
+  COMPLETE: "Complet",
   VOID: "Annulé",
+};
+
+export const SIGNATURE_METHOD_LABELS: Record<SignatureMethod, string> = {
+  OTP_EMAIL: "Code reçu par e-mail",
+  IN_PERSON: "Identité vérifiée en présence",
+  SESSION: "Session du responsable",
 };
 
 export const SIGNER_ROLE_LABELS: Record<SignerRole, string> = {
@@ -247,6 +255,7 @@ export const ENUM_LABELS = {
   DossierLinkMode: DOSSIER_LINK_MODE_LABELS,
   SubmissionStatus: SUBMISSION_STATUS_LABELS,
   SignerRole: SIGNER_ROLE_LABELS,
+  SignatureMethod: SIGNATURE_METHOD_LABELS,
   DocumentKind: DOCUMENT_KIND_LABELS,
   DocumentCopy: DOCUMENT_COPY_LABELS,
   ReminderTrigger: REMINDER_TRIGGER_LABELS,

@@ -152,11 +152,24 @@ enum DossierLinkMode {
   ON_SITE
 }
 
+/// DRAFT → SUBMITTED (sent, to sign) → SIGNED (volunteer and, for a minor, the
+/// legal guardian: to countersign) → COMPLETE (countersigned, documents stored).
 enum SubmissionStatus {
   DRAFT
   SUBMITTED
   SIGNED
+  COMPLETE
   VOID
+}
+
+/// How the signer was verified (docs/signature.md).
+enum SignatureMethod {
+  /// 6-digit code received by e-mail.
+  OTP_EMAIL
+  /// Identity checked in person by a signed-in responsible (on-site mode).
+  IN_PERSON
+  /// The Croix-Rouge representative's own session (Google sign-in).
+  SESSION
 }
 
 enum SignerRole {
@@ -839,6 +852,12 @@ model DossierSubmission {
   schemaVersion Int              @default(1) @map("schema_version")
   submittedAt   DateTime?        @map("submitted_at") @db.Timestamptz(3)
   signedAt      DateTime?        @map("signed_at") @db.Timestamptz(3)
+  /// Claim of a countersignature in progress (concurrency, resumed after 10 min).
+  countersignStartedAt DateTime? @map("countersign_started_at") @db.Timestamptz(3)
+  completedAt          DateTime? @map("completed_at") @db.Timestamptz(3)
+  /// E-mail of the final documents: sent at, or the last error (no personal data).
+  finalMailSentAt      DateTime? @map("final_mail_sent_at") @db.Timestamptz(3)
+  finalMailError       String?   @map("final_mail_error")
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById   String?          @map("created_by_id")
@@ -885,6 +904,7 @@ model OtpChallenge {
   submissionId String    @map("submission_id")
   codeHash     String    @map("code_hash")
   email        String
+  signerRole   SignerRole @default(VOLUNTEER) @map("signer_role")
   expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
   attempts     Int       @default(0)
   verifiedAt   DateTime? @map("verified_at") @db.Timestamptz(3)
@@ -906,8 +926,15 @@ model Signature {
   signerRole     SignerRole @map("signer_role")
   signerName     String     @map("signer_name")
   signerQuality  String?    @map("signer_quality")
-  /// Storage key of the signature image (StorageService).
-  imageKey       String     @map("image_key")
+  /// Storage key of the drawn signature (PNG, StorageService); null when typed.
+  imageKey       String?    @map("image_key")
+  /// Name typed as the signature (keyboard alternative), drawn in a handwriting font.
+  typedName      String?    @map("typed_name")
+  method         SignatureMethod @default(OTP_EMAIL)
+  /// The e-mail the code was sent to (OTP_EMAIL).
+  verifiedEmail  String?    @map("verified_email")
+  /// The responsible who checked the identity in person (IN_PERSON) or countersigned.
+  verifiedById   String?    @map("verified_by_id")
   signedAt       DateTime   @map("signed_at") @db.Timestamptz(3)
   otpChallengeId String?    @unique @map("otp_challenge_id")
   userAgent      String?    @map("user_agent")
@@ -923,6 +950,7 @@ model Signature {
   submission   DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   otpChallenge OtpChallenge?     @relation(fields: [otpChallengeId], references: [id], onDelete: SetNull)
 
+  @@unique([submissionId, signerRole])
   @@index([submissionId])
   @@map("signatures")
 }
@@ -942,6 +970,10 @@ model Document {
   fileMissing  Boolean      @default(false) @map("file_missing")
   expiresAt    DateTime?    @map("expires_at") @db.Date
   uploadedById String?      @map("uploaded_by_id")
+  /// Version of a generated document (a new one archives the previous one).
+  version      Int          @default(1)
+  /// The dossier a generated document comes from.
+  submissionId String?      @map("submission_id")
   archivedAt   DateTime?    @map("archived_at") @db.Timestamptz(3)
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -952,6 +984,7 @@ model Document {
   uploadedBy User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([personId, kind])
+  @@index([submissionId])
   @@map("documents")
 }
 
@@ -1013,6 +1046,8 @@ model OutboundMail {
   subject     String
   /// Encrypted JSON `{ text, html }` (`src/server/mail/sealed.ts`).
   payload     String
+  /// Attachments by name and size only (the files are never kept here).
+  attachments Json     @default("[]")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   createdById String?  @map("created_by_id")
 

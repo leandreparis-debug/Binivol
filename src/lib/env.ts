@@ -36,6 +36,8 @@ export const envObject = z.object({
   // --- Authentication (Auth.js) -------------------------------------------
   /** Secret that signs Auth.js cookies and tokens (`openssl rand -base64 32`). */
   AUTH_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
+  /** Key of the HMAC of the signature codes (step 8). Optional: derived from AUTH_SECRET. */
+  OTP_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
   /** Public URL of the app for Auth.js callbacks; deduced from the request when absent. */
   AUTH_URL: z.url().optional(),
   /** Google OAuth client (Google Cloud console). Google sign-in is off when absent. */

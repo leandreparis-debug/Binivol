@@ -41,11 +41,34 @@ export interface DossierSettings {
   ulName: string;
   /** `RGPD_NOTICE`: the GDPR notice shown before submission. */
   rgpdNotice: string;
+  /** `UL_CITY`: « Fait à » of the charte. */
+  ulCity: string;
+  /** `FINAL_MAIL_TEXT`: e-mail with the signed documents ({prenom}, {pieces}, {ul}). */
+  finalMailText: string;
 }
+
+export const FINAL_MAIL_DEFAULT = [
+  "Bonjour {prenom},",
+  "",
+  "Ton dossier de bénévole est complet : merci, et bienvenue à la Croix-Rouge française !",
+  "",
+  "Tu trouveras en pièces jointes :",
+  "{pieces}",
+  "",
+  "La suite : l'unité locale crée ton compte Croix-Rouge et ton NIVOL, ton numéro de bénévole. Tu recevras un e-mail pour activer ton compte, puis nous te proposerons tes premières formations.",
+  "",
+  "Garde bien ces documents, ils sont ta copie.",
+  "",
+  "À très vite,",
+  "{ul}",
+  "Croix-Rouge française",
+].join("\n");
 
 export async function dossierSettings(db: DbOrTx): Promise<DossierSettings> {
   const rows = await db.setting.findMany({
-    where: { key: { in: ["DOSSIER_LINK_DAYS", "UL_NAME", "RGPD_NOTICE"] } },
+    where: {
+      key: { in: ["DOSSIER_LINK_DAYS", "UL_NAME", "RGPD_NOTICE", "UL_CITY", "FINAL_MAIL_TEXT"] },
+    },
     select: { key: true, value: true },
   });
   const byKey = new Map(rows.map((r) => [r.key, r.value]));
@@ -60,6 +83,8 @@ export async function dossierSettings(db: DbOrTx): Promise<DossierSettings> {
       "RGPD_NOTICE",
       "Information sur le traitement des données : texte à définir (à faire valider par le DPO).",
     ),
+    ulCity: text("UL_CITY", "Versailles"),
+    finalMailText: text("FINAL_MAIL_TEXT", FINAL_MAIL_DEFAULT),
   };
 }
 

@@ -12,6 +12,7 @@ import type {
 import { toParisDay } from "../../src/lib/dates";
 import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
 import { computeExpiresAt } from "../../src/server/reference";
+import { FINAL_MAIL_DEFAULT } from "../../src/server/settings";
 import { REFERENCE_ITEMS } from "./referenceData";
 
 /**
@@ -383,6 +384,12 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
     ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
     ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
+    ["UL_CITY", "Versailles", "« Fait à » de la charte du bénévolat."],
+    [
+      "FINAL_MAIL_TEXT",
+      FINAL_MAIL_DEFAULT,
+      "E-mail des documents signés ({prenom}, {pieces}, {ul}).",
+    ],
     [
       "RGPD_NOTICE",
       RGPD_NOTICE_DRAFT,

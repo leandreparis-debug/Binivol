@@ -9,6 +9,7 @@ import {
   dossierStatus,
   ensureDraft,
   loadDraft,
+  submissionToSign,
   type DossierStatus,
   type DraftView,
 } from "../dossier/store";
@@ -255,6 +256,32 @@ export interface DossierSessionContext {
   personId: string;
   mode: DossierLinkMode;
   draft: DraftView;
+}
+
+/** A link whose dossier is sent and waits for its signatures (ADR-044). */
+export interface SigningSessionContext {
+  linkId: string;
+  personId: string;
+  mode: DossierLinkMode;
+  submissionId: string;
+}
+
+/** The signature context behind an active link, when its dossier waits for signatures. */
+export async function resolveSigningLink(
+  db: DbOrTx,
+  linkId: string,
+  now: Date = new Date(),
+): Promise<SigningSessionContext | null> {
+  const link = await db.dossierLink.findUnique({ where: { id: linkId } });
+  if (!link || linkState(link, now) !== "active") return null;
+  const toSign = await submissionToSign(db, link.personId);
+  if (!toSign) return null;
+  return {
+    linkId: link.id,
+    personId: link.personId,
+    mode: link.mode,
+    submissionId: toSign.submissionId,
+  };
 }
 
 /**

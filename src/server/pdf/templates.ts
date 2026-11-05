@@ -10,7 +10,8 @@ import { DomainError } from "../errors";
  */
 
 export const TEMPLATE_DIR = path.join(process.cwd(), "assets", "modeles");
-export const FONT_PATH = path.join(process.cwd(), "assets", "fonts", "Geist-Regular.ttf");
+export const FONT_DIR = path.join(process.cwd(), "assets", "fonts");
+export const FONT_PATH = path.join(FONT_DIR, "Geist-Regular.ttf");
 
 export const TEMPLATES = {
   dossier: {
@@ -48,6 +49,18 @@ export const ENCLOSURES = {
 } as const;
 
 export const FONT_SHA256 = "6bfbc2254860844f82844999b63c2977b08781daecdda9870ad0feef3bc1b3f5";
+
+/** Handwriting font of typed signatures (Caveat, OFL): Latin and Latin Extended subsets. */
+export const HANDWRITING_FONTS = [
+  {
+    file: "Caveat-latin.woff",
+    sha256: "38b98dbeb922a14a74dfb41f83fc24e0e645e2eed9ce72145fefbdae8828cbfb",
+  },
+  {
+    file: "Caveat-latin-ext.woff",
+    sha256: "36561f75f8e73d1f2b4ff8e2e25c9872a690eb28a6c470ffc1cd03f4411650af",
+  },
+] as const;
 
 export type TemplateKey = keyof typeof TEMPLATES;
 export type EnclosureKey = keyof typeof ENCLOSURES;
@@ -96,9 +109,19 @@ export async function loadFont(): Promise<Uint8Array> {
   return bytes;
 }
 
-/** Checks every template and enclosure (generation, health check). */
+export async function loadHandwriting(): Promise<Uint8Array[]> {
+  const fonts: Uint8Array[] = [];
+  for (const f of HANDWRITING_FONTS) {
+    const bytes = new Uint8Array(await readFile(path.join(FONT_DIR, f.file)));
+    fonts.push(assertIntact(bytes, f.sha256, `police ${f.file}`));
+  }
+  return fonts;
+}
+
+/** Checks every template, enclosure and font (generation, health check). */
 export async function verifyTemplates(): Promise<void> {
   for (const key of Object.keys(TEMPLATES) as TemplateKey[]) await loadTemplate(key);
   for (const key of Object.keys(ENCLOSURES) as EnclosureKey[]) await loadEnclosure(key);
   await loadFont();
+  await loadHandwriting();
 }

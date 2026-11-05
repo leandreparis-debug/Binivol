@@ -23,8 +23,10 @@ import { fitText, parisDay } from "./text";
  */
 
 export interface SignatureImage {
-  /** PNG of the drawn (or typed) signature, transparent background. */
-  png: Uint8Array;
+  /** PNG of the drawn signature, transparent background. */
+  png?: Uint8Array;
+  /** Name typed as the signature (keyboard alternative): drawn in a handwriting font. */
+  typedName?: string;
   signedAt: Date;
 }
 
@@ -38,6 +40,8 @@ export interface RenderInput {
   producedAt: Date;
   /** Preview before signature: marked « Aperçu », never stored. */
   preview?: boolean;
+  /** Handwriting font files (typed signatures), tried in order for each glyph. */
+  handwriting?: Uint8Array[];
 }
 
 const MIN_SIZE = 6;
@@ -131,6 +135,54 @@ function removeDanglingWidgets(doc: PDFDocument) {
   }
 }
 
+interface Handwriting {
+  font: PDFFont;
+  has: (codePoint: number) => boolean;
+}
+
+async function embedHandwriting(doc: PDFDocument, files: Uint8Array[]): Promise<Handwriting[]> {
+  const out: Handwriting[] = [];
+  for (const bytes of files) {
+    const parsed = fontkit.create(bytes) as { hasGlyphForCodePoint: (cp: number) => boolean };
+    out.push({
+      font: await doc.embedFont(bytes, { subset: true }),
+      has: (cp) => parsed.hasGlyphForCodePoint(cp),
+    });
+  }
+  return out;
+}
+
+/**
+ * Draws a typed signature, centred in its box, as large as fits (up to 26 pt).
+ * Each character uses the first handwriting font that has it (Latin, then
+ * Latin Extended subsets).
+ */
+function drawHandwriting(
+  fonts: Handwriting[],
+  box: { text: string; x: number; y: number; width: number; height: number; page: PDFPage },
+) {
+  const fallback = fonts[0];
+  if (!fallback) return;
+  const runs: { font: PDFFont; text: string }[] = [];
+  for (const char of box.text.trim()) {
+    const cp = char.codePointAt(0) ?? 32;
+    const font = (fonts.find((f) => f.has(cp)) ?? fallback).font;
+    const last = runs.at(-1);
+    if (last?.font === font) last.text += char;
+    else runs.push({ font, text: char });
+  }
+  const widthAt = (size: number) =>
+    runs.reduce((sum, r) => sum + r.font.widthOfTextAtSize(r.text, size), 0);
+  let size = Math.min(26, box.height * 0.8);
+  while (size > 8 && widthAt(size) > box.width) size -= 0.5;
+  let x = box.x + Math.max(0, (box.width - widthAt(size)) / 2);
+  const y = box.y + Math.max(0, (box.height - size) / 2);
+  for (const run of runs) {
+    box.page.drawText(run.text, { x, y, size, font: run.font, color: INK });
+    x += run.font.widthOfTextAtSize(run.text, size);
+  }
+}
+
 export async function renderTemplate(input: RenderInput): Promise<Uint8Array> {
   const doc = await PDFDocument.load(input.template);
   doc.registerFontkit(fontkit);
@@ -180,24 +232,36 @@ export async function renderTemplate(input: RenderInput): Promise<Uint8Array> {
     field.updateAppearances(font);
   }
 
-  // 3. Signatures: image in the rectangle of the field, then the field goes.
+  // 3. Signatures: image (or typed name) in the rectangle of the field, then the field goes.
+  const handwriting = await embedHandwriting(doc, input.handwriting ?? []);
   for (const [name, role] of Object.entries(input.mapping.signatures)) {
     const field = form.getTextField(name);
     const image = input.images[role];
     for (const widget of field.acroField.getWidgets()) {
       const place = placeOf(doc, widget);
       if (!place || !image) continue;
-      const png = await doc.embedPng(image.png);
       const box = { w: place.width - 4, h: place.height - CAPTION_SIZE - 4 };
-      const scale = Math.min(box.w / png.width, box.h / png.height, 1);
-      const w = png.width * scale;
-      const h = png.height * scale;
-      place.page.drawImage(png, {
-        x: place.x + (place.width - w) / 2,
-        y: place.y + CAPTION_SIZE + 3 + (box.h - h) / 2,
-        width: w,
-        height: h,
-      });
+      if (image.png) {
+        const png = await doc.embedPng(image.png);
+        const scale = Math.min(box.w / png.width, box.h / png.height, 1);
+        const w = png.width * scale;
+        const h = png.height * scale;
+        place.page.drawImage(png, {
+          x: place.x + (place.width - w) / 2,
+          y: place.y + CAPTION_SIZE + 3 + (box.h - h) / 2,
+          width: w,
+          height: h,
+        });
+      } else if (image.typedName) {
+        drawHandwriting(handwriting.length > 0 ? handwriting : [{ font, has: () => true }], {
+          text: image.typedName,
+          x: place.x + 2,
+          y: place.y + CAPTION_SIZE + 3,
+          width: box.w,
+          height: box.h,
+          page: place.page,
+        });
+      }
       const caption = `Signé électroniquement le ${parisDay(image.signedAt)}`;
       const size = Math.min(
         CAPTION_SIZE,

@@ -21,6 +21,7 @@ import {
   openDossierLink,
   openOnSite,
   resolveDossierLink,
+  resolveSigningLink,
   revokeDossierLink,
   sendDossierLink,
 } from "@/server/services/dossiers";
@@ -272,10 +273,14 @@ describe("draft, submission and review", () => {
       contact: { phone: "0639981234" },
       structure: "Unité locale de Versailles",
     });
+    // Sent but not signed: the link stays open, for the signature screens only
+    // (it is marked used at the signature, ADR-044).
     expect(linkState(await db.dossierLink.findUniqueOrThrow({ where: { id: link.linkId } }))).toBe(
-      "used",
+      "active",
     );
-    expect(await openDossierLink(db, link.token)).toEqual({ ok: false });
+    expect(await openDossierLink(db, link.token)).toEqual({ ok: true, linkId: link.linkId });
+    expect(await resolveDossierLink(db, link.linkId)).toBeNull();
+    expect((await resolveSigningLink(db, link.linkId))?.submissionId).toBe(draft.submissionId);
     await expect(saveDraft(db, draft.submissionId, {})).rejects.toThrow(/déjà été envoyé/);
     const audit = await db.auditLog.findMany({
       where: { entity: "DossierSubmission", entityId: draft.submissionId },

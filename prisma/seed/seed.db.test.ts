@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { NIVOL_PATTERN } from "@/lib/nivol";
 import { dossierAge, migrateDossierData, submissionIssues } from "@/lib/dossierSchema";
 import { linkState } from "@/server/services/dossiers";
+import { FINAL_MAIL_DEFAULT } from "@/server/settings";
 import { perimetersOf } from "@/server/perimeter";
 import { getTestDb } from "@/test/db/testDatabase";
 import {
@@ -272,6 +273,8 @@ describe("seed", () => {
       CANDIDACY_FOLLOW_UP_DAYS: 7,
       DOSSIER_LINK_DAYS: 7,
       UL_NAME: "Unité locale de Versailles",
+      UL_CITY: "Versailles",
+      FINAL_MAIL_TEXT: FINAL_MAIL_DEFAULT,
       RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });
     expect(await db.reminderRule.count()).toBe(6);
