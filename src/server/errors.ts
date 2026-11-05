@@ -33,7 +33,8 @@ export type DomainErrorCode =
   | "STALE_CANDIDACY"
   | "DUPLICATE_PERSON"
   | "MENTOR_INVALID"
-  | "IMPORT_DISABLED";
+  | "IMPORT_DISABLED"
+  | "DOSSIER_SESSION_EXPIRED";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {

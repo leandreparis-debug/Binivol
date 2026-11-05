@@ -45,8 +45,11 @@ import {
 } from "@/server/services/personProfile";
 import { timelineOf } from "@/server/timeline";
 import { defaultFollowUp } from "@/server/candidacy/rules";
+import { can } from "@/server/policy/can";
 import { integrationTab } from "@/server/services/candidacies";
+import { dossierBlock } from "@/server/services/dossiers";
 import { DocumentsPanel } from "./DocumentsPanel";
+import { DossierBlock } from "./DossierBlock";
 import { IntegrationPanel } from "./IntegrationPanel";
 import { ListEditor } from "./ListEditor";
 import { PersonActions } from "./PersonActions";
@@ -725,14 +728,25 @@ async function IntegrationTabView({
   facts: PersonFacts;
   day: Date;
 }) {
-  const tab = await integrationTab(getDb(), actor, header.person.id, facts, day);
+  const db = getDb();
+  const [tab, dossier] = await Promise.all([
+    integrationTab(db, actor, header.person.id, facts, day),
+    can(actor, "dossier.manage", { person: facts }).allowed
+      ? dossierBlock(db, actor, header.person.id, facts)
+      : Promise.resolve(null),
+  ]);
   return (
-    <IntegrationPanel
-      personId={header.person.id}
-      tab={tab}
-      today={day.toISOString().slice(0, 10)}
-      defaultFollowUpAt={defaultFollowUp(day, tab.followUpDays).toISOString().slice(0, 10)}
-    />
+    <div className="flex flex-col gap-6">
+      <IntegrationPanel
+        personId={header.person.id}
+        tab={tab}
+        today={day.toISOString().slice(0, 10)}
+        defaultFollowUpAt={defaultFollowUp(day, tab.followUpDays).toISOString().slice(0, 10)}
+      />
+      {dossier && (
+        <DossierBlock personId={header.person.id} personRef={header.person.ref} block={dossier} />
+      )}
+    </div>
   );
 }
 

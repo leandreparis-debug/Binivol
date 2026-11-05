@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { NAV_ITEMS, type NavHref } from "@/components/layout/navigation";
+import { getEnv } from "@/lib/env";
 import { requireActor } from "@/server/auth/actor";
 import { getDb } from "@/server/db";
 import { canSome } from "@/server/policy/can";
@@ -25,6 +26,7 @@ export default async function AppLayout({ children }: Readonly<{ children: React
         profiles: PROFILE_ORDER.filter((p) => actor.profiles.has(p)),
         canManageAccounts: canSome(actor, "user.manage"),
         canImport: canSome(actor, "import.run"),
+        canReadMailLog: getEnv().MAIL_DRIVER === "log" && canSome(actor, "mail.log.read"),
       }}
       allowedHrefs={allowedHrefs}
       unreadNotifications={unreadNotifications}

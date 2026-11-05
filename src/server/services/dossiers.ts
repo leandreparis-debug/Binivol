@@ -4,12 +4,20 @@ import type { DossierDraft } from "@/lib/dossierSchema";
 import { withAudit, type Actor as AuditActor } from "../audit";
 import { changeStage } from "./candidacies";
 import type { Db, DbOrTx } from "../db";
-import { ensureDraft, loadDraft, type DraftView } from "../dossier/store";
+import { getEnv } from "@/lib/env";
+import {
+  dossierStatus,
+  ensureDraft,
+  loadDraft,
+  type DossierStatus,
+  type DraftView,
+} from "../dossier/store";
 import { hashDossierToken, looksLikeDossierToken, newDossierToken } from "../dossier/token";
 import { DomainError } from "../errors";
 import { getMail, MailUnavailableError, type MailService } from "../mail";
 import { dossierLinkMail } from "../mail/templates";
-import type { Actor } from "../policy/types";
+import { authorize } from "../policy/can";
+import type { Actor, PersonFacts } from "../policy/types";
 import { dossierSettings } from "../settings";
 
 /**
@@ -324,4 +332,52 @@ export async function dossierLinks(
     },
   });
   return rows.map((r) => ({ ...r, state: linkState(r, now) }));
+}
+
+export interface DossierBlock {
+  links: DossierLinkView[];
+  status: DossierStatus;
+  hasEmail: boolean;
+  linkDays: number;
+  mailDriver: "log" | "smtp";
+}
+
+/**
+ * The « Dossier » block of the Intégration tab (`dossier.manage`): links and
+ * state of the dossier, never its content.
+ *
+ * @throws {ForbiddenError}
+ */
+export async function dossierBlock(
+  db: DbOrTx,
+  actor: Actor,
+  personId: string,
+  facts: PersonFacts,
+  now: Date = new Date(),
+): Promise<DossierBlock> {
+  authorize(actor, "dossier.manage", { person: facts });
+  const [links, status, person, settings] = await Promise.all([
+    dossierLinks(db, personId, now),
+    dossierStatus(db, personId),
+    db.person.findUniqueOrThrow({ where: { id: personId }, select: { email: true } }),
+    dossierSettings(db),
+  ]);
+  return {
+    links,
+    status,
+    hasEmail: Boolean(person.email),
+    linkDays: settings.linkDays,
+    mailDriver: getEnv().MAIL_DRIVER,
+  };
+}
+
+/** Names of the person on the dossier pages (header, on-site banner). */
+export async function dossierPerson(
+  db: DbOrTx,
+  personId: string,
+): Promise<{ ref: string; firstName: string; lastName: string; status: string }> {
+  return db.person.findUniqueOrThrow({
+    where: { id: personId },
+    select: { ref: true, firstName: true, lastName: true, status: true },
+  });
 }

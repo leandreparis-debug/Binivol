@@ -14,6 +14,16 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * The candidate's dossier (and its on-site mode): never cached, never
+ * indexed, never sent as a referrer (the opening URL holds the token).
+ */
+const dossierHeaders = [
+  { key: "Referrer-Policy", value: "no-referrer" },
+  { key: "Cache-Control", value: "no-store" },
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
+];
+
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -26,7 +36,13 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "12mb" },
   },
   headers() {
-    return Promise.resolve([{ source: "/(.*)", headers: securityHeaders }]);
+    // Later entries override earlier ones for the same key.
+    return Promise.resolve([
+      { source: "/(.*)", headers: securityHeaders },
+      { source: "/dossier", headers: dossierHeaders },
+      { source: "/dossier/:path*", headers: dossierHeaders },
+      { source: "/benevoles/:ref/dossier/:path*", headers: dossierHeaders },
+    ]);
   },
 };
 

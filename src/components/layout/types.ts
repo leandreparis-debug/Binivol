@@ -8,6 +8,8 @@ export interface ShellUser {
   profiles: Profile[];
   canManageAccounts: boolean;
   canImport: boolean;
+  /** TOPAZE, log driver only: /admin/courriels. */
+  canReadMailLog: boolean;
 }
 
 export interface ShellProps {

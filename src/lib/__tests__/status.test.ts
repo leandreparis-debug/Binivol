@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { STATUSES, STATUS_KEYS, getStatus } from "@/lib/status";
 
 describe("status registry", () => {
-  it("lists the six volunteer statuses and the three deadline statuses", () => {
+  it("lists the volunteer, deadline and dossier statuses", () => {
     expect(STATUS_KEYS).toEqual([
       "candidate",
       "active",
@@ -13,6 +13,13 @@ describe("status registry", () => {
       "ok",
       "soon",
       "expired",
+      "link-active",
+      "link-expired",
+      "link-used",
+      "link-revoked",
+      "dossier-none",
+      "dossier-draft",
+      "dossier-submitted",
     ]);
   });
 

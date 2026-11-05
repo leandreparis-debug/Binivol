@@ -12,7 +12,17 @@ export type VolunteerStatus = "candidate" | "active" | "paused" | "suspended" | 
 /** Status of a deadline (training validity, nomination, follow-up…). */
 export type DeadlineStatus = "ok" | "soon" | "expired";
 
-export type Status = VolunteerStatus | DeadlineStatus;
+/** State of a dossier link, and of the dossier itself (step 7). */
+export type DossierStatusKey =
+  | "link-active"
+  | "link-expired"
+  | "link-used"
+  | "link-revoked"
+  | "dossier-none"
+  | "dossier-draft"
+  | "dossier-submitted";
+
+export type Status = VolunteerStatus | DeadlineStatus | DossierStatusKey;
 
 /** Colour tone, mapped to design tokens by the components. */
 export type Tone = "neutral" | "accent" | "ok" | "warn" | "danger" | "ink";
@@ -42,9 +52,20 @@ export const DEADLINE_STATUSES: Record<DeadlineStatus, StatusMeta> = {
   expired: { label: "Expiré", tone: "danger" },
 };
 
+export const DOSSIER_STATUSES: Record<DossierStatusKey, StatusMeta> = {
+  "link-active": { label: "Actif", tone: "accent" },
+  "link-expired": { label: "Expiré", tone: "neutral" },
+  "link-used": { label: "Utilisé", tone: "ok" },
+  "link-revoked": { label: "Révoqué", tone: "ink" },
+  "dossier-none": { label: "Pas commencé", tone: "neutral" },
+  "dossier-draft": { label: "En cours de saisie", tone: "warn" },
+  "dossier-submitted": { label: "Envoyé", tone: "accent" },
+};
+
 export const STATUSES: Record<Status, StatusMeta> = {
   ...VOLUNTEER_STATUSES,
   ...DEADLINE_STATUSES,
+  ...DOSSIER_STATUSES,
 };
 
 export const STATUS_KEYS = Object.keys(STATUSES) as Status[];
