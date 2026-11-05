@@ -9,7 +9,7 @@ import { getDb } from "@/server/db";
 import { requireDossierPage } from "@/server/dossier/page";
 import { defaultQuality, signatureStatus } from "@/server/dossier/signing";
 import { dossierPerson } from "@/server/services/dossiers";
-import { Countersign } from "./Countersign";
+import { Countersign, CountersignDone } from "./Countersign";
 
 export const metadata: Metadata = { title: "Contresigner la charte" };
 export const dynamic = "force-dynamic";
@@ -28,11 +28,9 @@ export default async function CountersignPage({ params }: { params: Promise<{ re
       ? "Le bénévole n'a pas encore signé."
       : status?.waitingFor === "PARENT"
         ? "Le représentant légal n'a pas encore signé : pas de contresignature possible."
-        : status?.status === "COMPLETE"
-          ? "Ce dossier est déjà contresigné."
-          : status
-            ? null
-            : "Aucun dossier envoyé pour cette personne.";
+        : status
+          ? null
+          : "Aucun dossier envoyé pour cette personne.";
   return (
     <div className="flex flex-col gap-6">
       <Link
@@ -46,7 +44,13 @@ export default async function CountersignPage({ params }: { params: Promise<{ re
         subtitle="Signature du représentant de la Croix-Rouge française"
         actions={getEnv().AUTH_DEMO_LOGIN ? <FakeDataBanner /> : undefined}
       />
-      {waiting ? (
+      {status?.status === "COMPLETE" ? (
+        <CountersignDone
+          personRef={person.ref}
+          mailSent={status.finalMailSentAt !== null}
+          mailError={status.finalMailError}
+        />
+      ) : waiting ? (
         <Card>
           <CardContent className="pt-6">
             <p className="text-body text-ink-2">{waiting}</p>

@@ -154,9 +154,9 @@ export function SigningFlow({ initial, actions, previewBase, onSite }: SigningFl
 
           {step === "overview" && (
             <>
-              {handover && (
+              {(handover || parentTurn) && (
                 <p role="status" className="rounded-inner bg-ok-soft p-3 text-small text-ok-ink">
-                  Merci, ta signature est enregistrée.
+                  La signature du bénévole est enregistrée.
                 </p>
               )}
               <p className="text-body text-ink-2">

@@ -47,36 +47,7 @@ export function Countersign({
 
   if (done) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-start gap-4 pt-6">
-          <CircleCheck className="size-10 text-ok" aria-hidden="true" />
-          <h2 className="text-title text-ink" data-testid="countersign-done">
-            Dossier complet
-          </h2>
-          <p className="text-body text-ink-2">
-            La charte est contresignée. Les trois documents et la preuve de signature sont rangés
-            dans l&apos;onglet Documents (copie UL), et la candidature passe à l&apos;étape Gaia.
-          </p>
-          <p
-            role={done.mailSent ? "status" : "alert"}
-            className={
-              done.mailSent ? "text-body text-ok-ink" : "text-body font-medium text-danger-ink"
-            }
-          >
-            {done.mailSent
-              ? "L'e-mail avec les documents, le règlement et le code de conduite est parti."
-              : (done.mailError ?? "L'e-mail n'est pas parti : utilisez « Renvoyer l'e-mail ».")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href={`/benevoles/${personRef}?onglet=documents`}>Voir les documents</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={`/benevoles/${personRef}?onglet=integration`}>Retour à la fiche</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <CountersignDone personRef={personRef} mailSent={done.mailSent} mailError={done.mailError} />
     );
   }
 
@@ -135,5 +106,47 @@ export function Countersign({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** The countersignature is done: documents filed, e-mail state, next steps. */
+export function CountersignDone({
+  personRef,
+  mailSent,
+  mailError,
+}: {
+  personRef: string;
+  mailSent: boolean;
+  mailError: string | null;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-start gap-4 pt-6">
+        <CircleCheck className="size-10 text-ok" aria-hidden="true" />
+        <h2 className="text-title text-ink" data-testid="countersign-done">
+          Dossier complet
+        </h2>
+        <p className="text-body text-ink-2">
+          La charte est contresignée. Les trois documents et la preuve de signature sont rangés dans
+          l&apos;onglet Documents (copie UL), et la candidature passe à l&apos;étape Gaia.
+        </p>
+        <p
+          role={mailSent ? "status" : "alert"}
+          className={mailSent ? "text-body text-ok-ink" : "text-body font-medium text-danger-ink"}
+        >
+          {mailSent
+            ? "L'e-mail avec les documents, le règlement et le code de conduite est parti."
+            : (mailError ?? "L'e-mail n'est pas parti : utilisez « Renvoyer l'e-mail ».")}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href={`/benevoles/${personRef}?onglet=documents`}>Voir les documents</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/benevoles/${personRef}?onglet=integration`}>Retour à la fiche</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

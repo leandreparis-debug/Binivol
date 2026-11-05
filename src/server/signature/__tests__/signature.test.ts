@@ -63,6 +63,9 @@ describe("signature code", () => {
     const five = [50, 40, 30, 20, 10].map((m) => new Date(now.getTime() - m * 60_000));
     expect(canSendCode(five, now)).toEqual({ ok: false, reason: "hourly", retryInSeconds: 600 });
     expect(canSendCode(five.slice(1), now)).toEqual({ ok: true });
+    // The 60 s are per signer: the guardian may get her code right after the minor's.
+    const minorJustNow = [new Date(now.getTime() - 5_000)];
+    expect(canSendCode(minorJustNow, now, [])).toEqual({ ok: true });
   });
 });
 

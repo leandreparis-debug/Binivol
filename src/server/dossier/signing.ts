@@ -127,7 +127,11 @@ function stateOf(loaded: Loaded, now: Date): SigningState {
     row.status === "SUBMITTED" ? (required.find((r) => !signedRoles.has(r)) ?? null) : null;
   const challenge = next ? row.otpChallenges.find((c) => c.signerRole === next) : undefined;
   const sends = row.otpChallenges.map((c) => c.createdAt);
-  const send = canSendCode(sends, now);
+  const send = canSendCode(
+    sends,
+    now,
+    row.otpChallenges.filter((c) => c.signerRole === next).map((c) => c.createdAt),
+  );
   const id = data.identity ?? {};
   return {
     submissionId: row.id,
@@ -198,6 +202,7 @@ export async function sendSignatureCode(
   const send = canSendCode(
     loaded.row.otpChallenges.map((c) => c.createdAt),
     now,
+    loaded.row.otpChallenges.filter((c) => c.signerRole === input.role).map((c) => c.createdAt),
   );
   if (!send.ok) {
     throw new DomainError(

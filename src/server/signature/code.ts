@@ -37,14 +37,16 @@ export function signatureCodeMatches(code: string, stored: string): boolean {
 
 /**
  * Whether a new code may be sent, given the sending times of the previous
- * ones for the dossier. Refused: the delay left, in seconds.
+ * codes of the dossier (5 per hour) and of this signer (60 s between two).
+ * Refused: the delay left, in seconds.
  */
 export function canSendCode(
   previous: readonly Date[],
   now: Date,
+  sameSigner: readonly Date[] = previous,
 ): { ok: true } | { ok: false; retryInSeconds: number; reason: "delay" | "hourly" } {
   const t = now.getTime();
-  const last = Math.max(0, ...previous.map((d) => d.getTime()));
+  const last = Math.max(0, ...sameSigner.map((d) => d.getTime()));
   if (last > 0 && t - last < CODE_RESEND_DELAY_MS) {
     return {
       ok: false,
