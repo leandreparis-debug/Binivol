@@ -23,7 +23,7 @@ describe("migrations", () => {
     const [tables] = await db.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
     `;
-    expect(Number(tables?.n)).toBe(34);
+    expect(Number(tables?.n)).toBe(36);
     const functions = await db.$queryRaw<{ proname: string }[]>`
       SELECT proname FROM pg_proc WHERE proname LIKE 'binivol_%' ORDER BY proname
     `;

@@ -32,6 +32,7 @@ export const POLICY_ACTIONS = [
   "accessLog.read",
   "person.export",
   "import.run",
+  "mail.log.read",
   "notification.readOwn",
 ] as const;
 

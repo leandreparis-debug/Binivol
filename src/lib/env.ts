@@ -58,6 +58,16 @@ export const envObject = z.object({
   /** Set by Vercel on every deployment (production, preview, development). */
   VERCEL_ENV: z.string().optional(),
 
+  // --- E-mail (MailService, docs/mail.md) ------------------------------------
+  /** `log` (written to outbound_mails, encrypted: development, tests, demo) or `smtp`. */
+  MAIL_DRIVER: z.enum(["log", "smtp"]).default("log"),
+  SMTP_HOST: z.string().trim().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().trim().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  /** Sender, e.g. « Binivol <no-reply@exemple.org> ». */
+  SMTP_FROM: z.string().trim().min(3).optional(),
+
   // --- Document storage (StorageService, docs/storage.md) -------------------
   /** `local` (a folder on disk: development, VPS) or `s3` (S3-compatible: Supabase Storage, MinIO…). */
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
@@ -90,6 +100,17 @@ export const envSchema = envObject.superRefine((env, ctx) => {
       message:
         "la connexion de démonstration est interdite sur Vercel (VERCEL_ENV est défini) : retire AUTH_DEMO_LOGIN (exception de test : AUTH_DEMO_ON_VERCEL=true, ADR-035)",
     });
+  }
+  if (env.MAIL_DRIVER === "smtp") {
+    for (const key of ["SMTP_HOST", "SMTP_FROM"] as const) {
+      if (env[key] === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: "obligatoire quand MAIL_DRIVER=smtp",
+        });
+      }
+    }
   }
   if (env.STORAGE_DRIVER === "s3") {
     for (const key of [

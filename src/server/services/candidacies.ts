@@ -394,7 +394,7 @@ export type StageChange = z.output<typeof stageChangeSchema>;
  * `finalizeCandidacy`.
  */
 export async function changeStage(
-  db: Db,
+  db: DbOrTx,
   actor: Actor,
   input: StageChange,
   day: Date = toParisDay(),

@@ -844,13 +844,39 @@ model DossierSubmission {
   createdById   String?          @map("created_by_id")
   updatedById   String?          @map("updated_by_id")
 
-  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
-  link          DossierLink?   @relation(fields: [linkId], references: [id], onDelete: SetNull)
+  person        Person              @relation(fields: [personId], references: [id], onDelete: Cascade)
+  link          DossierLink?        @relation(fields: [linkId], references: [id], onDelete: SetNull)
   otpChallenges OtpChallenge[]
   signatures    Signature[]
+  attachments   DossierAttachment[]
 
   @@index([personId])
   @@map("dossier_submissions")
+}
+
+/// A file attached to a draft dossier (sensitive). Becomes a `Document` of the person at submission.
+model DossierAttachment {
+  id           String       @id @default(cuid(2))
+  submissionId String       @map("submission_id")
+  kind         DocumentKind
+  storageKey   String       @unique @map("storage_key")
+  fileName     String       @map("file_name")
+  mimeType     String       @map("mime_type")
+  sizeBytes    Int          @map("size_bytes")
+  sha256       String
+  /// The Document created at submission, if any.
+  documentId   String?      @unique @map("document_id")
+  /// Removed by the candidate before submission (the file stays in the storage).
+  archivedAt   DateTime?    @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById  String?      @map("created_by_id")
+  updatedById  String?      @map("updated_by_id")
+
+  submission DossierSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("dossier_attachments")
 }
 
 /// One-time code sent by e-mail before signing. Only the hash of the code is stored.
@@ -976,6 +1002,22 @@ model Notification {
   @@unique([userId, dedupeKey])
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+/// An e-mail written by the `log` mail driver instead of being sent (development, tests,
+/// hosted demo). The text and HTML are encrypted (AES-256-GCM): a dossier link never sits in
+/// clear in the database.
+model OutboundMail {
+  id          String   @id @default(cuid(2))
+  to          String
+  subject     String
+  /// Encrypted JSON `{ text, html }` (`src/server/mail/sealed.ts`).
+  payload     String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String?  @map("created_by_id")
+
+  @@index([createdAt])
+  @@map("outbound_mails")
 }
 
 model Setting {

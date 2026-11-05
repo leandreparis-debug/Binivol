@@ -51,11 +51,14 @@ describe("architecture: server actions", () => {
 });
 
 describe("architecture: sensitive data", () => {
-  const ALLOWED = new Set(["src/server/sensitive.ts"]);
-  const DELEGATE = /\.(personSensitive|emergencyContact|document)\s*\.\s*\w+\s*\(/;
-  const RELATION = /\b(sensitive|emergencyContacts|documents)\s*:\s*(true|\{)/;
+  // The only two sensitive modules: sensitive.ts, and the dossier store (step 7).
+  const ALLOWED = new Set(["src/server/sensitive.ts", "src/server/dossier/store.ts"]);
+  const DELEGATE =
+    /\.(personSensitive|emergencyContact|document|dossierSubmission|dossierAttachment)\s*\.\s*\w+\s*\(/;
+  const RELATION =
+    /\b(sensitive|emergencyContacts|documents|submissions|attachments)\s*:\s*(true|\{)/;
 
-  it("personSensitive, emergencyContact and document are only queried in src/server/sensitive.ts", () => {
+  it("sensitive tables (and dossier drafts) are only queried in sensitive.ts and the dossier store", () => {
     const offenders = files
       .filter(({ file }) => !ALLOWED.has(file) && !isTestFile(file))
       .flatMap(({ file, content }) =>
@@ -73,6 +76,22 @@ describe("architecture: sensitive data", () => {
     expect(DELEGATE.test("tx.document.findUnique({")).toBe(true);
     expect(RELATION.test("include: { sensitive: true }")).toBe(true);
     expect(DELEGATE.test('entity: "PersonSensitive"')).toBe(false);
+    expect(DELEGATE.test("await tx.dossierSubmission.update({")).toBe(true);
+    expect(DELEGATE.test("db.dossierAttachment.findMany()")).toBe(true);
+    expect(RELATION.test("include: { attachments: { where } }")).toBe(true);
+  });
+});
+
+describe("architecture: sensitive modules", () => {
+  it("the allowed list is exactly sensitive.ts and the dossier store", () => {
+    const touching = files
+      .filter(({ file }) => !isTestFile(file))
+      .filter(({ content }) =>
+        /\.(dossierSubmission|dossierAttachment)\s*\.\s*\w+\s*\(/.test(content),
+      )
+      .map((f) => f.file)
+      .sort();
+    expect(touching).toEqual(["src/server/dossier/store.ts"]);
   });
 });
 

@@ -45,6 +45,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Consulter le journal des consultations sensibles (`accessLog.read`) | — | Oui | — | — | — | — | — |
 | Exporter les données des personnes (`person.export`) | — | Oui | — | — | — | — | — |
 | Importer l'ancien classeur (`import.run`) | — | Oui | — | — | — | — | — |
+| Consulter les e-mails du pilote de démonstration (`mail.log.read`) | — | Oui | — | — | — | — | — |
 | Consulter ses notifications (`notification.readOwn`) | — | Oui | Oui | Oui | Oui | Oui | Oui |
 
 ## Fiche d'une personne

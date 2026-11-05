@@ -23,6 +23,22 @@ import { REFERENCE_ITEMS } from "./referenceData";
  */
 
 export const SEED_MARK = "Donnée fictive (seed)";
+
+/**
+ * Draft of the GDPR notice of the online file. **To be validated by the DPO**
+ * before any real use; TOPAZE will edit it (setting RGPD_NOTICE).
+ */
+export const RGPD_NOTICE_DRAFT = [
+  "BROUILLON — à faire valider par le DPO avant toute utilisation réelle.",
+  "",
+  "La Croix-Rouge française (unité locale) traite les informations de ce dossier pour gérer votre engagement bénévole : intégration, formations, missions et suivi. Ce traitement repose sur votre engagement auprès de l'association.",
+  "",
+  "Les données sont réservées aux responsables de l'unité locale qui en ont besoin, selon leur rôle. Les données sensibles (naissance, adresse, personnes à prévenir) sont protégées et chaque consultation est enregistrée. Elles ne sont ni vendues ni cédées.",
+  "",
+  "Elles sont conservées pendant votre engagement, puis 5 ans après votre départ, avant d'être supprimées.",
+  "",
+  "Vous pouvez accéder à vos données, les faire corriger ou supprimer, et vous opposer à leur traitement en écrivant au responsable de l'unité locale ou au délégué à la protection des données de la Croix-Rouge française. Vous pouvez aussi saisir la CNIL.",
+].join("\n");
 export const FAKER_SEED = 20261104;
 
 /** Volumes announced in the step 2 specification. */
@@ -244,6 +260,13 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["BACKUPS_TO_KEEP", 12, "Nombre de sauvegardes conservées."],
     ["DATA_CLASSIFICATION", "C3 CONFIDENTIEL", "Classification des données de l'outil."],
     ["GREETING_EMAILS_ENABLED", true, "Envoi des e-mails de vœux (MAILS_VOEUX_ACTIFS)."],
+    ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
+    ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
+    [
+      "RGPD_NOTICE",
+      RGPD_NOTICE_DRAFT,
+      "Information sur le traitement des données, affichée dans le dossier en ligne (à faire valider par le DPO).",
+    ],
     [
       "CANDIDACY_FOLLOW_UP_DAYS",
       7,

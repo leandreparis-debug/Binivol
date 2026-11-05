@@ -31,6 +31,7 @@ export const SENSITIVE_FIELDS: Record<string, "*" | readonly string[]> = {
   Document: ["fileName", "storageKey", "sha256"],
   DossierLink: ["tokenHash"],
   DossierSubmission: ["data"],
+  DossierAttachment: ["fileName", "storageKey", "sha256"],
   OtpChallenge: ["codeHash", "email"],
   Signature: ["imageKey", "ipHash", "userAgent", "documentHashes"],
 };

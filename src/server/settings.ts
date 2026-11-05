@@ -33,6 +33,36 @@ function asCount(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
+/** Text settings of the online file, with their defaults. */
+export interface DossierSettings {
+  /** `DOSSIER_LINK_DAYS`: validity of a dossier link. */
+  linkDays: number;
+  /** `UL_NAME`: « Structure de rattachement ». */
+  ulName: string;
+  /** `RGPD_NOTICE`: the GDPR notice shown before submission. */
+  rgpdNotice: string;
+}
+
+export async function dossierSettings(db: DbOrTx): Promise<DossierSettings> {
+  const rows = await db.setting.findMany({
+    where: { key: { in: ["DOSSIER_LINK_DAYS", "UL_NAME", "RGPD_NOTICE"] } },
+    select: { key: true, value: true },
+  });
+  const byKey = new Map(rows.map((r) => [r.key, r.value]));
+  const text = (key: string, fallback: string) => {
+    const v = byKey.get(key);
+    return typeof v === "string" && v.trim() !== "" ? v : fallback;
+  };
+  return {
+    linkDays: asCount(byKey.get("DOSSIER_LINK_DAYS"), 7) || 7,
+    ulName: text("UL_NAME", "Unité locale de Versailles"),
+    rgpdNotice: text(
+      "RGPD_NOTICE",
+      "Information sur le traitement des données : texte à définir (à faire valider par le DPO).",
+    ),
+  };
+}
+
 export async function numericSettings(db: DbOrTx): Promise<NumericSettings> {
   const rows = await db.setting.findMany({
     where: { key: { in: Object.values(KEYS) } },

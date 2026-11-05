@@ -3,6 +3,7 @@ import { NIVOL_PATTERN } from "@/lib/nivol";
 import { perimetersOf } from "@/server/perimeter";
 import { getTestDb } from "@/test/db/testDatabase";
 import {
+  RGPD_NOTICE_DRAFT,
   SEED_MARK,
   SEED_VOLUMES,
   countRows,
@@ -220,6 +221,9 @@ describe("seed", () => {
       GREETING_EMAILS_ENABLED: true,
       NEW_VOLUNTEER_MONTHS: 12,
       CANDIDACY_FOLLOW_UP_DAYS: 7,
+      DOSSIER_LINK_DAYS: 7,
+      UL_NAME: "Unité locale de Versailles",
+      RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });
     expect(await db.reminderRule.count()).toBe(6);
   });

@@ -289,5 +289,6 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
   "accessLog.read": "Consulter le journal des consultations sensibles",
   "person.export": "Exporter les données des personnes",
   "import.run": "Importer l'ancien classeur",
+  "mail.log.read": "Consulter les e-mails du pilote de démonstration",
   "notification.readOwn": "Consulter ses notifications",
 };
