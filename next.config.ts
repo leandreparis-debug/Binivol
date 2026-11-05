@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  // The official PDF templates and the Unicode font are read from disk at run
+  // time (src/server/pdf/templates.ts): they ship with the server functions.
+  outputFileTracingIncludes: { "/**": ["./assets/modeles/**", "./assets/fonts/**"] },
   // Metadata (the page <title>) is rendered in <head> before the content for every
   // client, not streamed after it: screen readers and axe always find the title.
   htmlLimitedBots: /.*/,

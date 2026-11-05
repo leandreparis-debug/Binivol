@@ -34,7 +34,14 @@ export type DomainErrorCode =
   | "DUPLICATE_PERSON"
   | "MENTOR_INVALID"
   | "IMPORT_DISABLED"
-  | "DOSSIER_SESSION_EXPIRED";
+  | "DOSSIER_SESSION_EXPIRED"
+  | "TEMPLATE_MODIFIED"
+  | "OTP_INVALID"
+  | "OTP_EXPIRED"
+  | "OTP_LOCKED"
+  | "OTP_RATE_LIMITED"
+  | "SIGNATURE_INVALID"
+  | "SIGNATURE_STATE";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {
