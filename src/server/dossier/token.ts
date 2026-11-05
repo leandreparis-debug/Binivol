@@ -18,3 +18,12 @@ export function hashDossierToken(token: string): string {
 export function looksLikeDossierToken(value: string): boolean {
   return /^[A-Za-z0-9_-]{43}$/.test(value);
 }
+
+/**
+ * The address of a dossier link. The token is in the **fragment** (after `#`):
+ * browsers never send it to the server, so it reaches no access log; the
+ * `/dossier/ouvrir` page posts it to the exchange action (ADR-043).
+ */
+export function dossierLinkUrl(baseUrl: string, token: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/dossier/ouvrir#${token}`;
+}

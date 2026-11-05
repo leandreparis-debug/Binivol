@@ -6,7 +6,7 @@ import { dossierLinkMail } from "../templates";
 describe("dossier link e-mail", () => {
   const message = dossierLinkMail({
     firstName: "Camille",
-    url: "https://binivol.exemple.test/dossier/TOKEN",
+    url: "https://binivol.exemple.test/dossier/ouvrir#TOKEN",
     ulName: "Unité locale de Versailles",
     expiresAt: new Date("2026-11-12T10:00:00.000Z"),
   });
@@ -14,9 +14,9 @@ describe("dossier link e-mail", () => {
   it("holds the first name, the link and the expiry date, in French", () => {
     expect(message.subject).toBe("Unité locale de Versailles : votre dossier bénévole");
     expect(message.text).toContain("Bonjour Camille,");
-    expect(message.text).toContain("https://binivol.exemple.test/dossier/TOKEN");
+    expect(message.text).toContain("https://binivol.exemple.test/dossier/ouvrir#TOKEN");
     expect(message.text).toContain("12/11/2026");
-    expect(message.html).toContain('href="https://binivol.exemple.test/dossier/TOKEN"');
+    expect(message.html).toContain('href="https://binivol.exemple.test/dossier/ouvrir#TOKEN"');
   });
 
   it("holds no other personal data than the first name", () => {

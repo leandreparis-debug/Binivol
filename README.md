@@ -158,7 +158,7 @@ scripts/                   generate-icons.ts, admin.ts, db-fresh.ts, import-clas
 tests/fixtures/            classeurs .xlsx 100 % fictifs (les seuls .xlsx du dépôt)
 src/app/                   App Router
   (app)/                   coquille connectée : /, /benevoles (annuaire), /benevoles/[ref] (fiche), /benevoles/[ref]/dossier (revue du dossier), /candidats (intégration), /formations, /rappels, /admin/courriels, /design
-  (public)/                parcours candidat sans connexion : /dossier/[token] (ouverture du lien), /dossier (formulaire), /dossier/lien-invalide
+  (public)/                parcours candidat sans connexion : /dossier/ouvrir#<jeton> (ouverture du lien), /dossier (formulaire), /dossier/lien-invalide
   (onsite)/                mode sur place du dossier, hors coquille : /benevoles/[ref]/dossier/sur-place
   api/health/              sonde de vie
   api/documents/[id]/      téléchargement d'un document (droits + access_logs)

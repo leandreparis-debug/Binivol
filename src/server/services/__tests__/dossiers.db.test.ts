@@ -217,7 +217,7 @@ describe("dossier links", () => {
     });
     expect(mail.payload).not.toContain(link.token);
     const content = openMail(mail.payload);
-    expect(content?.text).toContain(`https://binivol.exemple.test/dossier/${link.token}`);
+    expect(content?.text).toContain(`https://binivol.exemple.test/dossier/ouvrir#${link.token}`);
     expect(content?.text).toContain(`Bonjour Dossier${String(n)},`);
     expect(content?.text).not.toContain(`Fictif${String(n)}`);
   });

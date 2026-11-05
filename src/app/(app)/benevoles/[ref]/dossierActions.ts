@@ -8,6 +8,7 @@ import { defineAction } from "@/server/actions/defineAction";
 import { appBaseUrl } from "@/server/baseUrl";
 import { REPORT_KEYS, type ReportKey } from "@/server/dossier/compare";
 import { applyDossier, readDossierForReview } from "@/server/dossier/store";
+import { dossierLinkUrl } from "@/server/dossier/token";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
 import { loadPersonFacts } from "@/server/policy/facts";
@@ -64,7 +65,7 @@ export const createDossierLinkAction = defineAction({
     return {
       linkId: created.linkId,
       token: created.token,
-      url: `${await appBaseUrl()}/dossier/${created.token}`,
+      url: dossierLinkUrl(await appBaseUrl(), created.token),
       expiresAt: created.expiresAt.toISOString(),
     };
   },

@@ -12,7 +12,12 @@ import {
   type DossierStatus,
   type DraftView,
 } from "../dossier/store";
-import { hashDossierToken, looksLikeDossierToken, newDossierToken } from "../dossier/token";
+import {
+  dossierLinkUrl,
+  hashDossierToken,
+  looksLikeDossierToken,
+  newDossierToken,
+} from "../dossier/token";
 import { DomainError } from "../errors";
 import { getMail, MailUnavailableError, type MailService } from "../mail";
 import { dossierLinkMail } from "../mail/templates";
@@ -191,7 +196,7 @@ export async function sendDossierLink(
   const { ulName } = await dossierSettings(db);
   const message = dossierLinkMail({
     firstName: link.person.firstName,
-    url: `${input.baseUrl.replace(/\/$/, "")}/dossier/${input.token}`,
+    url: dossierLinkUrl(input.baseUrl, input.token),
     ulName,
     expiresAt: link.expiresAt,
   });
@@ -218,7 +223,7 @@ export async function sendDossierLink(
 export type OpenOutcome = { ok: true; linkId: string } | { ok: false };
 
 /**
- * Checks a token from `/dossier/[token]`. Refused (unknown, expired, revoked,
+ * Checks a token from `/dossier/ouvrir`. Refused (unknown, expired, revoked,
  * used) → `{ ok: false }` without saying which, and the attempt is audited
  * without the token.
  */

@@ -50,7 +50,7 @@ async function createAndSendLink(page: Page): Promise<string> {
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Créer le lien" }).click();
   const url = await dialog.locator("#dossier-link-url").inputValue();
-  expect(url).toMatch(/\/dossier\/[A-Za-z0-9_-]{43}$/);
+  expect(url).toMatch(/\/dossier\/ouvrir#[A-Za-z0-9_-]{43}$/);
   await dialog.getByRole("button", { name: "Envoyer par e-mail" }).click();
   await expect(dialog.getByText(/Lien envoyé à/)).toBeVisible();
   await page.keyboard.press("Escape");
@@ -156,10 +156,22 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
     expect(url).toBe(shown);
 
     const candidate = await phone(browser);
+    const token = url.split("#").at(-1) ?? "";
+    // No request address ever holds the token (it is in the fragment); only the
+    // POST of the exchange action carries it, in its body.
+    const seen: { url: string; method: string; body: string }[] = [];
+    candidate.page.on("request", (r) => {
+      seen.push({ url: r.url(), method: r.method(), body: r.postData() ?? "" });
+    });
     await candidate.page.goto(url);
     // The token is exchanged for a cookie: it leaves the address bar.
     await expect(candidate.page).toHaveURL(/\/dossier$/);
-    expect(candidate.page.url()).not.toContain(url.split("/").at(-1) ?? "");
+    expect(candidate.page.url()).not.toContain(token);
+    expect(seen.filter((r) => r.url.includes(token))).toEqual([]);
+    const carriers = seen.filter((r) => r.body.includes(token));
+    expect(carriers.map((r) => [r.method, new URL(r.url).pathname])).toEqual([
+      ["POST", "/dossier/ouvrir"],
+    ]);
     await expect(title(candidate.page)).toHaveText("Accueil");
     await expectNoSeriousViolation(candidate.page);
 
@@ -250,7 +262,7 @@ test.describe("Dossier en ligne (mobile 390 px)", () => {
       await expect(p.getByText("Contactez l'unité locale.")).toBeVisible();
     };
     const visitor = await phone(browser);
-    await visitor.page.goto("/dossier/" + "x".repeat(43));
+    await visitor.page.goto("/dossier/ouvrir#" + "x".repeat(43));
     await expect(visitor.page).toHaveURL(/\/dossier\/lien-invalide$/);
     await neutral(visitor.page);
     await expectNoSeriousViolation(visitor.page);

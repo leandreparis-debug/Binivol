@@ -13,7 +13,7 @@ import {
 /**
  * The candidate behind the request, from the dossier cookie (`/dossier*`
  * only). Never reads a token: the token was exchanged for the cookie by
- * `/dossier/[token]`.
+ * `/dossier/ouvrir`.
  *
  * - `none`: no cookie, expired cookie, or a link revoked / expired since;
  * - `submitted`: the dossier was sent through this link (it is used);

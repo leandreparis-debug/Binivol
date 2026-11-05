@@ -81,10 +81,17 @@ Un envoi incomplet est refusé, avec le message à l'étape concernée.
   est stockée (`dossier_links.token_hash`). Le jeton n'apparaît qu'une fois, dans la boîte de
   dialogue de création ; il n'est écrit dans aucune table (le courriel consigné par le pilote
   `log` est chiffré, AES-256-GCM).
-- **Échange contre un cookie** (ADR-038) : `GET /dossier/[token]` vérifie l'empreinte, pose le
-  cookie `binivol_dossier` (`HttpOnly`, `SameSite=Lax`, chemin `/dossier`, `Secure` en HTTPS,
-  2 h glissantes, signé HMAC-SHA256 avec une clé dérivée d'`AUTH_SECRET`), puis redirige (303,
-  adresse relative) vers `/dossier`. Le jeton quitte la barre d'adresse et l'historique.
+- **Jeton après `#`** (ADR-043) : le lien envoyé est `/dossier/ouvrir#<jeton>`. Le fragment
+  (après `#`) n'est jamais envoyé par le navigateur : le jeton n'apparaît dans aucune adresse
+  reçue par le serveur, ni dans aucun journal d'accès (hébergeur, proxy). La page
+  `/dossier/ouvrir` lit le fragment, l'efface aussitôt de l'adresse (`history.replaceState`),
+  puis l'envoie dans le **corps** d'une requête `POST` à l'action publique d'échange
+  (`openDossierLinkAction`).
+- **Échange contre un cookie** (ADR-038) : l'action vérifie l'empreinte, pose le cookie
+  `binivol_dossier` (`HttpOnly`, `SameSite=Lax`, chemin `/dossier`, `Secure` en HTTPS, 2 h
+  glissantes, signé HMAC-SHA256 avec une clé dérivée d'`AUTH_SECRET`), puis la page affiche
+  `/dossier`. Un test e2e vérifie qu'aucune adresse de requête ne contient le jeton et que seul
+  le `POST` de l'échange le porte.
 - **En-têtes** `/dossier*` (et le mode sur place) : `Referrer-Policy: no-referrer`,
   `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`.
 - **Refus neutre** : jeton inconnu, expiré, révoqué ou utilisé → une seule page, « Ce lien
@@ -95,13 +102,11 @@ Un envoi incomplet est refusé, avec le message à l'étape concernée.
   **rattaché au nouveau lien**.
 - **Session expirée** : les actions répondent « Votre session a expiré… » ; ce qui est à l'écran
   reste affiché, et rouvrir le lien (s'il est valable) relance la session.
-- **Actions publiques** : `src/app/(public)/dossier/actions.ts`, quatre actions par
-  `definePublicAction` (enregistrer, ajouter et retirer une pièce, envoyer). Chacune relit le
+- **Actions publiques** : `src/app/(public)/dossier/actions.ts`, cinq actions par
+  `definePublicAction` (échanger le jeton, enregistrer, ajouter et retirer une pièce, envoyer). Chacune relit le
   cookie et le lien ; la personne et le brouillon viennent du lien, jamais de l'entrée. La liste
   fermée du test d'architecture les nomme.
-- **Journaux de la plateforme** : l'adresse d'ouverture contient le jeton, que les journaux
-  d'accès de l'hébergeur (Vercel, proxy du VPS) peuvent conserver jusqu'à l'ouverture. Voir
-  « Points ouverts ».
+- **Journaux de la plateforme** : grâce au fragment, le jeton n'y figure jamais (ADR-043).
 
 ## Pièces jointes
 
@@ -220,6 +225,3 @@ liens par le service.
 - La liste des activités proposées (`ACTIVITY_OPTIONS`, `src/lib/dossierForms.ts`) est à
   confirmer avec l'unité locale.
 - L'attribution de `Nom_2` / `Nom_3` dans la Charte est à vérifier sur le PDF (étape 8).
-- Le jeton figure dans l'adresse d'ouverture, donc dans les journaux d'accès de l'hébergeur,
-  jusqu'à ce que le lien soit utilisé ou expire. Une variante qui le passerait dans le fragment
-  (`#…`, jamais envoyé au serveur) est possible si cette exposition est jugée gênante.

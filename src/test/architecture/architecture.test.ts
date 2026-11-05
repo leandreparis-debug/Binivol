@@ -37,6 +37,7 @@ describe("architecture: server actions", () => {
       "src/app/(auth)/connexion/actions.ts#demoSignInAction",
       "src/app/(auth)/connexion/actions.ts#googleSignInAction",
       "src/app/(public)/dossier/actions.ts#addDossierAttachmentAction",
+      "src/app/(public)/dossier/actions.ts#openDossierLinkAction",
       "src/app/(public)/dossier/actions.ts#removeDossierAttachmentAction",
       "src/app/(public)/dossier/actions.ts#saveDossierAction",
       "src/app/(public)/dossier/actions.ts#submitDossierAction",

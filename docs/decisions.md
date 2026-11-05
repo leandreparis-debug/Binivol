@@ -538,7 +538,8 @@ serveur sera aussi hébergé en France.
 finirait dans l'historique, les favoris, l'en-tête `Referer` et les captures d'écran.
 
 **Décision.** Le jeton (32 octets aléatoires, base64url) n'est stocké que par son empreinte
-SHA-256. `GET /dossier/[token]` le vérifie, pose un cookie de session de dossier (`HttpOnly`,
+SHA-256. L'ouverture du lien (route `/dossier/[token]`, remplacée par `/dossier/ouvrir#<jeton>`,
+ADR-043) le vérifie, pose un cookie de session de dossier (`HttpOnly`,
 `SameSite=Lax`, chemin `/dossier`, `Secure` en HTTPS, 2 h glissantes, signé HMAC avec une clé
 dérivée d'`AUTH_SECRET`, contenant seulement l'identifiant du lien), puis redirige vers
 `/dossier`. Les pages `/dossier*` envoient `Referrer-Policy: no-referrer`,
@@ -601,3 +602,18 @@ données. Partout ailleurs, le refus strict reste inchangé.
 
 **Conséquences.** La démo reçoit les données de chaque étape sans base neuve. Le journal de build
 ne contient que des références (`P-000xx`), jamais de nom.
+
+## ADR-043 — Le jeton du dossier passe après `#`
+
+**Contexte.** Avec `/dossier/[token]`, le jeton figurait dans l'adresse de la première requête :
+les journaux d'accès de l'hébergeur (Vercel, proxy du VPS) pouvaient le conserver (point ouvert
+de l'étape 7).
+
+**Décision.** Le lien devient `/dossier/ouvrir#<jeton>`. Le fragment n'est jamais envoyé au
+serveur. La page lit le jeton côté navigateur, l'efface de l'adresse (`history.replaceState`),
+puis l'envoie dans le corps d'un `POST` à l'action publique `openDossierLinkAction`, qui pose le
+cookie (ADR-038). L'ancienne route est retirée : aucun vrai lien n'avait été envoyé.
+
+**Conséquences.** Le jeton n'apparaît dans aucune adresse reçue ni dans aucun journal d'accès ;
+un test e2e le vérifie. L'ouverture demande JavaScript (message `<noscript>` sinon), ce qui est
+déjà le cas du formulaire.
