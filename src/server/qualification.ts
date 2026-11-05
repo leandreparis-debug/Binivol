@@ -88,11 +88,11 @@ export function trainingState(
   const when = (r: RecordFact) => r.sessionStart ?? r.date;
   const pendingResult = registrations.some((r) => {
     const at = when(r);
-    return at !== null && at !== undefined && at.getTime() < day.getTime();
+    return at !== null && at.getTime() < day.getTime();
   });
   const futureRegistration = registrations.some((r) => {
     const at = when(r);
-    return at === null || at === undefined || at.getTime() >= day.getTime();
+    return at === null || at.getTime() >= day.getTime();
   });
 
   const passed = live

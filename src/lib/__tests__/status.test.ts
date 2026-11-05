@@ -20,6 +20,10 @@ describe("status registry", () => {
       "dossier-none",
       "dossier-draft",
       "dossier-submitted",
+      "dossier-to-countersign",
+      "dossier-complete",
+      "mail-sent",
+      "mail-failed",
       "qual-valid",
       "qual-valid_undated",
       "qual-expiring",
@@ -29,10 +33,6 @@ describe("status registry", () => {
       "qual-function_active",
       "qual-function_ended",
       "qual-none",
-      "dossier-to-countersign",
-      "dossier-complete",
-      "mail-sent",
-      "mail-failed",
     ]);
   });
 
