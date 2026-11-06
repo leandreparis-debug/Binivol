@@ -30,6 +30,10 @@ export const SENSITIVE_FIELDS: Record<string, "*" | readonly string[]> = {
   EmergencyContact: "*",
   Document: ["fileName", "storageKey", "sha256"],
   DossierLink: ["tokenHash"],
+  // « À faire » (step 16): the texts never reach the audit log, only ids, fields and dates.
+  Todo: ["title", "note"],
+  TodoComment: ["body"],
+  TodoProject: ["description"],
   DossierSubmission: ["data"],
   DossierAttachment: ["fileName", "storageKey", "sha256"],
   OtpChallenge: ["codeHash", "email"],

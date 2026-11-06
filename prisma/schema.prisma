@@ -258,12 +258,17 @@ model User {
   profiles           UserProfile[]
   accounts           Account[]
   sessions           Session[]
-  ownedCandidacies   Candidacy[]      @relation("CandidacyOwner")
+  ownedCandidacies   Candidacy[]         @relation("CandidacyOwner")
   candidacyEvents    CandidacyEvent[]
   conductedFollowUps FollowUp[]
   uploadedDocuments  Document[]
   createdLinks       DossierLink[]
   notifications      Notification[]
+  ownedTodos         Todo[]              @relation("TodoOwner")
+  todoAssignments    TodoAssignee[]      @relation("TodoAssigneeUser")
+  todoComments       TodoComment[]
+  ownedTodoProjects  TodoProject[]
+  todoMemberships    TodoProjectMember[] @relation("TodoProjectMemberUser")
 
   @@map("users")
 }
@@ -389,6 +394,7 @@ model Person {
   submissions       DossierSubmission[]
   documents         Document[]
   notifications     Notification[]
+  todos             Todo[]
 
   @@index([lastName])
   @@index([status])
@@ -1162,6 +1168,128 @@ model Setting {
   updatedById String?  @map("updated_by_id")
 
   @@map("settings")
+}
+
+// ---------------------------------------------------------------------------
+// « À faire » (step 16): personal, confided and shared tasks, team projects.
+// Visibility is relational (owner, active assignee, active project member):
+// see src/server/policy/todos.ts. No physical deletion: archivedAt.
+// ---------------------------------------------------------------------------
+
+/// Colour chip of a project: one of the design tokens, never a free colour.
+enum TodoProjectColor {
+  INK
+  ACCENT
+  OK
+  WARN
+  DANGER
+  MUTED
+}
+
+enum TodoProjectRole {
+  OWNER
+  MEMBER
+}
+
+/// A shared list (« Forum des associations »). Name 1–80 (CHECK, trimmed), description ≤ 1 000.
+model TodoProject {
+  id          String           @id @default(cuid(2))
+  name        String
+  description String?
+  color       TodoProjectColor @default(INK)
+  ownerId     String           @map("owner_id")
+  archivedAt  DateTime?        @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner   User                @relation(fields: [ownerId], references: [id])
+  members TodoProjectMember[]
+  todos   Todo[]
+
+  @@index([ownerId])
+  @@map("todo_projects")
+}
+
+/// Membership, append-only: removing a member fills removedAt; adding again creates a row.
+model TodoProjectMember {
+  id        String          @id @default(cuid(2))
+  projectId String          @map("project_id")
+  userId    String          @map("user_id")
+  role      TodoProjectRole @default(MEMBER)
+  addedById String?         @map("added_by_id")
+  addedAt   DateTime        @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt DateTime?       @map("removed_at") @db.Timestamptz(3)
+
+  project TodoProject @relation(fields: [projectId], references: [id])
+  user    User        @relation("TodoProjectMemberUser", fields: [userId], references: [id])
+
+  @@unique([projectId, userId], map: "todo_project_members_one_active", where: raw("removed_at IS NULL"))
+  @@index([userId, removedAt])
+  @@map("todo_project_members")
+}
+
+/// A task. Title 1–200 (CHECK, trimmed), note ≤ 2 000. dueDate is a Paris calendar day.
+/// Never written in clear in the audit log (title, note masked).
+model Todo {
+  id            String    @id @default(cuid(2))
+  ownerId       String    @map("owner_id")
+  projectId     String?   @map("project_id")
+  title         String
+  note          String?
+  dueDate       DateTime? @map("due_date") @db.Date
+  personId      String?   @map("person_id")
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz(3)
+  completedById String?   @map("completed_by_id")
+  archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner     User           @relation("TodoOwner", fields: [ownerId], references: [id])
+  project   TodoProject?   @relation(fields: [projectId], references: [id])
+  person    Person?        @relation(fields: [personId], references: [id], onDelete: SetNull)
+  assignees TodoAssignee[]
+  comments  TodoComment[]
+
+  @@index([projectId, completedAt, dueDate])
+  @@index([ownerId], map: "todos_owner_active", where: raw("archived_at IS NULL"))
+  @@index([personId], map: "todos_person_active", where: raw("archived_at IS NULL"))
+  @@map("todos")
+}
+
+/// Who has the task in her list. Append-only like project members (removedAt).
+/// `position` orders the task in THIS user's list (each assignee has her own order).
+model TodoAssignee {
+  id           String    @id @default(cuid(2))
+  todoId       String    @map("todo_id")
+  userId       String    @map("user_id")
+  assignedById String?   @map("assigned_by_id")
+  assignedAt   DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  position     Int       @default(0)
+
+  todo Todo @relation(fields: [todoId], references: [id])
+  user User @relation("TodoAssigneeUser", fields: [userId], references: [id])
+
+  @@unique([todoId, userId], map: "todo_assignees_one_active", where: raw("removed_at IS NULL"))
+  @@index([userId, removedAt])
+  @@map("todo_assignees")
+}
+
+/// Short thread on a task (≤ 1 000). Append-only; « deleting » fills archivedAt.
+/// The body is never written in the audit log.
+model TodoComment {
+  id         String    @id @default(cuid(2))
+  todoId     String    @map("todo_id")
+  authorId   String    @map("author_id")
+  body       String
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  todo   Todo @relation(fields: [todoId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([todoId, createdAt])
+  @@map("todo_comments")
 }
 
 // ---------------------------------------------------------------------------

@@ -43,6 +43,10 @@ export const POLICY_ACTIONS = [
   "training.matrix.export",
   "person.purge",
   "person.gdprExport",
+  "todo.read",
+  "todo.write",
+  "todo.manage",
+  "todo.project.manage",
 ] as const;
 
 export type PolicyAction = (typeof POLICY_ACTIONS)[number];

@@ -120,6 +120,14 @@ const PERSON_TABLE: Partial<Record<PolicyAction, Expected>> = {
   "person.gdprExport": {},
 };
 
+/** « À faire » (step 16): relational rules, tested in their own block below. */
+const TODO_ACTIONS: PolicyAction[] = [
+  "todo.read",
+  "todo.write",
+  "todo.manage",
+  "todo.project.manage",
+];
+
 /** Resource-less actions: profiles allowed. */
 const GLOBAL_TABLE: Partial<Record<PolicyAction, Profile[]>> = {
   "trainingSession.manage": ["TOPAZE", "FORMAT"],
@@ -144,6 +152,7 @@ describe("truth table coverage", () => {
       ...Object.keys(PERSON_TABLE),
       ...Object.keys(GLOBAL_TABLE),
       "appointment.write",
+      ...TODO_ACTIONS,
     ].sort();
     expect(covered).toEqual([...POLICY_ACTIONS].sort());
   });
@@ -385,5 +394,58 @@ describe("personPageAccess (full or reduced person page)", () => {
     expect(personPageAccess(actor("FORMAT", "DIAMANT"), facts("neReleve", "DIAMANT"))).toBe(
       "trainings",
     );
+  });
+});
+
+describe("« À faire » (step 16): relational rules, no TOPAZE override", () => {
+  const who = (userId: string, profile: Profile = "ACTION") => ({
+    userId,
+    profiles: new Set<Profile>([profile]),
+  });
+  const todo = {
+    todoId: "t",
+    ownerId: "owner",
+    assigneeIds: ["assignee"],
+    projectMemberIds: ["member", "projectOwner"],
+    projectOwnerIds: ["projectOwner"],
+  };
+  // « removed » was an assignee, « former » a member: their rows have removedAt, so
+  // they are absent from the facts (loadTodoFacts keeps active links only).
+  const cases: [string, ReturnType<typeof who>, boolean, boolean][] = [
+    ["owner", who("owner"), true, true],
+    ["active assignee", who("assignee"), true, false],
+    ["removed assignee", who("removed"), false, false],
+    ["project member", who("member"), true, false],
+    ["project OWNER", who("projectOwner"), true, true],
+    ["former member", who("former"), false, false],
+    ["third party", who("stranger", "DIAMANT"), false, false],
+    ["TOPAZE outsider", who("topaze", "TOPAZE"), false, false],
+  ];
+
+  it.each(cases)("%s", (_label, actorOf, reads, manages) => {
+    expect(can(actorOf, "todo.read", { todo }).allowed).toBe(reads);
+    expect(can(actorOf, "todo.write", { todo }).allowed).toBe(reads);
+    expect(can(actorOf, "todo.manage", { todo }).allowed).toBe(manages);
+  });
+
+  it("every profile has its own list (no task, no project)", () => {
+    for (const profile of PROFILES) {
+      expect(can(who("x", profile), "todo.read").allowed).toBe(true);
+      expect(can(who("x", profile), "todo.write").allowed).toBe(true);
+    }
+  });
+
+  it("refuses without a user id, and todo.manage without a task", () => {
+    expect(can(actor("TOPAZE"), "todo.read", { todo }).allowed).toBe(false);
+    expect(can(who("owner"), "todo.manage").allowed).toBe(false);
+  });
+
+  it("a project: members read it, only OWNERs manage it", () => {
+    const project = { projectId: "p", memberIds: ["a", "b"], ownerIds: ["a"] };
+    expect(can(who("b"), "todo.read", { project }).allowed).toBe(true);
+    expect(can(who("c", "TOPAZE"), "todo.read", { project }).allowed).toBe(false);
+    expect(can(who("a"), "todo.project.manage", { project }).allowed).toBe(true);
+    expect(can(who("b"), "todo.project.manage", { project }).allowed).toBe(false);
+    expect(can(who("a"), "todo.project.manage").allowed).toBe(false);
   });
 });

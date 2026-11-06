@@ -32,10 +32,37 @@ export function profilesInCharge(person: PersonFacts): Profile[] {
   return (["ACTION", "LASER", "FORMAT_GP", "DIAMANT"] as const).filter((p) => relevesOf(person, p));
 }
 
+/**
+ * « À faire » (step 16): the actor takes part in the task (author, active
+ * assignee, active member of its project) or, for a project, is an active
+ * member. Without task nor project: her own list, always.
+ */
+export function isTodoParticipant(userId: string | undefined, resource?: PolicyResource): boolean {
+  if (!userId) return false;
+  const todo = resource?.todo;
+  if (todo) {
+    return (
+      todo.ownerId === userId ||
+      todo.assigneeIds.includes(userId) ||
+      todo.projectMemberIds.includes(userId)
+    );
+  }
+  if (resource?.project) return resource.project.memberIds.includes(userId);
+  return true;
+}
+
+/** The actor may edit, reassign or archive the task: its author, or an OWNER of its project. */
+export function isTodoManager(userId: string | undefined, resource?: PolicyResource): boolean {
+  const todo = resource?.todo;
+  if (!userId || !todo) return false;
+  return todo.ownerId === userId || todo.projectOwnerIds.includes(userId);
+}
+
 function conditionHolds(
   condition: Condition,
   profile: Profile,
   resource: PolicyResource | undefined,
+  userId: string | undefined,
 ): boolean {
   const person = resource?.person;
   switch (condition) {
@@ -54,11 +81,20 @@ function conditionHolds(
         resource.function.managedBy.includes(profile) &&
         relevesOf(person, profile)
       );
+    case "todoParticipant":
+      return isTodoParticipant(userId, resource);
+    case "todoManager":
+      return isTodoManager(userId, resource);
+    case "projectOwner":
+      return userId !== undefined && (resource?.project?.ownerIds.includes(userId) ?? false);
   }
 }
 
 function missingResource(rule: ActionRule, resource: PolicyResource | undefined): string | null {
   if (rule.target === "none") return null;
+  // A task rule without a task applies to one's own list; `todoManager` checks the task itself.
+  if (rule.target === "todo") return null;
+  if (rule.target === "todoProject") return resource?.project ? null : "Projet non précisé.";
   if (!resource?.person) return "Personne non précisée.";
   if (rule.target === "personAndFunction" && !resource.function) return "Fonction non précisée.";
   return null;
@@ -67,12 +103,12 @@ function missingResource(rule: ActionRule, resource: PolicyResource | undefined)
 /**
  * The access policy. **Pure**: it never reads the database, every fact it
  * needs is passed in. Profiles add up: the actor is allowed as soon as one
- * of her profiles is.
+ * of her profiles is. The « À faire » rules also need the actor's `userId`.
  *
  * @example can(actor, "person.sensitive.read", { person: facts })
  */
 export function can(
-  actor: Pick<Actor, "profiles">,
+  actor: Pick<Actor, "profiles"> & { userId?: string },
   action: PolicyAction,
   resource?: PolicyResource,
 ): PolicyDecision {
@@ -83,7 +119,10 @@ export function can(
 
   for (const grant of rule.grants) {
     for (const profile of grant.profiles) {
-      if (actor.profiles.has(profile) && conditionHolds(grant.when, profile, resource)) {
+      if (
+        actor.profiles.has(profile) &&
+        conditionHolds(grant.when, profile, resource, actor.userId)
+      ) {
         return { allowed: true, reason: `${label} : autorisé par le profil ${profile}.` };
       }
     }
@@ -148,7 +187,7 @@ export class ForbiddenError extends Error {
 
 /** Like `can()`, but throws a `ForbiddenError` on refusal. */
 export function authorize(
-  actor: Pick<Actor, "profiles">,
+  actor: Pick<Actor, "profiles"> & { userId?: string },
   action: PolicyAction,
   resource?: PolicyResource,
 ): void {

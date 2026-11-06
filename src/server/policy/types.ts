@@ -26,10 +26,33 @@ export interface FunctionFacts {
   managedBy: readonly Profile[];
 }
 
+/**
+ * What the policy needs to know about a task (« À faire », step 16).
+ * Only *active* links count (`removedAt` null). Computed by `loadTodoFacts`.
+ */
+export interface TodoFacts {
+  todoId: string;
+  ownerId: string;
+  assigneeIds: readonly string[];
+  /** Active members of the task's project (empty without project). */
+  projectMemberIds: readonly string[];
+  /** Active OWNERs of the task's project. */
+  projectOwnerIds: readonly string[];
+}
+
+/** What the policy needs to know about a project. Computed by `loadProjectFacts`. */
+export interface TodoProjectFacts {
+  projectId: string;
+  memberIds: readonly string[];
+  ownerIds: readonly string[];
+}
+
 /** The object an action applies to. */
 export interface PolicyResource {
   person?: PersonFacts;
   function?: FunctionFacts;
+  todo?: TodoFacts;
+  project?: TodoProjectFacts;
 }
 
 export interface PolicyDecision {

@@ -35,8 +35,11 @@ import type {
   SubmissionStatus,
   TrainingResult,
   TrainingWishStatus,
+  TodoProjectColor,
+  TodoProjectRole,
 } from "@/generated/prisma/enums";
 import type { PolicyAction } from "@/lib/actions";
+import { PROJECT_COLOR_LABELS } from "@/lib/todos";
 
 export const PROFILE_LABELS: Record<Profile, string> = {
   TOPAZE: "TOPAZE · DLUS",
@@ -260,6 +263,13 @@ export const AUTOMATED_MESSAGE_STATUS_LABELS: Record<AutomatedMessageStatus, str
   SKIPPED: "Sans destinataire",
 };
 
+export const TODO_PROJECT_COLOR_LABELS: Record<TodoProjectColor, string> = PROJECT_COLOR_LABELS;
+
+export const TODO_PROJECT_ROLE_LABELS: Record<TodoProjectRole, string> = {
+  OWNER: "Responsable du projet",
+  MEMBER: "Membre",
+};
+
 /** Every label table, keyed by the enum name in `prisma/schema.prisma`. */
 export const ENUM_LABELS = {
   Profile: PROFILE_LABELS,
@@ -292,6 +302,8 @@ export const ENUM_LABELS = {
   JobRunStatus: JOB_RUN_STATUS_LABELS,
   AutomatedMessageKind: AUTOMATED_MESSAGE_KIND_LABELS,
   AutomatedMessageStatus: AUTOMATED_MESSAGE_STATUS_LABELS,
+  TodoProjectColor: TODO_PROJECT_COLOR_LABELS,
+  TodoProjectRole: TODO_PROJECT_ROLE_LABELS,
 } as const;
 
 export type EnumName = keyof typeof ENUM_LABELS;
@@ -339,4 +351,9 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
   "import.run": "Importer l'ancien classeur",
   "mail.log.read": "Consulter les e-mails du pilote de démonstration",
   "notification.readOwn": "Consulter ses notifications",
+  "todo.read": "Voir une tâche ou un projet « À faire » (auteur, assigné ou membre du projet)",
+  "todo.write":
+    "Ajouter, cocher, commenter une tâche, ou se retirer d'une tâche (auteur, assigné ou membre du projet)",
+  "todo.manage": "Modifier, réattribuer ou archiver une tâche (auteur, ou OWNER de son projet)",
+  "todo.project.manage": "Gérer un projet : membres, rôles, nom, archivage (OWNER du projet)",
 };

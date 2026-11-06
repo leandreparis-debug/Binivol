@@ -8,6 +8,8 @@ const TARGET_LABELS = {
   none: "—",
   person: "une personne",
   personAndFunction: "une personne et une fonction",
+  todo: "une tâche ou un projet",
+  todoProject: "un projet",
 } as const;
 
 /**

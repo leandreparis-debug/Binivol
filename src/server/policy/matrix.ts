@@ -13,13 +13,32 @@ import { POLICY_ACTIONS, type PolicyAction } from "@/lib/actions";
  * - `notArchivedNotCandidate`: the person is neither archived nor a candidate;
  * - `inScope`: the person « relève » of the profile (see `relevesOf`);
  * - `managedFunctionInScope`: the function lists the profile in `managedBy`
- *   and the person relève of that profile.
+ *   and the person relève of that profile;
+ * - `todoParticipant` (« À faire »): the actor is the task's author, an active
+ *   assignee or an active member of its project; for a project, an active
+ *   member; with no task nor project, always (her own list);
+ * - `todoManager`: the actor is the task's author or an active OWNER of its
+ *   project;
+ * - `projectOwner`: the actor is an active OWNER of the project.
+ *
+ * The three `todo*` conditions are relational: no profile gives more (TOPAZE
+ * included, ADR-067).
  */
 export type Condition =
-  "always" | "notArchived" | "notArchivedNotCandidate" | "inScope" | "managedFunctionInScope";
+  | "always"
+  | "notArchived"
+  | "notArchivedNotCandidate"
+  | "inScope"
+  | "managedFunctionInScope"
+  | "todoParticipant"
+  | "todoManager"
+  | "projectOwner";
 
-/** What an action applies to: nothing, a person, or a person and a function. */
-export type Target = "none" | "person" | "personAndFunction";
+/**
+ * What an action applies to: nothing, a person, a person and a function, a
+ * task (or a project, or nothing: one's own list), or a project.
+ */
+export type Target = "none" | "person" | "personAndFunction" | "todo" | "todoProject";
 
 export interface Grant {
   profiles: readonly Profile[];
@@ -155,6 +174,14 @@ export const MATRIX = {
     target: "none",
     grants: [{ profiles: ["TOPAZE", "FORMAT", "ACTION", "LASER", "FORMAT_GP"], when: "always" }],
   },
+  // « À faire » (step 16): personal and team lists, relational rules only.
+  "todo.read": { target: "todo", grants: [{ profiles: ALL_PROFILES, when: "todoParticipant" }] },
+  "todo.write": { target: "todo", grants: [{ profiles: ALL_PROFILES, when: "todoParticipant" }] },
+  "todo.manage": { target: "todo", grants: [{ profiles: ALL_PROFILES, when: "todoManager" }] },
+  "todo.project.manage": {
+    target: "todoProject",
+    grants: [{ profiles: ALL_PROFILES, when: "projectOwner" }],
+  },
 } as const satisfies Record<PolicyAction, ActionRule>;
 
 /** Every action of the matrix, in the documented order. */
@@ -167,6 +194,9 @@ export const CONDITION_LABELS: Record<Condition, string> = {
   notArchivedNotCandidate: "Oui, sauf candidat ou personne archivée",
   inScope: "Si la personne relève du profil",
   managedFunctionInScope: "Si la fonction lui est confiée et que la personne relève du profil",
+  todoParticipant: "S'il est l'auteur, un assigné ou un membre du projet",
+  todoManager: "S'il est l'auteur, ou OWNER du projet",
+  projectOwner: "S'il est OWNER du projet",
 };
 
 /** From the most to the least permissive, to summarise several grants. */
@@ -176,4 +206,7 @@ export const CONDITION_ORDER: readonly Condition[] = [
   "notArchivedNotCandidate",
   "inScope",
   "managedFunctionInScope",
+  "todoParticipant",
+  "todoManager",
+  "projectOwner",
 ];

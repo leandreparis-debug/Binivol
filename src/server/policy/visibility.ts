@@ -96,7 +96,11 @@ function conditionSql(condition: Condition, profile: Profile, ctx: VisibilityCon
     case "inScope":
       return relevesOfSql(profile, ctx);
     case "managedFunctionInScope":
-      // Needs a function: never true for a person alone.
+    // Needs a function: never true for a person alone. The « À faire » rules
+    // are not about persons (see `todoVisibleSql`).
+    case "todoParticipant":
+    case "todoManager":
+    case "projectOwner":
       return FALSE;
   }
 }
@@ -140,4 +144,25 @@ export function directoryVisibilitySql(
   ctx: VisibilityContext,
 ): Prisma.Sql {
   return visibleSql(actor, "person.directory.read", ctx);
+}
+
+/**
+ * « À faire » (step 16): SQL condition on `todos t` true exactly for the tasks
+ * the user takes part in — mirror of `can(actor, "todo.read", { todo })`:
+ * author, active assignee, or active member of the task's project. The same
+ * for every profile (no TOPAZE override). Archived tasks are filtered by the
+ * caller. Tested against `can()` on the seed (`todos.db.test.ts`).
+ */
+export function todoVisibleSql(userId: string): Prisma.Sql {
+  return Prisma.sql`(
+    t.owner_id = ${userId}
+    OR EXISTS (
+      SELECT 1 FROM todo_assignees ta
+      WHERE ta.todo_id = t.id AND ta.user_id = ${userId} AND ta.removed_at IS NULL
+    )
+    OR (t.project_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM todo_project_members pm
+      WHERE pm.project_id = t.project_id AND pm.user_id = ${userId} AND pm.removed_at IS NULL
+    ))
+  )`;
 }

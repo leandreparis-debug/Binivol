@@ -57,6 +57,14 @@ erDiagram
 
   ReminderRule |o--o{ Notification : "produit"
 
+  User ||--o{ Todo : "crée"
+  User ||--o{ TodoAssignee : "a dans sa liste"
+  TodoProject ||--o{ TodoProjectMember : "membres"
+  TodoProject |o--o{ Todo : "range"
+  Todo ||--o{ TodoAssignee : "assignés"
+  Todo ||--o{ TodoComment : "fil"
+  Person |o--o{ Todo : "concerne"
+
   Person {
     text id PK
     text ref UK "P-00001"
@@ -177,6 +185,11 @@ migrations futures.
 | `users_email_lowercase`                                              | users                        | e-mail stocké en minuscules                                             |
 | `reference_items_managed_by_functions_only`                          | reference_items              | `managed_by` vide pour une formation (étape 3)                          |
 | `audit_logs_append_only`, `access_logs_append_only`                  | journaux (déclencheurs)      | ajout seul                                                              |
+| `todo_projects_name_length`, `todos_title_length`                    | todo_projects, todos         | nom 1 à 80, titre 1 à 200 caractères, non vides après `btrim`           |
+| `todo_projects_description_length`, `todos_note_length`              | todo_projects, todos         | description ≤ 1 000, note ≤ 2 000                                       |
+| `todo_comments_body_length`                                          | todo_comments                | commentaire 1 à 1 000 caractères, non vide après `btrim`                |
+| `todos_completed_by`                                                 | todos                        | `completed_at` et `completed_by_id` nuls ou remplis ensemble            |
+| `todo_assignees_one_active`, `todo_project_members_one_active`       | (index partiels)             | une seule assignation / adhésion active (`removed_at` nul) par couple   |
 
 Les violations connues sont traduites en `DomainError` avec un message français par
 `translateDbError()` (`src/server/errors.ts`).
@@ -265,6 +278,25 @@ d'après `reference_items.perimeters`.
 | `reminder_rules` | Règles du moteur de rappels (étape 12) | `key` unique, `trigger`, `offset_days`, `recipients`, `channels`, `params` | N     |
 | `notifications`  | Notification d'un responsable          | `(user_id, dedupe_key)` unique, `read_at`                                  | N     |
 | `settings`       | Paramètres de l'outil                  | `key` unique, `value` JSONB                                                | N     |
+
+### À faire (étape 16, `/a-faire`)
+
+Listes de travail des responsables : tâches personnelles, confiées ou partagées, et projets
+communs. La visibilité est **relationnelle** (`src/server/policy/todos.ts`) : on voit une tâche
+si on en est l'auteur (`owner_id`), un assigné actif, ou un membre actif de son projet. TOPAZE
+n'a pas de passe-droit. Rien n'est supprimé : `archived_at` (tâche, projet, commentaire) et
+`removed_at` (assignation, adhésion), en ajout seul.
+
+| Table                  | Rôle                                                                                             | Champs clés                                                                                                                                                         | Sens.                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `todo_projects`        | Projet commun (« Forum des associations »)                                                       | `name` (1–80), `description` (≤ 1 000), `color` (jeton : `INK`, `ACCENT`, `OK`, `WARN`, `DANGER`, `MUTED`), `owner_id`, `archived_at`                               | N                                      |
+| `todo_project_members` | Adhésion à un projet, rôle `OWNER` ou `MEMBER` ; retirer remplit `removed_at`                    | `(project_id, user_id)` unique tant que `removed_at` est nul, `added_by_id`, index `(user_id, removed_at)`                                                          | N                                      |
+| `todos`                | Tâche ; faite quand un assigné la coche                                                          | `owner_id`, `project_id`, `title` (1–200), `note` (≤ 2 000), `due_date` (jour, Europe/Paris), `person_id` (mis à nul à la purge), `completed_at`, `completed_by_id` | N (titre et note masqués dans l'audit) |
+| `todo_assignees`       | Qui a la tâche dans sa liste ; sans assignation explicite, l'auteur ; plusieurs = tâche partagée | `(todo_id, user_id)` unique tant que `removed_at` est nul, `assigned_by_id`, `position` (ordre propre à chaque liste), index `(user_id, removed_at)`                | N                                      |
+| `todo_comments`        | Fil court d'une tâche partagée ou de projet, ajout seul                                          | `author_id`, `body` (≤ 1 000), `archived_at`                                                                                                                        | N (texte masqué dans l'audit)          |
+
+Index : `(project_id, completed_at, due_date)` sur `todos`, et index partiels
+`todos_owner_active`, `todos_person_active` (`archived_at IS NULL`).
 
 ### Import
 

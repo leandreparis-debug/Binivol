@@ -42,7 +42,9 @@ export type DomainErrorCode =
   | "OTP_LOCKED"
   | "OTP_RATE_LIMITED"
   | "SIGNATURE_INVALID"
-  | "SIGNATURE_STATE";
+  | "SIGNATURE_STATE"
+  | "LAST_PROJECT_OWNER"
+  | "NOT_FOUND";
 
 /** A rule of the domain was broken. `message` is safe to show to users. */
 export class DomainError extends Error {

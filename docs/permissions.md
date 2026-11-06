@@ -56,6 +56,10 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Exporter la matrice des compétences (personnes de son périmètre) (`training.matrix.export`) | — | Oui | Oui | Oui | Oui | Oui | — |
 | Purger les fiches arrivées au terme de leur conservation (RGPD) (`person.purge`) | — | Oui | — | — | — | — | — |
 | Exporter toutes les données d'une personne (droit d'accès, RGPD) (`person.gdprExport`) | une personne | Oui | — | — | — | — | — |
+| Voir une tâche ou un projet « À faire » (auteur, assigné ou membre du projet) (`todo.read`) | une tâche ou un projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet |
+| Ajouter, cocher, commenter une tâche, ou se retirer d'une tâche (auteur, assigné ou membre du projet) (`todo.write`) | une tâche ou un projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet |
+| Modifier, réattribuer ou archiver une tâche (auteur, ou OWNER de son projet) (`todo.manage`) | une tâche ou un projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet |
+| Gérer un projet : membres, rôles, nom, archivage (OWNER du projet) (`todo.project.manage`) | un projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet |
 
 ## Fiche d'une personne
 
