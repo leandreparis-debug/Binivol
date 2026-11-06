@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { daysBetween, formatDate, formatDateTime, formatRelative, toParisDay } from "@/lib/dates";
+import {
+  daysBetween,
+  formatDate,
+  formatDateTime,
+  formatDayWithWeekday,
+  formatRelative,
+  toParisDay,
+} from "@/lib/dates";
 
 describe("toParisDay", () => {
   it("returns the Paris calendar day at 00:00 UTC", () => {
@@ -82,5 +89,16 @@ describe("formatRelative", () => {
     expect(formatRelative(null, now)).toBe("—");
     expect(formatRelative(undefined, now)).toBe("—");
     expect(formatRelative("invalide", now)).toBe("—");
+  });
+});
+
+describe("formatDayWithWeekday", () => {
+  it("prefixes the Paris weekday, capitalised", () => {
+    // 23:30 UTC on Thursday 05/11/2026 is already Friday in Paris.
+    expect(formatDayWithWeekday(new Date("2026-11-05T23:30:00Z"))).toBe("Vendredi 06/11/2026");
+  });
+
+  it("renders the placeholder for a missing date", () => {
+    expect(formatDayWithWeekday(null)).toBe("—");
   });
 });

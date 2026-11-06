@@ -54,7 +54,7 @@ export function BellMenu({ unread }: { unread: number }) {
       <DropdownMenuTrigger asChild>
         <IconButton
           aria-label={`Notifications, ${String(unread)} non lue${unread > 1 ? "s" : ""}`}
-          variant="outline"
+          variant="surface"
           data-testid="bell"
         >
           <Bell className="size-5" />

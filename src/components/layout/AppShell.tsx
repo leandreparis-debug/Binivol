@@ -9,14 +9,18 @@ export interface AppShellProps extends ShellProps {
 }
 
 /**
- * Canvas background; side navigation (sidebar from 1024 px, rail from
- * 640 px) or bottom navigation on a phone; top bar and the 1440 px content.
+ * Canvas background; floating side navigation (sidebar from 1024 px, rail
+ * from 640 px) or bottom navigation on a phone; top bar and the 1440 px content.
  */
 export function AppShell({ children, ...shell }: AppShellProps) {
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
-      <SideNav allowedHrefs={shell.allowedHrefs} navBadges={shell.navBadges} />
-      <div className="flex min-h-dvh flex-col sm:pl-20 lg:pl-60">
+      <SideNav
+        allowedHrefs={shell.allowedHrefs}
+        navBadges={shell.navBadges}
+        canImport={shell.user.canImport}
+      />
+      <div className="flex min-h-dvh flex-col sm:pl-30 lg:pl-70">
         <TopBar {...shell} />
         <main
           id="contenu"

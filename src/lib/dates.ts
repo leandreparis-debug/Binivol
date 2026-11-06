@@ -45,6 +45,19 @@ export function formatDate(input: DateInput): string {
   return date ? dateFormatter.format(date) : EMPTY_VALUE;
 }
 
+const weekdayFormatter = new Intl.DateTimeFormat(LOCALE, { timeZone: TIME_ZONE, weekday: "long" });
+
+/**
+ * Formats a date as « Vendredi 06/11/2026 » (weekday, then `JJ/MM/AAAA`) in
+ * the Paris time zone. Returns « — » for a missing or invalid date.
+ */
+export function formatDayWithWeekday(input: DateInput): string {
+  const date = toDate(input);
+  if (!date) return EMPTY_VALUE;
+  const weekday = weekdayFormatter.format(date);
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dateFormatter.format(date)}`;
+}
+
 /**
  * Formats a date and time as `JJ/MM/AAAA HH:MM` in the Paris time zone.
  * Returns « — » for `null`, `undefined` or an invalid date.

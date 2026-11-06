@@ -53,7 +53,7 @@ export function UserMenu({ user }: UserMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 max-w-full cursor-pointer items-center gap-2 rounded-control border border-line bg-surface py-1 pr-3 pl-1 text-left focus-ring transition-colors hover:bg-veil motion-reduce:transition-none"
+          className="inline-flex h-12 max-w-full cursor-pointer items-center gap-2.5 rounded-control bg-surface py-1 pr-4 pl-1 text-left focus-ring transition-colors hover:bg-veil motion-reduce:transition-none"
         >
           <Avatar firstName={first} lastName={last} size="md" />
           <span className="hidden min-w-0 flex-col leading-tight lg:flex">

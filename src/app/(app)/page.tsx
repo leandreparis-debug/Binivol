@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { StatusDot } from "@/components/ui/StatusDot";
+import { formatDayWithWeekday } from "@/lib/dates";
 import { alertKey } from "@/lib/status";
 import { ALERT_PRIORITIES, ALERT_PRIORITY_LABELS } from "@/server/alerts/rules";
 import { requireActor } from "@/server/auth/actor";
@@ -32,6 +33,7 @@ export default async function HomePage() {
     <>
       <PageHeader
         title={`Bonjour ${firstName}`}
+        eyebrow={formatDayWithWeekday(new Date())}
         subtitle="Voici l'état de l'unité locale aujourd'hui."
         actions={<FakeDataBanner />}
       />
@@ -53,9 +55,12 @@ export default async function HomePage() {
                 description="Les rappels d'échéances et de points de suivi arrivent chaque matin."
               />
             ) : (
-              <ul className="flex flex-col divide-y divide-line">
+              <ul className="flex flex-col gap-2">
                 {notifications.map((n) => (
-                  <li key={n.id} className="flex items-start justify-between gap-2 py-3">
+                  <li
+                    key={n.id}
+                    className="flex items-center justify-between gap-3 rounded-inner bg-veil/60 px-4 py-1"
+                  >
                     <Link
                       href={n.href ?? "/rappels"}
                       className="inline-flex min-h-11 items-center text-body text-ink underline-offset-4 focus-ring hover:underline"

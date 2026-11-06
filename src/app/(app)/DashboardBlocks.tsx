@@ -26,7 +26,7 @@ export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
               ({PROFILE_LABELS[block.profile]})
             </span>
           </h2>
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {block.stats.map((s, i) => (
               <li key={s.label}>
                 {s.href ? (
@@ -36,6 +36,7 @@ export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
                       label={s.label}
                       value={String(s.value)}
                       footer={s.hint}
+                      arrow
                     />
                   </Link>
                 ) : (
@@ -49,7 +50,7 @@ export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
               </li>
             ))}
           </ul>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle as="h3">{block.todoTitle}</CardTitle>
@@ -58,16 +59,19 @@ export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
                 {block.todo.length === 0 ? (
                   <p className="text-body text-muted">Rien à faire.</p>
                 ) : (
-                  <ul className="flex flex-col divide-y divide-line">
+                  <ul className="flex flex-col gap-2">
                     {block.todo.map((t, i) => (
-                      <li key={`${t.href}-${String(i)}`} className="flex flex-col py-2">
+                      <li
+                        key={`${t.href}-${String(i)}`}
+                        className="flex flex-col rounded-inner bg-veil/60 px-4 pb-2.5"
+                      >
                         <Link
                           href={t.href}
-                          className="inline-flex min-h-11 items-center text-body text-ink underline-offset-4 focus-ring hover:underline"
+                          className="inline-flex min-h-11 items-center text-body font-semibold text-ink underline-offset-4 focus-ring hover:underline"
                         >
                           {t.label}
                         </Link>
-                        <span className="text-small text-ink-2">{t.detail}</span>
+                        <span className="-mt-1.5 text-small text-ink-2">{t.detail}</span>
                       </li>
                     ))}
                   </ul>
