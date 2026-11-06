@@ -15,7 +15,8 @@ const EXPECTED: Record<string, { visible: number; openable: number }> = {
   laser: { visible: 54, openable: 54 },
   // FORMAT opens every visible page, reduced to the Formations tab.
   format: { visible: 54, openable: 54 },
-  "format-gp": { visible: 54, openable: 13 },
+  // Trainers, plus the three demo initiators GQS / IPS / IPSEN of step 16 (FORMAT_GP perimeter).
+  "format-gp": { visible: 54, openable: 16 },
   // Candidates, newcomers, mentees, and the re-engaged person who left (step 6).
   diamant: { visible: 62, openable: 14 },
   // FORMAT's reduced pages of the 54 non-candidates, plus DIAMANT's candidates.
