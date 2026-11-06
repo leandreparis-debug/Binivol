@@ -47,7 +47,9 @@ const variantClasses: Record<
 };
 
 function deltaClasses(variant: StatCardVariant, tone: NonNullable<StatCardProps["deltaTone"]>) {
-  if (variant !== "default") return "bg-white/20 text-white";
+  // On the solid accent, a white badge with accent-ink text (7.8:1); on ink, a translucent one.
+  if (variant === "highlight") return "bg-white text-accent-ink";
+  if (variant === "dark") return "bg-white/15 text-white";
   if (tone === "up") return "bg-ok-soft text-ok-ink";
   if (tone === "down") return "bg-danger-soft text-danger-ink";
   return "bg-surface text-ink-2";

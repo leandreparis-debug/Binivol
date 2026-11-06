@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /** Relative luminance (WCAG 2.1). */
@@ -15,30 +17,46 @@ export function contrast(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-/** Tokens as defined in `src/app/globals.css`. Keep in sync. */
+/** Tokens read from `src/app/globals.css` (`:root`): the test follows the real values. */
+function tokens(): Record<string, string> {
+  const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  const root = css.slice(css.indexOf(":root {"), css.indexOf("}", css.indexOf(":root {")));
+  return Object.fromEntries(
+    [...root.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [m[1] ?? "", m[2] ?? ""]),
+  );
+}
+
+const raw = tokens();
 const T = {
-  canvas: "#ececea",
-  surface: "#ffffff",
-  veil: "#f5f5f3",
-  ink: "#121212",
-  muted: "#6a6a69",
-  accent: "#1f6bff",
-  accentSoft: "#e2ebff",
-  accentInk: "#1748b8",
-  okSoft: "#dff5ea",
-  okInk: "#176b48",
-  warnSoft: "#fff3d1",
-  warnInk: "#8a6200",
-  dangerSoft: "#fde3e5",
-  dangerInk: "#a81e29",
-  danger: "#d92d3a",
+  canvas: raw.canvas ?? "",
+  surface: raw.surface ?? "",
+  veil: raw.veil ?? "",
+  ink: raw.ink ?? "",
+  muted: raw.muted ?? "",
+  accent: raw.accent ?? "",
+  accentSoft: raw["accent-soft"] ?? "",
+  accentInk: raw["accent-ink"] ?? "",
+  okSoft: raw["ok-soft"] ?? "",
+  okInk: raw["ok-ink"] ?? "",
+  warnSoft: raw["warn-soft"] ?? "",
+  warnInk: raw["warn-ink"] ?? "",
+  dangerSoft: raw["danger-soft"] ?? "",
+  dangerInk: raw["danger-ink"] ?? "",
+  danger: raw.danger ?? "",
   white: "#ffffff",
 };
 
 describe("colour contrast (WCAG AA, 4.5:1 for normal text)", () => {
+  it("reads the Swiss palette from globals.css", () => {
+    expect(T).toMatchObject({ canvas: "#f4f4f2", ink: "#0f0f0f", accent: "#1f5bff" });
+  });
+
   it.each([
     ["white on accent", T.white, T.accent],
+    ["accent on surface", T.accent, T.surface],
+    ["accent on canvas", T.accent, T.canvas],
     ["accent-ink on accent-soft", T.accentInk, T.accentSoft],
+    ["accent-ink on surface (badge of the highlight StatCard)", T.accentInk, T.surface],
     ["muted on surface", T.muted, T.surface],
     ["muted on canvas", T.muted, T.canvas],
     ["muted on veil", T.muted, T.veil],
@@ -52,8 +70,7 @@ describe("colour contrast (WCAG AA, 4.5:1 for normal text)", () => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("documents why muted was darkened from the spec value", () => {
-    expect(contrast("#717170", T.canvas)).toBeLessThan(4.5);
-    expect(contrast(T.muted, T.canvas)).toBeGreaterThanOrEqual(4.5);
+  it("documents why text on accent-soft is accent-ink, never accent", () => {
+    expect(contrast(T.accent, T.accentSoft)).toBeLessThan(4.5);
   });
 });
