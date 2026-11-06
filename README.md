@@ -176,7 +176,7 @@ src/app/                   App Router
   api/documents/[id]/      téléchargement d'un document (droits + access_logs)
   globals.css              tokens de la DA (bloc @theme)
 src/components/
-  brand/                   BinivolMark, BinivolLogo
+  brand/                   géométrie et tracés du logo « Point » (Logo.tsx est dans ui/)
   person/                  DeadlineDot, DeadlineBar, QualificationPills, TabNav
   dossier/                 formulaire du dossier en ligne (étapes, champs, relecture), page neutre
   layout/                  TopBar, BottomNav, AppShell, PageHeader

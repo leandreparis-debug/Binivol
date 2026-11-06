@@ -96,4 +96,4 @@ Sous-navigation en pilules, chaque page vérifie son action :
 ## Captures
 
 `docs/captures/formations-sessions-1440.png`, `formations-saisie-1440.png` (avertissements),
-`formations-trouver-1440.png`, `fiche-formations-etape10-1440.png`.
+`formations-trouver-1440.png`, `fiche-formations-1440.png`.

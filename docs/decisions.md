@@ -878,3 +878,49 @@ retrouver la personne.
 sans dépendance ; le résumé PDF est fait avec `pdf-lib`, déjà utilisé.
 
 **Conséquences.** Pas de ZIP64 (archives de moins de 4 Go, largement suffisant).
+
+## ADR-064 — Direction « Suisse »
+
+**Contexte.** La première direction artistique (Geist, cartes de rayon 24, boutons et
+navigation en pilule) est remplacée par la direction « Suisse », validée par Léandre le
+06/11/2026 sur le canevas https://claude.ai/artifact/CrnbH9ZGwWK5RHrRUyMiKM (page Maquettes,
+ligne 01).
+
+**Décision.** Grille nette, noir et blanc, un seul bleu pour signaler : fond `#F4F4F2`, cartes
+blanches de rayon 12 sans ombre, encre `#0F0F0F`, accent `#1F5BFF` (et `accent-2` `#A9C1FF`
+pour les hachures seulement). Boutons rayon 8, navigation rayon 6, plus de pilule (le rond reste
+aux avatars, pastilles et compteurs). Titres en **Inter Tight 700** (−0,035em), texte en
+**Inter**, polices chargées par `next/font/google` : téléchargées au build, servies par
+l'application (aucune requête vers Google à l'exécution ; la CSP reste `font-src 'self'`). Le
+paquet `geist` est retiré. Navigation principale : barre latérale (≥ 1024 px), rail
+(640–1023 px), barre basse (téléphone). Mouvement discret (apparition, montée des barres,
+survol, pression), neutralisé sous `prefers-reduced-motion`.
+
+**Police mono : Geist Mono** (et non JetBrains Mono). Elle garde la continuité avec les PDF
+officiels, remplis avec la Geist de `assets/fonts/` (empreinte figée, non modifiée par cette
+refonte), et les NIVOL, références et codes gardent exactement leur mise en page actuelle
+(largeurs de colonnes et cellules mono déjà réglées et testées) : pas de risque de régression
+pour un gain visuel faible.
+
+**Conséquences.** Les principes ne changent pas (le noir agit, l'accent signale ; une seule
+StatCard highlight ; statut = pastille + libellé ; hachures réservées aux données). Deux
+ajustements de contraste : texte sur `accent-soft` en `accent-ink`, StatCard highlight en accent
+plein (le dégradé vers le nouvel `accent-2` serait illisible). Aucune modification de
+`src/server/`, du schéma ni de la logique métier.
+
+## ADR-065 — Logo « Point » en tracés SVG
+
+**Contexte.** La piste A « Point » est validée le 06/11/2026 : « binivol » en minuscules, Inter
+Tight 700, suivi d'un carré bleu ; l'icône est un carré encre avec un « b » blanc.
+
+**Décision.** Les glyphes sont convertis **une fois** en chemins SVG (`pnpm logo:paths`, depuis
+le fichier de la police, non stocké) et versionnés dans `src/components/brand/logoPaths.ts`. Le
+composant `Logo.tsx` (variantes `full` et `mark`) et le script `pnpm icons` (favicon, icône Apple
+180, manifeste 192 et 512, PNG pour les e-mails) partagent la même géométrie
+(`logoGeometry.ts`).
+
+**Conséquences.** Le logo est identique partout et ne dépend d'aucune police chargée (e-mails,
+favicon, PDF). Changer le logo = relancer les deux scripts. Le PNG des e-mails est produit
+(`public/brand/binivol-email.png`) ; il n'est pas encore inséré dans les modèles d'e-mail, qui
+vivent dans `src/server/mail/` (hors du périmètre de cette refonte) : une ligne à ajouter en
+tête du HTML des modèles.
