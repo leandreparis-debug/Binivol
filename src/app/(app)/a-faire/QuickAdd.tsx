@@ -233,7 +233,7 @@ export function QuickAdd({ today, actorId, responsibles, projects, fixedProject 
           aria-label="Ajouter la tâche"
           variant="ink"
           className="size-12"
-          disabled={pending}
+          aria-busy={pending || undefined}
         >
           <Plus className="size-5" />
         </IconButton>
