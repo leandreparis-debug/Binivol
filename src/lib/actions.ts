@@ -47,6 +47,7 @@ export const POLICY_ACTIONS = [
   "todo.write",
   "todo.manage",
   "todo.project.manage",
+  "dashboard.dlus.read",
 ] as const;
 
 export type PolicyAction = (typeof POLICY_ACTIONS)[number];

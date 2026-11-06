@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { monthlyFlows, recruitmentFunnel, retentionCohorts } from "../aggregates";
+import {
+  arrivalActivity,
+  median,
+  monthlyFlows,
+  periodFlows,
+  periodMonths,
+  recruitmentFunnel,
+  retentionCohorts,
+} from "../aggregates";
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const day = d("2026-11-06");
@@ -67,5 +75,45 @@ describe("monthly flows", () => {
     expect(flows[0]?.label).toBe("déc. 2025");
     expect(flows.at(-1)).toEqual({ label: "nov. 2026", arrivals: 1, departures: 0 });
     expect(flows.at(-2)).toEqual({ label: "oct. 2026", arrivals: 0, departures: 1 });
+  });
+});
+
+describe("DLUS dashboard aggregates (step 16)", () => {
+  const day = new Date("2026-11-06T00:00:00Z");
+
+  it("periods: 12 rolling months, this year, last year", () => {
+    const rolling = periodMonths("12mois", day);
+    expect(rolling[0]?.start.toISOString().slice(0, 7)).toBe("2025-12");
+    expect(rolling[11]?.start.toISOString().slice(0, 7)).toBe("2026-11");
+    expect(periodMonths("annee", day)[0]?.start.toISOString().slice(0, 7)).toBe("2026-01");
+    expect(periodMonths("precedente", day)[11]?.start.toISOString().slice(0, 7)).toBe("2025-12");
+  });
+
+  it("flows: arrivals, departures, balance, the current month marked", () => {
+    const people = [
+      { entryDate: new Date("2026-11-02T00:00:00Z"), leftAt: null },
+      { entryDate: new Date("2025-03-01T00:00:00Z"), leftAt: new Date("2026-11-03T00:00:00Z") },
+    ];
+    const last = periodFlows(people, "12mois", day).at(-1);
+    expect(last).toMatchObject({ arrivals: 1, departures: 1, balance: 0, current: true });
+    expect(periodFlows(people, "precedente", day).some((m) => m.current)).toBe(false);
+  });
+
+  it("median rounded to the day", () => {
+    expect(median([])).toBeNull();
+    expect(median([10, 2, 30])).toBe(10);
+    expect(median([1, 2, 3, 4])).toBe(3);
+  });
+
+  it("activity: first training perimeter, then the wished activities, then « autre »", () => {
+    expect(arrivalActivity({ firstTrainingPerimeters: ["LASER"], wishedActivities: [] })).toBe(
+      "urgence",
+    );
+    expect(
+      arrivalActivity({ firstTrainingPerimeters: [], wishedActivities: ["Postes de secours"] }),
+    ).toBe("secours");
+    expect(arrivalActivity({ firstTrainingPerimeters: [], wishedActivities: ["Maraude"] })).toBe(
+      "autre",
+    );
   });
 });

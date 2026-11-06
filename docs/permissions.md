@@ -60,6 +60,7 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Ajouter, cocher, commenter une tâche, ou se retirer d'une tâche (auteur, assigné ou membre du projet) (`todo.write`) | une tâche ou un projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet | S'il est l'auteur, un assigné ou un membre du projet |
 | Modifier, réattribuer ou archiver une tâche (auteur, ou OWNER de son projet) (`todo.manage`) | une tâche ou un projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet | S'il est l'auteur, ou OWNER du projet |
 | Gérer un projet : membres, rôles, nom, archivage (OWNER du projet) (`todo.project.manage`) | un projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet | S'il est OWNER du projet |
+| Voir le tableau de bord DLUS (effectifs, inscriptions, arrivées) (`dashboard.dlus.read`) | — | Oui | — | — | — | — | — |
 
 ## Fiche d'une personne
 

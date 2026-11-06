@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DEFAULT_GAIA_CHECKLIST, parseGaiaChecklist, type GaiaChecklistItem } from "@/lib/gaia";
 import { DEFAULT_DIPLOMA_CATALOG, linesToCatalog } from "@/lib/diplomas";
+import { DEFAULT_INDICATORS, linesToIndicators } from "@/lib/indicators";
 import { DEFAULT_SETTINGS } from "./settings";
 
 /**
@@ -10,7 +11,14 @@ import { DEFAULT_SETTINGS } from "./settings";
  * greetings, alert rules) keep their own screen, /admin/reglages.
  */
 
-export const PARAMETER_THEMES = ["identite", "delais", "emails", "dossier", "gaia"] as const;
+export const PARAMETER_THEMES = [
+  "identite",
+  "delais",
+  "emails",
+  "dossier",
+  "gaia",
+  "tableau",
+] as const;
 export type ParameterTheme = (typeof PARAMETER_THEMES)[number];
 
 export const PARAMETER_THEME_LABELS: Record<ParameterTheme, string> = {
@@ -19,9 +27,11 @@ export const PARAMETER_THEME_LABELS: Record<ParameterTheme, string> = {
   emails: "Textes",
   dossier: "Dossier en ligne",
   gaia: "Gaia",
+  tableau: "Tableau de bord DLUS",
 };
 
-export type ParameterKind = "int" | "text" | "longtext" | "enum" | "gaia" | "diplomas";
+export type ParameterKind =
+  "int" | "text" | "longtext" | "enum" | "gaia" | "diplomas" | "indicators";
 
 export interface ParameterDef {
   key: string;
@@ -165,6 +175,14 @@ export const PARAMETERS: readonly ParameterDef[] = [
     kind: "gaia",
     defaultLabel: DEFAULT_GAIA_CHECKLIST.map((i) => i.label).join(", "),
   },
+  {
+    key: "DASHBOARD_INDICATORS",
+    theme: "tableau",
+    label: "Indicateurs des effectifs opérationnels",
+    help: "Une ligne par indicateur : « CLÉ | libellé | valide ou inscription | codes requis (un suffit) | codes exclus | dont X=CODES ». « valide » : bénévole actif avec une formation valide ; « inscription » : inscrit à une session non terminée. Le premier est le chiffre mis en avant.",
+    kind: "indicators",
+    defaultLabel: DEFAULT_INDICATORS.map((i) => i.label).join(", "),
+  },
 ];
 
 export function parameterDef(key: string): ParameterDef | undefined {
@@ -222,6 +240,8 @@ export function parseParameter(
         : { ok: false, error: "Choisissez une valeur." };
     case "diplomas":
       return linesToCatalog(raw);
+    case "indicators":
+      return linesToIndicators(raw);
     case "gaia": {
       const items = raw
         .split("\n")

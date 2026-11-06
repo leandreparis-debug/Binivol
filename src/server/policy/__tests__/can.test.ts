@@ -143,6 +143,7 @@ const GLOBAL_TABLE: Partial<Record<PolicyAction, Profile[]>> = {
   "candidacy.create": ["TOPAZE", "DIAMANT"],
   "notification.readOwn": PROFILES,
   "person.purge": ["TOPAZE"],
+  "dashboard.dlus.read": ["TOPAZE"],
   "training.matrix.export": ["TOPAZE", "FORMAT", "ACTION", "LASER", "FORMAT_GP"],
 };
 

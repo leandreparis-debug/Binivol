@@ -1,8 +1,8 @@
 import type { PersonStatus, Profile } from "@/generated/prisma/enums";
 import { formatDate, toParisDay } from "@/lib/dates";
-import { CANDIDACY_STAGE_LABELS, FOLLOW_UP_KIND_LABELS, PERSON_STATUS_LABELS } from "@/lib/labels";
-import { alertsFor, loadAlertPeople, loadAlertReferences } from "../alerts/load";
-import { ALERT_RULES, statesOf } from "../alerts/rules";
+import { CANDIDACY_STAGE_LABELS, FOLLOW_UP_KIND_LABELS } from "@/lib/labels";
+import { loadAlertPeople, loadAlertReferences } from "../alerts/load";
+import { statesOf } from "../alerts/rules";
 import { automationSettings } from "../automationSettings";
 import { OPEN_STAGES } from "../candidacy/machine";
 import {
@@ -19,7 +19,6 @@ import type { Actor } from "../policy/types";
 import { visibleSql, type VisibilityContext } from "../policy/visibility";
 import { isValidState, type TrainingState } from "../qualification";
 import { addMonthsUtc } from "../reference";
-import { b3ToCheck } from "../sensitive";
 import { numericSettings } from "../settings";
 import { PROFILE_ORDER } from "./accounts";
 import { overdueCandidacies } from "./candidacies";
@@ -115,73 +114,6 @@ async function cohortsOf(db: DbOrTx, ids: string[], day: Date) {
     select: { entryDate: true, leftAt: true },
   });
   return { cohorts: retentionCohorts(rows, day), flows: monthlyFlows(rows, day) };
-}
-
-async function topazeBlock(
-  db: DbOrTx,
-  actor: Actor,
-  ctx: VisibilityContext,
-): Promise<DashboardBlock> {
-  const { day } = ctx;
-  const all = await visibleIds(db, actor, "person.full.read", ctx, [
-    ...PRESENT,
-    "INACTIVE",
-    "LEFT",
-  ]);
-  const [statusRows, alerts, b3, purge, history] = await Promise.all([
-    db.person.groupBy({
-      by: ["status"],
-      where: { id: { in: all } },
-      _count: { _all: true },
-    }),
-    alertsFor(db, actor, { day }),
-    b3ToCheck(db, actor, day),
-    db.person.count({ where: { id: { in: all }, status: "LEFT", purgeEligibleAt: { lte: day } } }),
-    cohortsOf(db, all, day),
-  ]);
-  const byStatus = new Map(statusRows.map((r) => [r.status, r._count._all]));
-  const high = alerts.filter((a) => a.priority === "HIGH");
-  return {
-    profile: "TOPAZE",
-    title: BLOCK_TITLES.TOPAZE,
-    stats: [
-      {
-        label: "Bénévoles actifs",
-        value: byStatus.get("ACTIVE") ?? 0,
-        href: "/benevoles?statut=ACTIVE",
-      },
-      { label: "Alertes hautes", value: high.length, href: "/alertes?priorite=HIGH" },
-      { label: "B3 à vérifier", value: b3.length, href: "/candidats/suivi" },
-      { label: "Fiches à purger", value: purge, href: "/alertes?regle=PURGE_DUE" },
-    ],
-    todoTitle: "Alertes hautes",
-    todo: high.slice(0, 5).map((a) => ({
-      label: a.subject,
-      detail: `${ALERT_RULES[a.code].label} · ${a.message}`,
-      href: a.href,
-    })),
-    todoHref: "/alertes?priorite=HIGH",
-    charts: [
-      {
-        title: "Effectif par statut",
-        primaryLabel: "personnes",
-        data: (["CANDIDATE", "ACTIVE", "PAUSED", "SUSPENDED", "INACTIVE", "LEFT"] as const).map(
-          (s) => ({ label: PERSON_STATUS_LABELS[s], primary: byStatus.get(s) ?? 0 }),
-        ),
-      },
-      {
-        title: "Arrivées et départs sur 12 mois",
-        primaryLabel: "arrivées",
-        secondaryLabel: "départs",
-        data: history.flows.map((f) => ({
-          label: f.label,
-          primary: f.arrivals,
-          secondary: f.departures,
-        })),
-      },
-    ],
-    cohorts: history.cohorts,
-  };
 }
 
 async function diamantBlock(
@@ -458,7 +390,7 @@ export async function dashboardFor(
     const one = only(actor, profile);
     switch (profile) {
       case "TOPAZE":
-        blocks.push(await topazeBlock(db, one, ctx));
+        // The DLUS dashboard replaces this block (step 16, `dlusDashboard`).
         break;
       case "DIAMANT":
         if (canSome(one, "candidacy.manage")) blocks.push(await diamantBlock(db, one, ctx));

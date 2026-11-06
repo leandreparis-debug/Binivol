@@ -52,7 +52,8 @@ describe("home page by profile", () => {
   it("one block per profile, in a stable order, without duplicates", async () => {
     const blocks = await dashboardFor(db, who("format-diamant"), day);
     expect(blocks.map((b) => b.profile)).toEqual(["FORMAT", "DIAMANT"]);
-    expect((await dashboardFor(db, who("topaze"), day)).map((b) => b.profile)).toEqual(["TOPAZE"]);
+    // TOPAZE: the DLUS dashboard replaces the block (step 16, dlusDashboard.db.test.ts).
+    expect((await dashboardFor(db, who("topaze"), day)).map((b) => b.profile)).toEqual([]);
   });
 
   it("ACTION counts only the PSE of the people it sees", async () => {
@@ -87,14 +88,6 @@ describe("home page by profile", () => {
     expect(block?.funnel?.length).toBe(5);
     expect(block?.funnel?.some((s) => s.count > 0)).toBe(true);
     expect(block?.cohorts?.length).toBe(8);
-  });
-
-  it("TOPAZE counts every active volunteer", async () => {
-    const [block] = await dashboardFor(db, who("topaze"), day);
-    expect(block?.stats[0]).toMatchObject({
-      label: "Bénévoles actifs",
-      value: await db.person.count({ where: { status: "ACTIVE", archivedAt: null } }),
-    });
   });
 });
 

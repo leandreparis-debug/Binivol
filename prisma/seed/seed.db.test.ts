@@ -1,3 +1,4 @@
+import { DEFAULT_INDICATORS } from "../../src/lib/indicators";
 import { DEFAULT_DIPLOMA_CATALOG } from "../../src/lib/diplomas";
 import {
   ANNIVERSARY_TEXT_DEFAULT,
@@ -117,13 +118,15 @@ describe("seed", () => {
     expect(await db.candidacy.count({ where: { closedAt: null } })).toBe(8);
   });
 
-  it("loads the exact legacy reference list, in its order, plus the 3 hypotheses", async () => {
+  it("loads the exact legacy reference list, in its order, plus the 3 hypotheses and the 3 initiators", async () => {
     const items = await db.referenceItem.findMany({ orderBy: { sortOrder: "asc" } });
     expect(items).toHaveLength(SEED_VOLUMES.referenceItems);
     expect(items.slice(0, 21).map((i) => [i.sortOrder, i.code])).toEqual(
       LEGACY_CODES.map((code, k) => [k + 1, code]),
     );
-    expect(items.slice(21).map((i) => i.code)).toEqual([...HYPOTHESIS_CODES]);
+    expect(items.slice(21, 24).map((i) => i.code)).toEqual([...HYPOTHESIS_CODES]);
+    // Step 16 (DLUS dashboard): initiators, codes to be confirmed.
+    expect(items.slice(24).map((i) => i.code)).toEqual(["I_GQS", "I_IPS", "I_IPSEN"]);
     for (const seedItem of REFERENCE_ITEMS) {
       const item = items.find((i) => i.code === seedItem.code);
       expect(item, seedItem.code).toMatchObject({
@@ -323,6 +326,7 @@ describe("seed", () => {
       UL_CITY: "Versailles",
       GAIA_CHECKLIST: DEFAULT_GAIA_CHECKLIST,
       DECLARED_DIPLOMA_CATALOG: DEFAULT_DIPLOMA_CATALOG,
+      DASHBOARD_INDICATORS: DEFAULT_INDICATORS,
       FINAL_MAIL_TEXT: FINAL_MAIL_DEFAULT,
       RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });

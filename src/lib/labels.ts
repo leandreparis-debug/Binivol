@@ -362,4 +362,5 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
     "Ajouter, cocher, commenter une tâche, ou se retirer d'une tâche (auteur, assigné ou membre du projet)",
   "todo.manage": "Modifier, réattribuer ou archiver une tâche (auteur, ou OWNER de son projet)",
   "todo.project.manage": "Gérer un projet : membres, rôles, nom, archivage (OWNER du projet)",
+  "dashboard.dlus.read": "Voir le tableau de bord DLUS (effectifs, inscriptions, arrivées)",
 };

@@ -31,7 +31,7 @@ const DRIVER_NOTE =
   "Interprétation à valider (équipage d'évacuation interdit aux mineurs, permis requis)";
 const HYPOTHESIS = "Hypothèse, absent de l'ancien classeur";
 
-/** In workbook order: `sortOrder` is the position (1 to 21, then 22 to 24). */
+/** In workbook order: `sortOrder` is the position (1 to 21, then 22 to 24, then 25 to 27: initiators, step 16). */
 export const REFERENCE_ITEMS: ReferenceSeed[] = [
   {
     code: "PSE",
@@ -249,6 +249,39 @@ export const REFERENCE_ITEMS: ReferenceSeed[] = [
     expiresEndOfYear: false,
     perimeters: ["FORMAT_GP"],
     managedBy: ["FORMAT_GP"],
+    note: HYPOTHESIS,
+  },
+  // Step 16 (tableau de bord DLUS): initiators, absent from the legacy workbook.
+  // Hypothesis to confirm: the workbook's « GQS » is the GQS training a volunteer
+  // followed, not the right to teach it (« initiateur GQS »).
+  {
+    code: "I_GQS",
+    label: "Initiateur GQS",
+    category: "FORMATION_GP",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+    perimeters: ["FORMAT_GP"],
+    note: HYPOTHESIS,
+  },
+  {
+    code: "I_IPS",
+    label: "Initiateur IPS (initiation aux premiers secours)",
+    category: "FORMATION_GP",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+    perimeters: ["FORMAT_GP"],
+    note: HYPOTHESIS,
+  },
+  {
+    code: "I_IPSEN",
+    label: "Initiateur IPSEN (premiers secours enfants et nourrissons)",
+    category: "FORMATION_GP",
+    kind: "TRAINING",
+    forbiddenForMinors: false,
+    expiresEndOfYear: false,
+    perimeters: ["FORMAT_GP"],
     note: HYPOTHESIS,
   },
 ];

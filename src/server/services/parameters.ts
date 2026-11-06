@@ -1,3 +1,4 @@
+import { indicatorsToLines, parseIndicators } from "@/lib/indicators";
 import { catalogToLines, parseDiplomaCatalog } from "@/lib/diplomas";
 import type { Prisma } from "@/generated/prisma/client";
 import { parseGaiaChecklist } from "@/lib/gaia";
@@ -23,6 +24,7 @@ export async function parametersOverview(
       const value = byKey.get(p.key);
       if (p.kind === "gaia") return [p.key, gaiaToLines(parseGaiaChecklist(value))];
       if (p.kind === "diplomas") return [p.key, catalogToLines(parseDiplomaCatalog(value))];
+      if (p.kind === "indicators") return [p.key, indicatorsToLines(parseIndicators(value))];
       const text =
         typeof value === "string" || typeof value === "number" || typeof value === "boolean"
           ? String(value)

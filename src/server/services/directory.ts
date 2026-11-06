@@ -2,6 +2,8 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import type { Perimeter, PersonStatus } from "@/generated/prisma/enums";
 import { toParisDay } from "@/lib/dates";
+import type { DashboardIndicator } from "@/lib/indicators";
+import { indicatorSql, loadIndicators } from "../dashboard/indicators";
 import type { DbOrTx } from "../db";
 import { can, personPageAccess } from "../policy/can";
 import { loadPersonFactsMany } from "../policy/facts";
@@ -69,6 +71,14 @@ export const directoryQuerySchema = z.object({
     .optional()
     .catch(undefined)
     .transform((v) => v ?? null),
+  /** An indicator of the DLUS dashboard (`DASHBOARD_INDICATORS` key, step 16). */
+  indicateur: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const key = (v ?? "").trim().toUpperCase();
+      return /^[A-Z0-9_]{2,30}$/.test(key) ? key : null;
+    }),
   mineur: flag,
   formateur: flag,
   archives: flag,
@@ -98,6 +108,7 @@ export function hasFilters(query: DirectoryQuery): boolean {
     query.perimetre.length > 0 ||
     query.qualification !== null ||
     query.echeance !== null ||
+    query.indicateur !== null ||
     query.mineur ||
     query.formateur ||
     query.archives
@@ -186,7 +197,11 @@ export function directoryTerms(q: string): string[] {
 export function directoryConditions(
   actor: Pick<Actor, "profiles">,
   query: DirectoryQuery,
-  ctx: VisibilityContext & { alertDays: number },
+  ctx: VisibilityContext & {
+    alertDays: number;
+    /** The definitions of `DASHBOARD_INDICATORS` (needed with `indicateur`). */
+    indicators?: readonly DashboardIndicator[];
+  },
 ): Prisma.Sql[] {
   const statuses = query.statut.length > 0 ? query.statut : DEFAULT_DIRECTORY_STATUSES;
   const conditions: Prisma.Sql[] = [
@@ -205,6 +220,11 @@ export function directoryConditions(
   }
   if (query.qualification) conditions.push(qualificationSql(query.qualification, ctx.day));
   if (query.echeance) conditions.push(deadlineSql(query.echeance, ctx.day, ctx.alertDays));
+  if (query.indicateur) {
+    const def = ctx.indicators?.find((i) => i.key === query.indicateur);
+    // An unknown indicator matches nobody (never « everybody »).
+    conditions.push(def ? indicatorSql(def, ctx.day) : Prisma.sql`FALSE`);
+  }
   if (query.mineur) conditions.push(minorSql(ctx.day));
   if (query.formateur) conditions.push(Prisma.sql`p.is_trainer IS TRUE`);
   return conditions;
@@ -231,6 +251,7 @@ export async function listDirectory(
     day,
     newVolunteerMonths: settings.newVolunteerMonths,
     alertDays: settings.alertDays,
+    indicators: query.indicateur ? await loadIndicators(db) : [],
   };
   const conditions = directoryConditions(actor, query, ctx);
   const where = Prisma.join(conditions, " AND ");

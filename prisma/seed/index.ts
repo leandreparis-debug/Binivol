@@ -11,6 +11,7 @@ import type {
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
 import { DEFAULT_DIPLOMA_CATALOG } from "../../src/lib/diplomas";
+import { DEFAULT_INDICATORS } from "../../src/lib/indicators";
 import { DEFAULT_GAIA_CHECKLIST } from "../../src/lib/gaia";
 import { documentFileName } from "../../src/lib/fileNames";
 import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
@@ -406,6 +407,11 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
     ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
     ["UL_CITY", "Versailles", "« Fait à » de la charte du bénévolat."],
+    [
+      "DASHBOARD_INDICATORS",
+      DEFAULT_INDICATORS as unknown as Prisma.InputJsonValue,
+      "Indicateurs du tableau de bord DLUS (étape 16) : libellé, type, codes requis et exclus.",
+    ],
     [
       "DECLARED_DIPLOMA_CATALOG",
       DEFAULT_DIPLOMA_CATALOG as unknown as Prisma.InputJsonValue,
@@ -1594,6 +1600,15 @@ export async function seedDemo(
         },
       ]);
 
+      // -- Step 16: DLUS dashboard cases (every indicator non-zero, edge cases) --------------
+      await seedDashboardCases(tx, {
+        today,
+        activeIds: people
+          .filter((p) => p.status === "ACTIVE" && !p.recentlyIntegrated && !p.minor)
+          .map((p) => p.id)
+          .reverse(),
+      });
+
       // -- Step 16: « À faire » (tasks, shared tasks, projects; all invented) ---------------
       await seedTodos(tx, {
         today,
@@ -1988,4 +2003,91 @@ async function seedTodos(
       body: "Pensez au mannequin de démonstration (fictif).",
     },
   ]);
+}
+
+/**
+ * DLUS dashboard (step 16): cases that make every default indicator non-zero
+ * and cover the edges — TCAU with an expired PSE is a « bénur »; an initiator
+ * GQS who is also initiator IPS is counted once; a volunteer with a valid PSE
+ * registered to the next PSE session (preparing the next level) is a
+ * « stagiaire secours »; a PSE expiring within 60 days. All invented, on
+ * volunteers taken from the end of the list.
+ */
+async function seedDashboardCases(
+  tx: SeedTx,
+  ctx: { today: Date; activeIds: string[] },
+): Promise<void> {
+  const { today } = ctx;
+  const [b1, b2, gqsIps, ips, ipsen, traineeTrainer, traineePse, expiring] = ctx.activeIds;
+  if (!b1 || !b2 || !gqsIps || !ips || !ipsen || !traineeTrainer || !traineePse || !expiring) {
+    throw new Error("Pas assez de bénévoles actifs pour les cas du tableau de bord.");
+  }
+  // Bénurs: their PSE expired, a valid TCAU.
+  for (const personId of [b1, b2]) {
+    await tx.trainingRecord.updateMany({
+      where: { personId, referenceId: refId("PSE"), result: "PASSED" },
+      data: { expiresAt: addDays(today, -40) },
+    });
+  }
+  await save<Prisma.TrainingSessionUncheckedCreateInput>(tx.trainingSession, [
+    {
+      id: "seed_session_dash_fpsc",
+      referenceId: refId("FPSC"),
+      startDate: addDays(today, 30),
+      endDate: addDays(today, 34),
+      place: "Délégation territoriale des Yvelines",
+      capacity: 8,
+      pegassUrl: "https://pegass.exemple.test/sessions/seed-dash-fpsc",
+      ...audit,
+    },
+  ]);
+  const passed = (
+    id: string,
+    personId: string,
+    code: string,
+    date: Date,
+    expiresAt: Date | null,
+  ) => ({
+    id,
+    personId,
+    referenceId: refId(code),
+    date,
+    result: "PASSED" as const,
+    expiresAt,
+    place: "Unité locale de Versailles",
+    comment: "Cas du tableau de bord (fictif).",
+    ...audit,
+  });
+  await save<Prisma.TrainingRecordUncheckedCreateInput>(tx.trainingRecord, [
+    passed("seed_tr_dash_b1_tcau", b1, "TCAU", addDays(today, -300), null),
+    passed("seed_tr_dash_b2_tcau", b2, "TCAU", addDays(today, -500), null),
+    // One person, initiator GQS and IPS: counted once.
+    passed("seed_tr_dash_gqs", gqsIps, "I_GQS", addDays(today, -700), null),
+    passed("seed_tr_dash_gqs_ips", gqsIps, "I_IPS", addDays(today, -200), null),
+    passed("seed_tr_dash_ips", ips, "I_IPS", addDays(today, -100), null),
+    passed("seed_tr_dash_ipsen", ipsen, "I_IPSEN", addDays(today, -150), null),
+    {
+      id: "seed_tr_dash_fpsc_reg",
+      personId: traineeTrainer,
+      referenceId: refId("FPSC"),
+      sessionId: "seed_session_dash_fpsc",
+      date: addDays(today, 30),
+      result: "REGISTERED",
+      ...audit,
+    },
+    // A valid PSE, registered to the next PSE session: « stagiaire secours ».
+    {
+      id: "seed_tr_dash_pse_reg",
+      personId: traineePse,
+      referenceId: refId("PSE"),
+      sessionId: "seed_session_pse",
+      date: addDays(today, 21),
+      result: "REGISTERED",
+      ...audit,
+    },
+  ]);
+  await tx.trainingRecord.updateMany({
+    where: { personId: expiring, referenceId: refId("PSE"), result: "PASSED" },
+    data: { expiresAt: addDays(today, 30) },
+  });
 }

@@ -174,6 +174,8 @@ export const MATRIX = {
     target: "none",
     grants: [{ profiles: ["TOPAZE", "FORMAT", "ACTION", "LASER", "FORMAT_GP"], when: "always" }],
   },
+  // Step 16: the DLUS overview of the home page.
+  "dashboard.dlus.read": topazeOnly("none"),
   // « À faire » (step 16): personal and team lists, relational rules only.
   "todo.read": { target: "todo", grants: [{ profiles: ALL_PROFILES, when: "todoParticipant" }] },
   "todo.write": { target: "todo", grants: [{ profiles: ALL_PROFILES, when: "todoParticipant" }] },

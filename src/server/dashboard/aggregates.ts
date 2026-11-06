@@ -165,3 +165,101 @@ export function monthlyFlows(people: readonly CohortPerson[], day: Date): Monthl
   }
   return months;
 }
+
+// ---------------------------------------------------------------------------
+// DLUS dashboard (step 16): periods, arrivals by month, median, activities
+// ---------------------------------------------------------------------------
+
+export const ARRIVAL_PERIODS = ["12mois", "annee", "precedente"] as const;
+export type ArrivalPeriod = (typeof ARRIVAL_PERIODS)[number];
+
+export const ARRIVAL_PERIOD_LABELS: Record<ArrivalPeriod, string> = {
+  "12mois": "12 mois glissants",
+  annee: "Année civile",
+  precedente: "Année précédente",
+};
+
+/** The 12 months of a period: rolling (ending with the current month), this year, last year. */
+export function periodMonths(period: ArrivalPeriod, day: Date): { start: Date; end: Date }[] {
+  const year = day.getUTCFullYear();
+  const first =
+    period === "12mois"
+      ? new Date(Date.UTC(year, day.getUTCMonth() - 11, 1))
+      : new Date(Date.UTC(period === "annee" ? year : year - 1, 0, 1));
+  return Array.from({ length: 12 }, (_, i) => {
+    const start = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + i, 1));
+    return { start, end: new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)) };
+  });
+}
+
+export interface PeriodFlow extends MonthlyFlow {
+  /** The month of `day` (shown in accent). */
+  current: boolean;
+  balance: number;
+}
+
+/** Arrivals (entry date), departures (left date) and balance per month of the period. */
+export function periodFlows(
+  people: readonly CohortPerson[],
+  period: ArrivalPeriod,
+  day: Date,
+): PeriodFlow[] {
+  return periodMonths(period, day).map(({ start, end }) => {
+    const inMonth = (d: Date | null) => d !== null && d >= start && d < end;
+    const arrivals = people.filter((p) => inMonth(p.entryDate)).length;
+    const departures = people.filter((p) => inMonth(p.leftAt)).length;
+    return {
+      label: `${MONTHS[start.getUTCMonth()] ?? ""} ${String(start.getUTCFullYear())}`,
+      arrivals,
+      departures,
+      balance: arrivals - departures,
+      current: day >= start && day < end,
+    };
+  });
+}
+
+/** Median of a list (null when empty), rounded to the day. */
+export function median(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const value =
+    sorted.length % 2 === 1
+      ? (sorted[mid] ?? 0)
+      : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+  return Math.round(value);
+}
+
+export const ARRIVAL_ACTIVITIES = ["secours", "urgence", "formation", "autre"] as const;
+export type ArrivalActivity = (typeof ARRIVAL_ACTIVITIES)[number];
+
+export const ARRIVAL_ACTIVITY_LABELS: Record<ArrivalActivity, string> = {
+  secours: "Secours",
+  urgence: "Urgence",
+  formation: "Formation",
+  autre: "Autre",
+};
+
+/**
+ * The activity of a newcomer: her first training with a perimeter (ACTION →
+ * secours, LASER → urgence, FORMAT_GP → formation), otherwise the first of
+ * her wished activities whose words say it, otherwise « autre ».
+ */
+export function arrivalActivity(person: {
+  firstTrainingPerimeters: readonly string[];
+  wishedActivities: readonly string[];
+}): ArrivalActivity {
+  const fromPerimeter = (p: string): ArrivalActivity | null =>
+    p === "ACTION" ? "secours" : p === "LASER" ? "urgence" : p === "FORMAT_GP" ? "formation" : null;
+  for (const p of person.firstTrainingPerimeters) {
+    const a = fromPerimeter(p);
+    if (a) return a;
+  }
+  for (const label of person.wishedActivities) {
+    const l = label.toLowerCase();
+    if (l.includes("secour")) return "secours";
+    if (l.includes("urgence")) return "urgence";
+    if (l.includes("formation")) return "formation";
+  }
+  return "autre";
+}
