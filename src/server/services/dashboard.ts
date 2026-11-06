@@ -174,7 +174,7 @@ async function topazeBlock(
         primaryLabel: "arrivées",
         secondaryLabel: "départs",
         data: history.flows.map((f) => ({
-          label: f.label.slice(0, 2),
+          label: f.label,
           primary: f.arrivals,
           secondary: f.departures,
         })),

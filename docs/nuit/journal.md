@@ -29,7 +29,7 @@
 | 10  | Formations, compétences et nominations             | terminée                  |
 | 11  | Points de suivi, parrainage, B3, pauses et départs | terminée                  |
 | 12  | Alertes, rappels et e-mails automatiques           | terminée                  |
-| 13  | Tableaux de bord, matrice et exports               | à faire                   |
+| 13  | Tableaux de bord, matrice et exports               | terminée                  |
 | 14  | RGPD et administration                             | à faire                   |
 | 15  | Recette, audit et guides (sans VPS)                | à faire                   |
 
@@ -169,3 +169,34 @@ quotidienne refuse tout (c'est voulu).
 - Le récapitulatif TCAU est réservé à TOPAZE et FORMAT.
 - Correction annexe : la cloche était un bouton inerte ; l'accueil affichait « à l'étape 12 ».
 - `GREETING_EMAILS_ENABLED` vaut désormais `false` par défaut (le cahier le demande).
+
+## Étape 13 — terminée
+
+**Commits** : `6f091d2` (correctif : un `CRON_SECRET` trop court est refusé par la route au lieu
+d'empêcher le démarrage), `1bacf40` (accueil par profil, matrice, exports), puis seed,
+documentation, e2e et captures.
+
+**Migration** : aucune (le journal des accès porte déjà la portée `EXPORT`).
+
+**Résultats** : `pnpm verify` 846 tests unitaires ; `pnpm test:db` 284 ; `pnpm test:e2e` 103
+verts, 39 ignorés (par projet). `pnpm db:fresh` passe.
+
+**Captures** : `accueil-topaze-1440.png`, `accueil-diamant-1440.png`, `accueil-action-1440.png`,
+`accueil-laser-1440.png`, `accueil-format-1440.png`, `accueil-format-gp-1440.png`,
+`matrice-1440.png`.
+
+**Documentation** : `docs/tableaux-de-bord.md`, `docs/exports.md`, ADR-059 (graphiques SVG
+faits main) et ADR-060 (exports journalisés, CSV neutralisé), `docs/permissions.md` régénéré
+(`training.matrix.export`).
+
+**Écarts, justifiés** :
+
+- PSE1 / PSE2 : le référentiel n'a qu'une entrée `PSE` ; c'est elle qui est comptée (accueil
+  ACTION, export préfecture : `PREFECTURE_CODES` = PSE, FPSE, réglable).
+- Le composant `HatchedBarChart` de l'étape 1 (barres verticales en `div`) est conservé pour
+  le design system ; l'accueil utilise `BarChart`, en SVG comme le demande le cahier.
+- Seed : deux départs moins d'un an après l'entrée (cohortes de fidélisation lisibles) ; le
+  seed avait déjà 3 ans d'arrivées et des candidats à chaque étape.
+- La durée moyenne par étape du seed est souvent 0 j (les événements fictifs datent de la
+  création) : le calcul est testé à part.
+- Accueil : les chiffres codés en dur de l'étape 1 sont remplacés par les blocs réels.

@@ -1305,6 +1305,17 @@ export async function seedDemo(
         });
       }
 
+      // -- Step 13: departures within a year of entry (retention cohorts) ------------------
+      const shortStays = people.filter((p) => p.status === "LEFT" && p !== oldLeaver).slice(0, 2);
+      for (const [i, p] of shortStays.entries()) {
+        const entryDate = addMonths(today, -(18 + i * 5));
+        const leftAt = addMonths(entryDate, 7);
+        await tx.person.update({
+          where: { id: p.id },
+          data: { entryDate, leftAt, purgeEligibleAt: addYears(leftAt, 5) },
+        });
+      }
+
       // -- Step 12: every alert rule has at least one case -----------------------------------
       // A prerequisite (F_CI requires TCAU): a holder of F_CI without TCAU is flagged.
       await tx.referenceItemPrerequisite.createMany({

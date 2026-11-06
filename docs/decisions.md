@@ -818,3 +818,28 @@ d'accès, comme `agesOf` : personne ne consulte une valeur sensible. L'issue du 
 de naissance ne sortent jamais.
 
 **Conséquences.** Le module sensible reste le seul à lire ces tables (test d'architecture).
+
+## ADR-059 — Graphiques SVG faits main
+
+**Contexte.** L'accueil a besoin de quelques barres (entonnoir, cohortes, flux). Une
+bibliothèque de graphiques pèse des centaines de Ko et impose son accessibilité et son style.
+
+**Décision.** Un composant `BarChart` écrit à la main en SVG : barres horizontales (libellés
+longs lisibles), série secondaire hachurée, résumé textuel et tableau de données dépliable,
+légende nommée. Pas de dépendance.
+
+**Conséquences.** Pas d'axes fins ni d'animations ; suffisant pour des tableaux de bord
+d'unité locale. Un graphique plus riche se discutera le jour où il sera nécessaire.
+
+## ADR-060 — Exports journalisés, CSV neutralisé
+
+**Contexte.** Un export fait sortir des données personnelles de l'application ; Excel exécute
+une cellule qui commence par `=`.
+
+**Décision.** Tout export passe par une route authentifiée et un service qui vérifie la
+politique (`person.export`, `training.matrix.export`) et écrit l'`AccessLog` (qui, quand,
+combien de lignes). Le CSV préfixe d'une apostrophe toute cellule commençant par `=`, `+`, `-`
+ou `@`.
+
+**Conséquences.** Un numéro de téléphone `+33…` apparaît `'+33…` dans Excel (affichage
+inchangé) ; c'est le prix de la sûreté.

@@ -64,8 +64,8 @@ describe("monthly flows", () => {
       day,
     );
     expect(flows).toHaveLength(12);
-    expect(flows[0]?.label).toBe("12/2025");
-    expect(flows.at(-1)).toEqual({ label: "11/2026", arrivals: 1, departures: 0 });
-    expect(flows.at(-2)).toEqual({ label: "10/2026", arrivals: 0, departures: 1 });
+    expect(flows[0]?.label).toBe("déc. 2025");
+    expect(flows.at(-1)).toEqual({ label: "nov. 2026", arrivals: 1, departures: 0 });
+    expect(flows.at(-2)).toEqual({ label: "oct. 2026", arrivals: 0, departures: 1 });
   });
 });

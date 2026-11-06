@@ -69,3 +69,14 @@ Chaque point : la question, le choix fait, comment le changer.
     nomination ou point de suivi fait.
 21. **Délais par défaut** des rappels (7 j, 5 j, B3 en janvier) : la migration ne les change
     sur la base hébergée que s'ils avaient encore les valeurs de l'étape 2.
+
+## Étape 13 — Tableaux de bord, exports
+
+22. **Export préfecture** : bénévoles **actifs** seulement (pas en pause), une ligne par
+    formation valide de `PREFECTURE_CODES` (PSE, FPSE). **Pour changer** : le paramètre
+    `PREFECTURE_CODES`, ou le filtre de statut dans `src/server/services/exports.ts`.
+23. **Export de l'annuaire réservé à TOPAZE** (`person.export`), celui de la matrice ouvert aux
+    profils qui voient la matrice (`training.matrix.export`, sauf DIAMANT). **Pour élargir** :
+    la matrice des droits (`matrix.ts`), puis `pnpm docs:permissions`.
+24. **« Équipiers disponibles »** (ACTION) : bénévoles **actifs** du périmètre (ni en pause, ni
+    suspendus).

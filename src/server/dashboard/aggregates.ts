@@ -128,8 +128,23 @@ export function retentionCohorts(people: readonly CohortPerson[], day: Date, cou
   return cohorts;
 }
 
+const MONTHS = [
+  "janv.",
+  "févr.",
+  "mars",
+  "avr.",
+  "mai",
+  "juin",
+  "juil.",
+  "août",
+  "sept.",
+  "oct.",
+  "nov.",
+  "déc.",
+];
+
 export interface MonthlyFlow {
-  /** « 11/2026 ». */
+  /** « nov. 2026 ». */
   label: string;
   arrivals: number;
   departures: number;
@@ -143,7 +158,7 @@ export function monthlyFlows(people: readonly CohortPerson[], day: Date): Monthl
     const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
     const inMonth = (d: Date | null) => d !== null && d >= start && d < end;
     months.push({
-      label: `${String(start.getUTCMonth() + 1).padStart(2, "0")}/${String(start.getUTCFullYear())}`,
+      label: `${MONTHS[start.getUTCMonth()] ?? ""} ${String(start.getUTCFullYear())}`,
       arrivals: people.filter((p) => inMonth(p.entryDate)).length,
       departures: people.filter((p) => inMonth(p.leftAt)).length,
     });
