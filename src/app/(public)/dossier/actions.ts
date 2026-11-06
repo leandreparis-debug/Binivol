@@ -20,6 +20,7 @@ import {
 } from "@/server/services/dossierForm";
 import { openDossierLink } from "@/server/services/dossiers";
 import { requestSignatureCode, submitSignature } from "@/server/services/signatureForm";
+import { enforceRateLimit } from "@/server/rateLimit";
 import { getStorage } from "@/server/storage";
 
 /*
@@ -36,6 +37,7 @@ import { getStorage } from "@/server/storage";
 export const openDossierLinkAction = definePublicAction({
   input: z.object({ token: z.string().max(200) }),
   handler: async ({ input }) => {
+    await enforceRateLimit(getDb(), "dossierOpen");
     const outcome = await openDossierLink(getDb(), input.token);
     if (!outcome.ok) return { ok: false as const };
     await setDossierCookie(outcome.linkId);
@@ -46,6 +48,7 @@ export const openDossierLinkAction = definePublicAction({
 export const saveDossierAction = definePublicAction({
   input: saveDossierInput,
   handler: async ({ input }) => {
+    await enforceRateLimit(getDb(), "dossierWrite");
     const context = await requireCandidate(getDb());
     return saveDossierForm(getDb(), context, input.data, formActor(context));
   },
@@ -54,6 +57,7 @@ export const saveDossierAction = definePublicAction({
 export const addDossierAttachmentAction = definePublicAction({
   input: attachmentFormInput,
   handler: async ({ input }) => {
+    await enforceRateLimit(getDb(), "dossierWrite");
     const context = await requireCandidate(getDb());
     return addDossierFormAttachment(getDb(), getStorage(), context, input, formActor(context));
   },
@@ -70,6 +74,7 @@ export const removeDossierAttachmentAction = definePublicAction({
 export const submitDossierAction = definePublicAction({
   input: saveDossierInput,
   handler: async ({ input }) => {
+    await enforceRateLimit(getDb(), "dossierWrite");
     const context = await requireCandidate(getDb());
     return submitDossierForm(getDb(), context, input.data, formActor(context));
   },

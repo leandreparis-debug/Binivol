@@ -5,6 +5,7 @@
  */
 
 export type DomainErrorCode =
+  | "RATE_LIMITED"
   | "NIVOL_TAKEN"
   | "NIVOL_INVALID"
   | "NIVOL_REQUIRED"

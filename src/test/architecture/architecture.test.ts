@@ -123,3 +123,22 @@ describe("architecture: database access", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("architecture: page guards", () => {
+  // Pages of the signed-in area check their own access (the middleware is not a
+  // security). The design-system showcase only shows fictitious components: the
+  // (app) layout's sign-in check is enough there.
+  const GUARDS = /\b(requirePageAccess|authorizePage|requireActor|requireDossierPage)\(/;
+  const EXEMPT = new Set(["src/app/(app)/design/page.tsx", "src/app/(app)/design/erreur/page.tsx"]);
+  const pages = files.filter(
+    ({ file }) => /^src\/app\/\((app|onsite)\)\/.*page\.tsx$/.test(file) && !EXEMPT.has(file),
+  );
+
+  it("finds the pages", () => {
+    expect(pages.length).toBeGreaterThan(20);
+  });
+
+  it("every signed-in page calls a page guard", () => {
+    expect(pages.filter(({ content }) => !GUARDS.test(content)).map((p) => p.file)).toEqual([]);
+  });
+});

@@ -1141,6 +1141,16 @@ model StorageOrphan {
   @@map("storage_orphans")
 }
 
+/// Fixed-window rate limit of the public actions (step 15): the key is a SHA-256 of the
+/// bucket and of the client (never the IP address itself).
+model RateLimit {
+  key         String   @id
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  count       Int
+
+  @@map("rate_limits")
+}
+
 model Setting {
   id          String   @id @default(cuid(2))
   key         String   @unique

@@ -6,11 +6,13 @@ import { definePublicAction } from "@/server/actions/defineAction";
 import { signIn } from "@/server/auth/config";
 import { createDemoSession, setSessionCookie } from "@/server/auth/demo";
 import { getDb } from "@/server/db";
+import { enforceRateLimit } from "@/server/rateLimit";
 
 /** Starts the Google sign-in (Auth.js redirects to Google, then back). */
 export const googleSignInAction = definePublicAction({
   input: z.object({}),
   handler: async () => {
+    await enforceRateLimit(getDb(), "signIn");
     await signIn("google", { redirectTo: "/" });
   },
 });
