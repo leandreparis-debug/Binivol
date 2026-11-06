@@ -51,8 +51,9 @@ test.describe("RGPD et administration", () => {
     await expect(page.getByText("Tapez PURGER pour confirmer.").first()).toBeVisible();
     await page.getByLabel("Confirmation").first().fill("PURGER");
     await page.getByRole("button", { name: /^Purger \d+ fiches?$/ }).click();
-    await expect(page.getByText("Purge effectuée.")).toBeVisible();
+    // The emptied list replaces the form (and its message): the purge happened.
     await expect(page.getByText("Aucune fiche à purger")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Fiches éligibles (0)" })).toBeVisible();
   });
 
   test("TOPAZE consulte les journaux et les paramètres", async ({ page }) => {
