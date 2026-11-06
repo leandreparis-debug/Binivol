@@ -23,14 +23,13 @@ Détail de chaque étape (écarts, captures) : `docs/nuit/journal.md`.
 
 ## 3. État de `main`, de la CI et de la démo
 
-- **`main`** est avancé en fast-forward jusqu'au dernier commit de la branche
+- **`main`** = `e83c33e`, avancé en fast-forward depuis la branche
   `claude/binivol-v1-marathon-nuit-7yijue` (jamais de `--force`).
-- **Démo Vercel** : déploiements de production des étapes 9 à 14 vérifiés **READY** (outil Vercel) ;
-  celui de l'étape 15 était en file d'attente à l'écriture de ce récap (non vérifié).
-- **CI GitHub** : verte jusqu'à l'étape 13 ; rouge sur l'étape 14 (`main`, un test e2e de purge
-  instable sous les relances de la CI) et sur la branche après (compte de tables dans un test
-  base). Les deux sont corrigés dans le dernier commit ; **résultat de la CI sur ce dernier commit
-  non vérifié**.
+- **CI GitHub sur `main` (`e83c33e`) : verte** (vérifié). Elle avait été rouge sur l'étape 14
+  (test e2e de purge instable sous les relances de la CI, et compte de tables d'un test base) :
+  corrigé.
+- **Démo Vercel** : déploiement de production de `e83c33e` **READY** (vérifié), comme ceux des
+  étapes 9 à 14.
 
 ## 4. Ce que tu dois faire (Léandre)
 
@@ -67,7 +66,7 @@ ADR-063 dans `docs/decisions.md`.
 
 - **Étape 15** : un parcours e2e d'un seul tenant « candidat → NIVOL » et « mineur » (aujourd'hui
   par segments) ; CSP avec nonce par requête ; audit au lecteur d'écran (NVDA/VoiceOver) ;
-  relecture des messages d'erreur et états vides des étapes 1 à 10 ; vérifier la CI verte.
+  relecture des messages d'erreur et états vides des étapes 1 à 10.
 - **Étapes 8 à 14** : rien de bloquant. À surveiller : un test axe de la page 403 sur mobile a
   échoué une fois (`html-has-lang`) puis passé à chaque essai.
 - **Hors périmètre de la nuit** : VPS, Docker de production, cron système, sauvegardes hors
