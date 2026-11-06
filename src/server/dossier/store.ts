@@ -743,3 +743,17 @@ export async function signedDossierPersonIds(
   });
   return new Set(rows.map((r) => r.personId));
 }
+
+/**
+ * Number of dossiers signed by the candidate and waiting for the
+ * countersignature, among `personIds` (DIAMANT dashboard, step 13).
+ */
+export async function countDossiersToCountersign(
+  db: DbOrTx,
+  personIds: readonly string[],
+): Promise<number> {
+  if (personIds.length === 0) return 0;
+  return db.dossierSubmission.count({
+    where: { personId: { in: [...personIds] }, status: "SIGNED" },
+  });
+}

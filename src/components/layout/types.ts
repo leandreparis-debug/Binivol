@@ -12,6 +12,8 @@ export interface ShellUser {
   canReadMailLog: boolean;
   /** TOPAZE: /admin/reglages (step 12). */
   canManageSettings: boolean;
+  /** TOPAZE: /admin/exports (step 13). */
+  canExport: boolean;
 }
 
 export interface ShellProps {

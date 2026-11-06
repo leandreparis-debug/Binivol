@@ -52,6 +52,7 @@ const SCHEMAS = {
   GREETING_EMAILS_ENABLED: z.boolean(),
   GREETING_BIRTHDAY_TEXT: z.string().trim().min(10).max(2000),
   GREETING_ANNIVERSARY_TEXT: z.string().trim().min(10).max(2000),
+  PREFECTURE_CODES: codes,
 } as const;
 
 export type AutomationKey = keyof typeof SCHEMAS;
@@ -66,6 +67,8 @@ export interface AutomationSettings {
   greetingEmailsEnabled: boolean;
   birthdayText: string;
   anniversaryText: string;
+  /** Export préfecture (step 13): trainings that put a volunteer on the list. */
+  prefectureCodes: string[];
 }
 
 export const AUTOMATION_DEFAULTS: AutomationSettings = {
@@ -78,6 +81,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   greetingEmailsEnabled: false,
   birthdayText: BIRTHDAY_TEXT_DEFAULT,
   anniversaryText: ANNIVERSARY_TEXT_DEFAULT,
+  prefectureCodes: ["PSE", "FPSE"],
 };
 
 /** Setting key of each field, and the description written by the base seed. */
@@ -108,6 +112,10 @@ export const AUTOMATION_KEYS: Record<keyof AutomationSettings, [AutomationKey, s
   anniversaryText: [
     "GREETING_ANNIVERSARY_TEXT",
     "E-mail d'anniversaire d'engagement ({prenom}, {annees}, {ul}).",
+  ],
+  prefectureCodes: [
+    "PREFECTURE_CODES",
+    "Export préfecture : formations valides qui mettent un bénévole sur la liste.",
   ],
 };
 

@@ -10,6 +10,7 @@ import {
   UserRound,
   Mail,
   SlidersHorizontal,
+  Download,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
@@ -99,6 +100,14 @@ export function UserMenu({ user }: UserMenuProps) {
             <Link href="/admin/reglages">
               <SlidersHorizontal />
               Réglages
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.canExport && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin/exports">
+              <Download />
+              Exports
             </Link>
           </DropdownMenuItem>
         )}

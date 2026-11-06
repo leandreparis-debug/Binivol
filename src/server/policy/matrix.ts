@@ -147,6 +147,11 @@ export const MATRIX = {
   },
   "alert.integration.read": diamantInScope("person"),
   "alert.admin.read": topazeOnly("person"),
+  // Export of the competence matrix (step 13): the rows are those of `training.read`.
+  "training.matrix.export": {
+    target: "none",
+    grants: [{ profiles: ["TOPAZE", "FORMAT", "ACTION", "LASER", "FORMAT_GP"], when: "always" }],
+  },
 } as const satisfies Record<PolicyAction, ActionRule>;
 
 /** Every action of the matrix, in the documented order. */

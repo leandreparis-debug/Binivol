@@ -133,6 +133,7 @@ const GLOBAL_TABLE: Partial<Record<PolicyAction, Profile[]>> = {
   "mail.log.read": ["TOPAZE"],
   "candidacy.create": ["TOPAZE", "DIAMANT"],
   "notification.readOwn": PROFILES,
+  "training.matrix.export": ["TOPAZE", "FORMAT", "ACTION", "LASER", "FORMAT_GP"],
 };
 
 describe("truth table coverage", () => {

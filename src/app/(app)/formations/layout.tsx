@@ -25,6 +25,7 @@ export default async function FormationsLayout({ children }: { children: React.R
         ]
       : []),
     { href: "/formations/trouver", label: "Trouver" },
+    { href: "/formations/matrice", label: "Matrice" },
     ...(canSome(actor, "reference.manage")
       ? [{ href: "/formations/referentiel", label: "Référentiel" }]
       : []),

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SearchX, Users } from "lucide-react";
+import { SearchX, Users, Download } from "lucide-react";
 import { FakeDataBanner } from "@/components/layout/FakeDataBanner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { personDisplayName } from "@/components/person/PersonName";
@@ -34,6 +34,16 @@ function pageHref(params: Record<string, string | string[] | undefined>, cursor:
   if (cursor) next.set("apres", cursor);
   const query = next.toString();
   return query ? `/benevoles?${query}` : "/benevoles";
+}
+
+/** The directory filters of the current URL, for the export link. */
+function exportQuery(raw: Record<string, string | string[] | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === "apres" || value === undefined) continue;
+    for (const v of Array.isArray(value) ? value : [value]) params.append(key, v);
+  }
+  return params.toString();
 }
 
 export default async function Page({ searchParams }: { searchParams: SearchParams }) {
@@ -71,7 +81,20 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
       <PageHeader
         title="Bénévoles"
         subtitle="Retrouver une personne et ouvrir sa fiche."
-        actions={getEnv().AUTH_DEMO_LOGIN ? <FakeDataBanner /> : undefined}
+        actions={
+          <>
+            {getEnv().AUTH_DEMO_LOGIN && <FakeDataBanner />}
+            {canSome(actor, "person.export") && (
+              <a
+                href={`/api/exports/annuaire?${exportQuery(raw)}`}
+                download
+                className="inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-small font-medium text-ink focus-ring hover:bg-veil"
+              >
+                <Download aria-hidden="true" className="size-4" /> Exporter la liste (CSV)
+              </a>
+            )}
+          </>
+        }
       />
       <DirectoryFilters
         statuses={page.statuses}

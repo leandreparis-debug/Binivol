@@ -40,6 +40,7 @@ export const POLICY_ACTIONS = [
   "alert.training.read",
   "alert.integration.read",
   "alert.admin.read",
+  "training.matrix.export",
 ] as const;
 
 export type PolicyAction = (typeof POLICY_ACTIONS)[number];
