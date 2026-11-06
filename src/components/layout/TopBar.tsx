@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { BinivolLogo } from "@/components/brand/BinivolLogo";
 import { Chip } from "@/components/ui/Chip";
 import { IconButton } from "@/components/ui/IconButton";
 import { NavPills } from "@/components/ui/NavPills";
 import { NAV_ITEMS } from "./navigation";
 import type { ShellProps } from "./types";
+import { BellMenu } from "./BellMenu";
 import { UserMenu } from "./UserMenu";
 
 /**
@@ -25,7 +26,6 @@ export function TopBar({ user, allowedHrefs, unreadNotifications, navBadges }: S
       };
     },
   );
-  const badge = unreadNotifications > 9 ? "9+" : String(unreadNotifications);
   return (
     <header className="sticky top-0 z-40 border-b border-line/60 bg-canvas/90 backdrop-blur supports-[backdrop-filter]:bg-canvas/80">
       <div className="mx-auto flex max-w-app flex-col gap-3 px-gutter py-3 sm:px-6">
@@ -39,7 +39,7 @@ export function TopBar({ user, allowedHrefs, unreadNotifications, navBadges }: S
           </Link>
 
           <div className="hidden lg:block">
-            <NavPills items={items} />
+            <NavPills items={items} sectionAliases />
           </div>
 
           <div className="flex items-center gap-2">
@@ -53,26 +53,13 @@ export function TopBar({ user, allowedHrefs, unreadNotifications, navBadges }: S
             <IconButton aria-label="Rechercher" variant="outline">
               <Search className="size-5" />
             </IconButton>
-            <IconButton
-              aria-label={`Notifications, ${unreadNotifications} non lue${unreadNotifications > 1 ? "s" : ""}`}
-              variant="outline"
-            >
-              <Bell className="size-5" />
-              {unreadNotifications > 0 && (
-                <span
-                  aria-hidden="true"
-                  className="absolute -top-0.5 -right-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-pill bg-accent px-1 text-[11px] font-semibold text-white tabular-nums"
-                >
-                  {badge}
-                </span>
-              )}
-            </IconButton>
+            <BellMenu unread={unreadNotifications} />
             <UserMenu user={user} />
           </div>
         </div>
 
         <div className="hidden sm:block lg:hidden">
-          <NavPills items={items} />
+          <NavPills items={items} sectionAliases />
         </div>
       </div>
     </header>

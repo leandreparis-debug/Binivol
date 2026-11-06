@@ -17,12 +17,21 @@ export interface NavPillsProps extends React.HTMLAttributes<HTMLElement> {
   items: NavPillItem[];
   /** Accessible name of the `<nav>`. Default « Navigation principale ». */
   label?: string;
+  /** Main navigation: a route shown under another section lights that section. */
+  sectionAliases?: boolean;
 }
 
-/** `/` matches only itself; other hrefs match their sub-routes too. */
-export function isActivePath(pathname: string, href: string): boolean {
+/** Routes shown under another section of the main navigation (/alertes is in « Rappels »). */
+const SECTION_ALIASES: Record<string, string> = { "/alertes": "/rappels" };
+
+/** `/` matches only itself; other hrefs match their sub-routes too (and their aliases). */
+export function isActivePath(pathname: string, href: string, useAliases = false): boolean {
   if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const matches = (path: string) => path === href || path.startsWith(`${href}/`);
+  const alias = Object.entries(useAliases ? SECTION_ALIASES : {}).find(
+    ([from]) => pathname === from || pathname.startsWith(`${from}/`),
+  );
+  return matches(pathname) || (alias !== undefined && matches(alias[1]));
 }
 
 /**
@@ -33,6 +42,7 @@ export function NavPills({
   items,
   label = "Navigation principale",
   className,
+  sectionAliases = false,
   ...rest
 }: NavPillsProps) {
   const pathname = usePathname();
@@ -47,7 +57,7 @@ export function NavPills({
     >
       <ul className="flex w-max items-center gap-1 rounded-pill bg-veil p-1">
         {items.map((item) => {
-          const active = isActivePath(pathname, item.href);
+          const active = isActivePath(pathname, item.href, sectionAliases);
           return (
             <li key={item.href}>
               <Link

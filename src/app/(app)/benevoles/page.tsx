@@ -7,6 +7,7 @@ import { personDisplayName } from "@/components/person/PersonName";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getEnv } from "@/lib/env";
+import { alertCountsFor } from "@/server/services/alerts";
 import { requirePageAccess } from "@/server/auth/page";
 import { getDb } from "@/server/db";
 import { canSome } from "@/server/policy/can";
@@ -44,6 +45,11 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
     listDirectory(db, actor, query),
     qualificationOptions(db),
   ]);
+  const alerts = await alertCountsFor(
+    db,
+    actor,
+    page.rows.map((r) => r.id),
+  );
   const items: DirectoryItem[] = page.rows.map((row) => ({
     id: row.id,
     ref: row.ref,
@@ -54,6 +60,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
     phone: row.phone,
     archived: row.archived,
     canOpen: row.canOpen,
+    alerts: alerts.get(row.id) ?? 0,
     training: row.training,
   }));
   const filtered = hasFilters(query);

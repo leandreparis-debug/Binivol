@@ -76,7 +76,7 @@ describe("seed", () => {
     ).toBe(1);
   });
 
-  it("includes three minor volunteers with parental authorisation", async () => {
+  it("includes three minor volunteers, all but one with parental authorisation", async () => {
     const minors = await db.personSensitive.findMany({
       where: {
         birthDate: { gt: new Date(Date.UTC(2008, 10, 4)) },
@@ -89,9 +89,10 @@ describe("seed", () => {
       const age = (today.getTime() - (m.birthDate?.getTime() ?? 0)) / (365.25 * 86_400_000);
       expect(age).toBeGreaterThanOrEqual(16);
       expect(age).toBeLessThan(18);
-      expect(m.parentalAuthorization).toBe(true);
-      expect(m.parentalAuthorizationDate).not.toBeNull();
+      expect(m.parentalAuthorization === true).toBe(m.parentalAuthorizationDate !== null);
     }
+    // Step 12: one minor without a recorded authorisation (alert).
+    expect(minors.filter((m) => m.parentalAuthorization !== true)).toHaveLength(1);
     expect(
       await db.document.count({
         where: { kind: "PARENTAL_AUTH", person: { status: { not: "CANDIDATE" } } },
@@ -131,10 +132,16 @@ describe("seed", () => {
         forbiddenForMinors: seedItem.forbiddenForMinors,
         expiresEndOfYear: seedItem.expiresEndOfYear,
         validityMonths: null,
-        active: true,
+        // Step 12: one inactive function in the demo (alert « entrée inactive »).
+        active: seedItem.code !== "CH_RESEAUX",
       });
     }
-    expect(await db.referenceItemPrerequisite.count()).toBe(0);
+    // Step 12: one prerequisite in the demo (F_CI requires TCAU); the base seed has none.
+    expect(
+      await db.referenceItemPrerequisite.findMany({
+        select: { itemId: true, prerequisiteId: true },
+      }),
+    ).toEqual([{ itemId: "seed_ref_f_ci", prerequisiteId: "seed_ref_tcau" }]);
     expect(items.filter((i) => i.validityMonths !== null)).toEqual([]);
     expect(
       items

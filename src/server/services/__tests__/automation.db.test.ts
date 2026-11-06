@@ -3,6 +3,7 @@ import { seedDemo, seedUserEmail } from "../../../../prisma/seed/index";
 import { resetEnvCache } from "@/lib/env";
 import { GET, POST } from "@/app/api/taches/quotidienne/route";
 import { alertsFor } from "@/server/alerts/load";
+import { ALERT_CODES } from "@/server/alerts/rules";
 import { loadActor } from "@/server/auth/loadActor";
 import { ALERT_TOPIC_ACTION } from "@/server/policy/alerts";
 import { can } from "@/server/policy/can";
@@ -52,9 +53,8 @@ describe("alerts: visibility by profile", () => {
   it("every alert is allowed by the action of its topic; subjects follow the profiles", async () => {
     const all = await alertsFor(db, who("topaze"), { day });
     const codes = new Set(all.map((a) => a.code));
-    for (const code of ["B3_DUE", "PURGE_DUE", "FOLLOW_UP_OVERDUE", "TRAINING_EXPIRED"]) {
-      expect(codes, code).toContain(code);
-    }
+    // The demo seed has at least one case of every rule.
+    expect([...codes].sort()).toEqual([...ALERT_CODES].sort());
     for (const key of Object.keys(actors)) {
       const actor = who(key);
       const alerts = await alertsFor(db, actor, { day });

@@ -4,7 +4,7 @@ import { automationSettings } from "../automationSettings";
 import type { DbOrTx } from "../db";
 import { DomainError } from "../errors";
 import { urgenceNoticeMail, urgenceSummaryMail } from "../mail/automatedTexts";
-import { authorize, canSome } from "../policy/can";
+import { authorize } from "../policy/can";
 import { newVolunteerMonths } from "../policy/facts";
 import type { Actor } from "../policy/types";
 import { visibleSql } from "../policy/visibility";
@@ -77,7 +77,7 @@ export async function sendUrgenceSummary(
   actor: Actor,
   now: Date = new Date(),
 ): Promise<{ outcome: SendOutcome; people: number }> {
-  if (!canSome(actor, "training.read")) authorize(actor, "training.read");
+  authorize(actor, "trainingSession.manage");
   const settings = await automationSettings(db);
   if (settings.urgenceNotifyRecipients.length === 0) {
     throw new DomainError(

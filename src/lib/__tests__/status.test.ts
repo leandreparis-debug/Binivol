@@ -33,6 +33,12 @@ describe("status registry", () => {
       "qual-function_active",
       "qual-function_ended",
       "qual-none",
+      "alert-high",
+      "alert-medium",
+      "alert-low",
+      "alert-info",
+      "notif-unread",
+      "notif-read",
     ]);
   });
 

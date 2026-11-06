@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import {
   cancelSchema,
   groupEntrySchema,
@@ -14,6 +15,7 @@ import { toParisDay } from "@/lib/dates";
 import { defineAction } from "@/server/actions/defineAction";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
+import { sendUrgenceSummary } from "@/server/services/urgence";
 import { loadPersonFacts } from "@/server/policy/facts";
 import {
   addTrainingWish,
@@ -138,5 +140,20 @@ export const updateReferenceAction = defineAction({
     await updateReferenceItem(getDb(), actor, input);
     refresh();
     return null;
+  },
+});
+
+export const sendUrgenceSummaryAction = defineAction({
+  action: "trainingSession.manage",
+  input: z.object({}),
+  handler: async ({ actor }) => {
+    const { outcome, people } = await sendUrgenceSummary(getDb(), actor);
+    if (outcome === "FAILED") {
+      throw new DomainError(
+        "INVALID_DATA",
+        "L'e-mail n'a pas pu partir. L'échec est visible dans les réglages.",
+      );
+    }
+    return people;
   },
 });

@@ -38,7 +38,12 @@ export type QualificationStatusKey =
   | "qual-function_ended"
   | "qual-none";
 
-export type Status = VolunteerStatus | DeadlineStatus | DossierStatusKey | QualificationStatusKey;
+/** Priority of an alert and state of a reminder (step 12). */
+export type AlertStatusKey =
+  "alert-high" | "alert-medium" | "alert-low" | "alert-info" | "notif-unread" | "notif-read";
+
+export type Status =
+  VolunteerStatus | DeadlineStatus | DossierStatusKey | QualificationStatusKey | AlertStatusKey;
 
 /** Colour tone, mapped to design tokens by the components. */
 export type Tone = "neutral" | "accent" | "ok" | "warn" | "danger" | "ink";
@@ -99,11 +104,26 @@ export function qualificationKey(status: string): QualificationStatusKey {
   return `qual-${status.toLowerCase()}` as QualificationStatusKey;
 }
 
+export const ALERT_STATUSES: Record<AlertStatusKey, StatusMeta> = {
+  "alert-high": { label: "Haute", tone: "danger" },
+  "alert-medium": { label: "Moyenne", tone: "warn" },
+  "alert-low": { label: "Basse", tone: "neutral" },
+  "alert-info": { label: "Info", tone: "neutral" },
+  "notif-unread": { label: "Non lu", tone: "accent" },
+  "notif-read": { label: "Lu", tone: "neutral" },
+};
+
+/** `HIGH` → `alert-high`. */
+export function alertKey(priority: string): AlertStatusKey {
+  return `alert-${priority.toLowerCase()}` as AlertStatusKey;
+}
+
 export const STATUSES: Record<Status, StatusMeta> = {
   ...VOLUNTEER_STATUSES,
   ...DEADLINE_STATUSES,
   ...DOSSIER_STATUSES,
   ...QUALIFICATION_STATUSES,
+  ...ALERT_STATUSES,
 };
 
 export const STATUS_KEYS = Object.keys(STATUSES) as Status[];

@@ -104,6 +104,8 @@ export const identitySchema = z.object({
   sector: optionalText(),
   company: optionalText(),
   notes: optionalText(4000),
+  /** « Ne pas recevoir les messages d'anniversaire » (step 12). */
+  greetingOptOut: z.boolean().default(false),
 });
 export type IdentityInput = z.input<typeof identitySchema>;
 

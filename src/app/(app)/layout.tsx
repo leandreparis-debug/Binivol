@@ -27,6 +27,7 @@ export default async function AppLayout({ children }: Readonly<{ children: React
         canManageAccounts: canSome(actor, "user.manage"),
         canImport: canSome(actor, "import.run"),
         canReadMailLog: getEnv().MAIL_DRIVER === "log" && canSome(actor, "mail.log.read"),
+        canManageSettings: canSome(actor, "setting.manage"),
       }}
       allowedHrefs={allowedHrefs}
       unreadNotifications={unreadNotifications}

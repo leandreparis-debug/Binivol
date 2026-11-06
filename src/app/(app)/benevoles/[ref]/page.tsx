@@ -28,6 +28,7 @@ import {
 import { formatPhone, phoneHref } from "@/lib/phone";
 import { toVolunteerStatus } from "@/lib/status";
 import { requirePageAccess } from "@/server/auth/page";
+import { alertCountsFor } from "@/server/services/alerts";
 import { getDb } from "@/server/db";
 import type { Actor, PersonFacts } from "@/server/policy/types";
 import { listPersonDocuments } from "@/server/sensitive";
@@ -165,7 +166,7 @@ function ReducedPersonHeader({ header }: { header: ReducedHeader }) {
   );
 }
 
-function Header({ header, day }: { header: PersonHeader; day: Date }) {
+function Header({ header, day, alerts }: { header: PersonHeader; day: Date; alerts: number }) {
   const { person } = header;
   const seniority = formatSeniority(person.entryDate, day);
   return (
@@ -202,6 +203,17 @@ function Header({ header, day }: { header: PersonHeader; day: Date }) {
               <Chip key={p}>{PERIMETER_LABELS[p]}</Chip>
             ))}
             {person.archivedAt && <Chip tone="danger">Archivée</Chip>}
+            {alerts > 0 && (
+              <Link
+                href={`/alertes?personne=${person.ref}`}
+                className="inline-flex min-h-11 items-center rounded-pill focus-ring"
+                data-testid="person-alerts"
+              >
+                <Chip tone="danger">
+                  {alerts} alerte{alerts > 1 ? "s" : ""}
+                </Chip>
+              </Link>
+            )}
           </div>
           <p className="text-small text-ink-2">
             {person.entryDate ? (
@@ -239,6 +251,7 @@ function Header({ header, day }: { header: PersonHeader; day: Date }) {
             sector: person.sector,
             company: person.company,
             notes: person.notes,
+            greetingOptOut: person.greetingOptOut,
           }}
           can={{
             update: header.permissions.update,
@@ -908,7 +921,10 @@ export default async function Page({
       </>
     );
   }
-  const header = await personHeader(getDb(), actor, lookup.personId, lookup.facts, day);
+  const [header, alertCounts] = await Promise.all([
+    personHeader(getDb(), actor, lookup.personId, lookup.facts, day),
+    alertCountsFor(getDb(), actor, [lookup.personId]),
+  ]);
   const tabs = allowedTabs(header);
   const requested = (await searchParams).onglet;
   // A candidate's page opens on « Intégration » when it is allowed.
@@ -927,7 +943,7 @@ export default async function Page({
   const props = { actor, header, facts: lookup.facts, day };
   return (
     <>
-      <Header header={header} day={day} />
+      <Header header={header} day={day} alerts={alertCounts.get(lookup.personId) ?? 0} />
       <div className="mb-6">
         <TabNav tabs={links} active={active} label="Sections de la fiche" />
       </div>

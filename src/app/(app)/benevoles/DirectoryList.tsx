@@ -6,6 +6,7 @@ import type { PersonStatus } from "@/generated/prisma/enums";
 import { DeadlineDot } from "@/components/person/DeadlineDot";
 import { QualificationPills } from "@/components/person/QualificationPills";
 import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
+import { Chip } from "@/components/ui/Chip";
 import { StatusDot } from "@/components/ui/StatusDot";
 import type { DeadlineClass } from "@/lib/deadlines";
 import { formatPhone, phoneHref } from "@/lib/phone";
@@ -22,6 +23,8 @@ export interface DirectoryItem extends Record<string, unknown> {
   phone: string | null;
   archived: boolean;
   canOpen: boolean;
+  /** Number of alerts the viewer may see on this person (step 12). */
+  alerts: number;
   training: {
     qualifications: string[];
     extra: number;
@@ -31,15 +34,27 @@ export interface DirectoryItem extends Record<string, unknown> {
 
 const NO_ACCESS = "Fiche non accessible : cette personne ne relève pas de vos profils.";
 
+function AlertCount({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <Chip tone="danger" data-testid="alert-count">
+      {count} alerte{count > 1 ? "s" : ""}
+    </Chip>
+  );
+}
+
 function NameCell({ item }: { item: DirectoryItem }) {
   if (item.canOpen) {
     return (
-      <Link
-        href={`/benevoles/${item.ref}`}
-        className="inline-flex min-h-11 items-center rounded-inner font-medium text-ink underline-offset-4 focus-ring hover:underline"
-      >
-        {item.name}
-      </Link>
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <Link
+          href={`/benevoles/${item.ref}`}
+          className="inline-flex min-h-11 items-center rounded-inner font-medium text-ink underline-offset-4 focus-ring hover:underline"
+        >
+          {item.name}
+        </Link>
+        <AlertCount count={item.alerts} />
+      </span>
     );
   }
   const tipId = `tip-${item.id}`;

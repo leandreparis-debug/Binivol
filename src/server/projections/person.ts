@@ -48,6 +48,7 @@ export const FULL_FIELDS = [
   "sector",
   "company",
   "notes",
+  "greetingOptOut",
   "archivedAt",
 ] as const;
 

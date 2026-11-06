@@ -29,7 +29,7 @@ export function BottomNav({
         style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
       >
         {items.map(({ href, label, icon: Icon }) => {
-          const active = isActivePath(pathname, href);
+          const active = isActivePath(pathname, href, true);
           return (
             <li key={href}>
               <Link

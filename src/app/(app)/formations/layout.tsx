@@ -3,7 +3,10 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { getEnv } from "@/lib/env";
 import { requirePageAccess } from "@/server/auth/page";
 import { canSome } from "@/server/policy/can";
+import { automationSettings } from "@/server/automationSettings";
+import { getDb } from "@/server/db";
 import { FormationsNav } from "./FormationsNav";
+import { UrgenceSummaryButton } from "./UrgenceSummaryButton";
 
 /**
  * /formations (step 10): sessions, group entry, waiting lists, Trouver and
@@ -12,6 +15,7 @@ import { FormationsNav } from "./FormationsNav";
 export default async function FormationsLayout({ children }: { children: React.ReactNode }) {
   const actor = await requirePageAccess("training.read");
   const manage = canSome(actor, "trainingSession.manage");
+  const { urgenceNotifyCodes: urgenceCodes } = await automationSettings(getDb());
   const items = [
     ...(manage
       ? [
@@ -30,7 +34,12 @@ export default async function FormationsLayout({ children }: { children: React.R
       <PageHeader
         title="Formations"
         subtitle="Sessions, résultats, listes d'attente et recherche d'équipe. Pegass fait foi pour les diplômes."
-        actions={getEnv().AUTH_DEMO_LOGIN ? <FakeDataBanner /> : undefined}
+        actions={
+          <>
+            {getEnv().AUTH_DEMO_LOGIN && <FakeDataBanner />}
+            {manage && <UrgenceSummaryButton codes={urgenceCodes} />}
+          </>
+        }
       />
       <FormationsNav items={items} />
       <div className="mt-6 flex flex-col gap-6">{children}</div>

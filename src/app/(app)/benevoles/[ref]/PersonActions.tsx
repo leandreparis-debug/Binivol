@@ -34,6 +34,7 @@ export interface IdentityValues {
   sector: string | null;
   company: string | null;
   notes: string | null;
+  greetingOptOut: boolean;
 }
 
 export interface PersonActionsProps {
@@ -264,7 +265,8 @@ function ReturnDialog({ personId }: { personId: string }) {
 function IdentityDialog({ personId, identity }: PersonActionsProps) {
   const [open, setOpen] = useState(false);
   const { pending, feedback, errorOf, run, reset } = useFormAction<null>();
-  const field = (name: keyof IdentityValues, label: string, type = "text") => (
+  type TextKey = Exclude<keyof IdentityValues, "greetingOptOut" | "civility">;
+  const field = (name: TextKey, label: string, type = "text") => (
     <Field label={label} htmlFor={`identity-${name}`} error={errorOf(name)}>
       <Input
         id={`identity-${name}`}
@@ -302,7 +304,7 @@ function IdentityDialog({ personId, identity }: PersonActionsProps) {
           onSubmit={(event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
-            const value = (key: keyof IdentityValues) => text(form, key);
+            const value = (key: Exclude<keyof IdentityValues, "greetingOptOut">) => text(form, key);
             run(
               () =>
                 updateIdentityAction({
@@ -320,6 +322,7 @@ function IdentityDialog({ personId, identity }: PersonActionsProps) {
                   sector: value("sector"),
                   company: value("company"),
                   notes: value("notes"),
+                  greetingOptOut: form.get("greetingOptOut") === "on",
                 }),
               {
                 onSuccess: () => {
@@ -361,6 +364,12 @@ function IdentityDialog({ personId, identity }: PersonActionsProps) {
               defaultValue={identity.notes ?? ""}
             />
           </Field>
+          <Checkbox
+            name="greetingOptOut"
+            defaultChecked={identity.greetingOptOut}
+            label="Ne pas recevoir les messages d'anniversaire"
+            className="sm:col-span-2"
+          />
           <div className="sm:col-span-2">
             <FormMessage feedback={feedback} />
             <FormButtons pending={pending} label="Enregistrer" />

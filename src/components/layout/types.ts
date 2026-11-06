@@ -10,6 +10,8 @@ export interface ShellUser {
   canImport: boolean;
   /** TOPAZE, log driver only: /admin/courriels. */
   canReadMailLog: boolean;
+  /** TOPAZE: /admin/reglages (step 12). */
+  canManageSettings: boolean;
 }
 
 export interface ShellProps {

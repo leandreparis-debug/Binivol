@@ -872,6 +872,10 @@ export async function seedDemo(
           if (p.status === "ACTIVE" && p.index % 8 === 2) {
             record(p, "FCPSE", null, "REGISTERED", { sessionId: "seed_session_fcpse" });
           }
+          // A TCAU group entry (step 12: prévenance du pôle Urgence).
+          if (p.status === "ACTIVE" && p.index % 9 === 4) {
+            record(p, "TCAU", null, "REGISTERED", { sessionId: "seed_session_tcau" });
+          }
         }
         if (p.minor) doc(p, "PARENTAL_AUTH", "UL");
         if (!isCandidate && p.index % 12 === 0) doc(p, "B3_ATTESTATION", "UL");
@@ -1300,6 +1304,41 @@ export async function seedDemo(
           ],
         });
       }
+
+      // -- Step 12: every alert rule has at least one case -----------------------------------
+      // A prerequisite (F_CI requires TCAU): a holder of F_CI without TCAU is flagged.
+      await tx.referenceItemPrerequisite.createMany({
+        skipDuplicates: true,
+        data: [{ itemId: refId("F_CI"), prerequisiteId: refId("TCAU") }],
+      });
+      // An inactive function still held by someone (CH_RESEAUX).
+      await tx.referenceItem.update({
+        where: { id: refId("CH_RESEAUX") },
+        data: {
+          active: false,
+          note: "Désactivée dans la démo : alerte d'entrée inactive (fictif).",
+        },
+      });
+      // A minor without a recorded parental authorisation.
+      if (activeMinor) {
+        await tx.personSensitive.update({
+          where: { personId: activeMinor.id },
+          data: { parentalAuthorization: false, parentalAuthorizationDate: null },
+        });
+      }
+      // The Urgence notice of the TCAU group entry (no recipient set: nothing left).
+      await tx.automatedMessage.createMany({
+        skipDuplicates: true,
+        data: [
+          {
+            id: "seed_automated_urgence",
+            dedupeKey: "URGENCE_NOTICE:seed_session_tcau",
+            kind: "URGENCE_NOTICE",
+            status: "SKIPPED",
+            recipients: 0,
+          },
+        ],
+      });
 
       // -- Online file, signature ----------------------------------------------------------
       const fileCandidate = candidateAt("FILE");

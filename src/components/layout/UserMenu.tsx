@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { ChevronDown, FileSpreadsheet, LogOut, ShieldCheck, UserRound, Mail } from "lucide-react";
+import {
+  ChevronDown,
+  FileSpreadsheet,
+  LogOut,
+  ShieldCheck,
+  UserRound,
+  Mail,
+  SlidersHorizontal,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import {
@@ -83,6 +91,14 @@ export function UserMenu({ user }: UserMenuProps) {
             <Link href="/admin/import">
               <FileSpreadsheet />
               Importer le classeur
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.canManageSettings && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin/reglages">
+              <SlidersHorizontal />
+              Réglages
             </Link>
           </DropdownMenuItem>
         )}
