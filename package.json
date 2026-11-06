@@ -28,6 +28,7 @@
     "db:reset": "pnpm db:fresh",
     "db:seed": "pnpm db:seed:demo",
     "db:studio": "prisma studio",
+    "captures": "playwright test --config playwright.captures.config.ts",
     "logo:paths": "tsx scripts/generate-logo-paths.ts",
     "icons": "tsx scripts/generate-icons.ts",
     "docs:permissions": "tsx scripts/generate-permissions-doc.ts",
