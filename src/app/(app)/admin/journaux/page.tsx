@@ -187,7 +187,12 @@ export default async function LogsPage({ searchParams }: { searchParams: SearchP
           </p>
         )}
         <Card>
-          <CardContent className="overflow-x-auto p-0">
+          <CardContent
+            className="overflow-x-auto p-0 focus-ring"
+            tabIndex={0}
+            role="region"
+            aria-label="Lignes du journal (défilement horizontal)"
+          >
             {audit && (
               <table className="w-full text-small" data-testid="audit-log">
                 <caption className="sr-only">Journal d&apos;audit</caption>

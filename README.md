@@ -8,11 +8,17 @@ Les utilisateurs sont les six profils de responsables (TOPAZE, ACTION, LASER, FO
 DIAMANT). **Les bénévoles n'ont pas de compte.** Les candidats remplissent leur dossier depuis
 un lien sécurisé, sur téléphone.
 
-> **Étapes 1 à 6** : initialisation, design system, coquille de l'application, modèle de
-> données complet (Prisma + PostgreSQL) et seed synthétique, connexion Google, profils et
-> droits, import de l'ancien classeur, annuaire `/benevoles` et fiche bénévole avec
-> documents, puis candidats et intégration (`/candidats`, `docs/integration.md`). Aucune donnée réelle n'est présente dans ce dépôt : tout ce qui est affiché est
+> **V1 (étapes 1 à 15)** : candidatures et intégration (dossier signé en ligne, assistant Gaia),
+> annuaire et fiche, formations, compétences et nominations, points de suivi, parrainage, B3,
+> pauses et départs, alertes et rappels (tâche quotidienne), tableaux de bord par profil,
+> matrice et exports, RGPD (purge, export d'une personne, journaux), paramètres, sauvegardes
+> chiffrées. Aucune donnée réelle n'est présente dans ce dépôt : tout ce qui est affiché est
 > synthétique et marqué « Données fictives ».
+
+**Où lire quoi** : guides par profil `docs/guides/` (aussi sur `/aide`), mise en service
+`docs/mise-en-service.md`, droits `docs/permissions.md`, décisions `docs/decisions.md`, RGPD
+`docs/rgpd.md`, tâches planifiées `docs/taches.md`, sauvegardes `docs/sauvegarde.md`, audits
+`docs/audit-securite.md` et `docs/audit-accessibilite.md`.
 
 ## Prérequis
 
@@ -72,6 +78,8 @@ complet (client Google, variables, Vercel) est dans `docs/auth.md`, les droits d
 | `pnpm db:deploy`         | `prisma migrate deploy` : applique les migrations (test, production)              |
 | `pnpm db:fresh`          | **Local seulement** : supprime et recrée la base, migrations et seed démo         |
 | `pnpm db:reset`          | Alias de `db:fresh`                                                               |
+| `pnpm db:backup`         | Sauvegarde chiffrée (`pg_dump`, AES-256-GCM), voir `docs/sauvegarde.md`           |
+| `pnpm db:restore`        | **Local seulement** : restaure une sauvegarde chiffrée (`<fichier>`)              |
 | `pnpm db:seed:base`      | Référentiel, paramètres, règles de rappel : **seul seed de production**           |
 | `pnpm db:seed:demo`      | Seed de base + comptes démo et 62 personnes fictives (refuse de vraies données)   |
 | `pnpm db:seed`           | Alias de `db:seed:demo`                                                           |

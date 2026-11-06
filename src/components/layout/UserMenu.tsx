@@ -11,6 +11,7 @@ import {
   Mail,
   SlidersHorizontal,
   Download,
+  LifeBuoy,
   Building2,
   ScrollText,
   Eraser,
@@ -80,6 +81,12 @@ export function UserMenu({ user }: UserMenuProps) {
           <Link href="/moi">
             <UserRound />
             Mon compte et mes droits
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/aide">
+            <LifeBuoy />
+            Aide
           </Link>
         </DropdownMenuItem>
         {user.canManageAccounts && (
