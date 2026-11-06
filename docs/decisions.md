@@ -976,3 +976,32 @@ complexité (ni Gantt ni sous-sous-tâches).
 **Conséquences.** Le menu gagne une entrée « À faire » (6 entrées en barre basse sur
 téléphone). Un responsable qui quitte l'équipe ne bloque rien : désactiver son compte retire
 ses assignations et transmet ses projets au membre le plus ancien.
+
+## ADR-068 — Saisie assistée du dossier : adresses par le serveur, codes postaux embarqués
+
+**Contexte.** Léandre demande (06/11/2026) des adresses proposées pendant la saisie du dossier,
+des diplômes choisis dans une liste et la copie des valeurs à la réception.
+
+**Décision.**
+
+- Rues : **API Adresse de la Géoplateforme** (Base Adresse Nationale, IGN, service public
+  gratuit sans clé). URL vérifiée le 06/11/2026 sur le service lui-même :
+  `https://data.geopf.fr/geocodage/search` (paramètres `q`, `autocomplete=1`, `limit`,
+  `index=address` ; réponse GeoJSON avec `name`, `postcode`, `city`, `type`) ; l'ancienne
+  `api-adresse.data.gouv.fr` est remplacée par la Géoplateforme.
+- Communes et codes postaux : fichier **local** tiré de la « Base officielle des codes postaux »
+  de La Poste (data.gouv.fr, `laposte_hexasmal`, **Licence Ouverte 2.0** : réutilisation libre
+  avec mention de la source), régénéré par `pnpm geo:postal-codes`. Pas de réseau pour ce cas.
+- **Le navigateur n'appelle jamais un tiers** : `AddressService` (pilotes `ban`, `none`,
+  `fake`) derrière une route serveur. La route est **`POST /dossier/adresse`** et non
+  `/api/dossier/adresse` comme demandé : le cookie du dossier est limité au chemin `/dossier`
+  (ADR-038) et l'élargir à tout le site affaiblirait sa protection. Le texte voyage dans le
+  corps (les adresses de requête finissent dans les journaux de l'hébergeur), n'est jamais
+  journalisé ni mis en cache ; limite par dossier.
+- Diplômes : catalogue en paramètre (`DECLARED_DIPLOMA_CATALOG`), codes alignés sur le
+  référentiel, ouverture « à vérifier dans Pegass » seulement sur proposition.
+
+**Conséquences.** Le service public reçoit des morceaux d'adresse, sans nom ni identifiant :
+la notice d'information le dit (à faire valider par le DPO). Avec `ADDRESS_PROVIDER=none`, la
+fonction se réduit aux codes postaux locaux. Le fichier des codes postaux (≈ 850 Ko) est inclus
+dans le serveur (`outputFileTracingIncludes`).

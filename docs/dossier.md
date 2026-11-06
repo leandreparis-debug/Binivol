@@ -137,6 +137,73 @@ personne. Stockage indisponible : message clair, le brouillon est conservé.
 - La comparaison ne figure pas dans le rendu initial : elle se charge par une action
   (`readDossierReviewAction`) qui écrit un `AccessLog` `SENSITIVE_VIEW`, contexte « dossier ».
 
+## Adresses proposées pendant la saisie (étape 16, ADR-068)
+
+- Champs concernés : « Numéro et voie », « Code postal », « Ville » des Coordonnées, et
+  « Adresse », « Code postal », « Ville » de la personne à prévenir. Après 3 caractères et
+  250 ms, une liste propose jusqu'à 5 adresses ; en choisir une **préremplit** voie, code
+  postal, ville et pays (France). Tout reste modifiable ; « Je ne trouve pas mon adresse »
+  ferme la liste et laisse la saisie libre (étranger, lieu-dit…).
+- **Code postal seul** : les communes (78120 → Rambouillet, Clairefontaine en Yvelines…) ;
+  **ville seule** : ses codes postaux. Source locale : la « Base officielle des codes postaux »
+  de La Poste (data.gouv.fr, **Licence Ouverte 2.0**), réduite par `pnpm geo:postal-codes
+<laposte_hexasmal.csv>` en `src/server/geo/postal-codes.txt` (35 511 lignes `CP;COMMUNE;INSEE`).
+  Aucun appel réseau pour ce cas. Les noms sont en capitales sans accents chez La Poste :
+  affichés « Clairefontaine en Yvelines » (accents non restituables, champ modifiable).
+- **Rues** : API Adresse de la Géoplateforme (Base Adresse Nationale, IGN, gratuite, sans clé),
+  `https://data.geopf.fr/geocodage/search?q=…&autocomplete=1&limit=5&index=address`, appelée
+  **par le serveur seulement** (`AddressService`, `src/server/geo/address.ts`) : délai de 2 s,
+  tout échec donne « aucune proposition » (la saisie libre continue).
+- **Le navigateur du candidat n'appelle jamais un tiers** : il envoie le texte à
+  `POST /dossier/adresse` (dans le corps, jamais dans l'adresse) ; la route exige le cookie de
+  dossier (sinon 401), valide la requête (Zod, 3 à 120 caractères), limite à 200 demandes par
+  dossier et par 15 minutes (`rate_limits`, clé hachée), répond `no-store`. **Le texte tapé
+  n'est jamais journalisé** (ni log, ni `access_logs`, ni audit) ni mis en cache. En mode sur
+  place, la même fonction passe par une action `dossier.manage`.
+- `ADDRESS_PROVIDER` : `ban` (défaut), `none` (pas de rue proposée, codes postaux locaux
+  seulement), `fake` (tests : rues fictives, refusé hors connexion démo et sur Vercel).
+- Accessibilité : motif « combobox » ARIA (↓ ↑, Entrée, Échap), nombre de résultats annoncé,
+  options de 44 px, champs à 16 px, `autocomplete="street-address"`, `postal-code`,
+  `address-level2` conservés pour le remplissage automatique du téléphone.
+- La notice d'information (brouillon `RGPD_NOTICE`) et l'aide sous les champs d'adresse disent
+  que le texte tapé est transmis au service public Base Adresse Nationale.
+
+## Diplômes déclarés (étape 16)
+
+- Le champ « Diplômes » (5 au plus) se choisit dans une liste avec recherche, groupée (grand
+  public, secourisme en équipe, encadrement opérationnel, aquatique, formateurs, autres), puis
+  « Autre (préciser) » en texte libre. Catalogue : paramètre `DECLARED_DIPLOMA_CATALOG`
+  (Paramètres → Dossier en ligne, une ligne « code | libellé | groupe | référentiel »).
+- Codes alignés sur le référentiel quand il a la même chose (PSC, GQS, FCPSE, FPSC, FPSE,
+  TCAU) ; PSE1 et PSE2 renvoient à l'item `PSE` du référentiel (qui ne distingue pas les
+  niveaux) ; IPS, SST, AFGSU, BNSSA, SSA, CE, CP, formateur SST, formateur de formateurs n'y
+  sont pas : ils restent déclaratifs. CEAT n'existe pas dans le référentiel : non proposé.
+- Pour chaque diplôme : année (facultative, AAAA, entre 1950 et l'année en cours) et organisme
+  (Croix-Rouge, Protection civile, SDIS, employeur, autre). Version 3 du JSON du dossier ; un
+  diplôme en texte d'une version antérieure se relit `{ label }`.
+- Report dans la fiche : `person_declared_diplomas.code`, `year`, `issuer` (migration
+  `20261114090000_declared_diploma_details`, CHECK sur l'année).
+- Onglet Formations de la fiche : « Déclarés dans le dossier » **propose** (jamais
+  automatiquement), à qui a `training.write`, d'ouvrir la qualification « à vérifier dans
+  Pegass » (résultat `TO_CONFIRM`, datée du 1er janvier de l'année déclarée). Toujours aucune
+  copie de diplôme demandée (ADR-049).
+- PDF : les cases `Diplome 1` à `Diplome 5` reçoivent le libellé, suivi de l'année entre
+  parenthèses quand elle est connue.
+
+## Copier le dossier reçu (étape 16)
+
+- Sur la relecture (`dossier.manage`), après « Afficher le dossier » (consultation journalisée,
+  contexte « dossier ») : un bouton « Copier » par valeur (nom accessible « Copier <champ> »,
+  confirmation « Copié » discrète), « Copier la section » par carte, « Tout copier » en haut
+  (texte tabulé `Champ<TAB>Valeur`, une ligne par champ, dans l'ordre du dossier).
+- Formats : dates `JJ/MM/AAAA`, NOM en capitales, téléphones `+33 6 12 34 56 78` ou
+  `0612345678` au choix, adresse champ par champ ou en une ligne ; les deux choix sont
+  mémorisés dans le navigateur (simple confort).
+- Avant l'affichage, aucune valeur ni bouton : rien n'est copiable tant que c'est masqué.
+  Copier ne charge rien de plus et n'écrit rien en base.
+- Mêmes composants que la fiche Gaia (étape 9) : `CopyField` et `CopyAllButton`
+  (`src/components/ui/CopyField.tsx`), formats dans `src/lib/copyFormat.ts`.
+
 ## Correspondance avec les PDF (étape 8)
 
 La correspondance est dans `src/server/pdf/mappings.ts` (un objet par modèle, nom exact du champ
