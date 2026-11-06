@@ -15,7 +15,9 @@ export const maxDuration = 60;
 async function handle(request: Request): Promise<NextResponse> {
   const auth = checkCronAuthorization(request.headers.get("authorization"), getEnv().CRON_SECRET);
   if (auth === "no-secret") {
-    console.error("[binivol] Tâche quotidienne refusée : CRON_SECRET n'est pas configuré.");
+    console.error(
+      "[binivol] Tâche quotidienne refusée : CRON_SECRET absent ou trop court (32 caractères au moins).",
+    );
     return NextResponse.json({ error: "Tâche désactivée." }, { status: 503 });
   }
   if (auth === "denied") {

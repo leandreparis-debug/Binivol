@@ -75,7 +75,8 @@ export const envObject = z.object({
    * Shared secret of the daily task route (`Authorization: Bearer …`). Unset:
    * the route refuses every call. Typed in Vercel (or on the VPS), never in a file.
    */
-  CRON_SECRET: z.string().min(32).optional(),
+  // Never refuses to start for it: a too short secret is refused by the route (src/server/cron.ts).
+  CRON_SECRET: z.string().optional(),
 
   // --- Document storage (StorageService, docs/storage.md) -------------------
   /** `local` (a folder on disk: development, VPS) or `s3` (S3-compatible: Supabase Storage, MinIO…). */

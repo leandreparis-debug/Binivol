@@ -19,6 +19,7 @@ describe("cron authorization", () => {
   it("refuses everything without a configured secret", () => {
     expect(checkCronAuthorization(`Bearer ${SECRET}`, undefined)).toBe("no-secret");
     expect(checkCronAuthorization(null, "")).toBe("no-secret");
+    expect(checkCronAuthorization("Bearer short", "short")).toBe("no-secret");
   });
   it("accepts the exact bearer only", () => {
     expect(checkCronAuthorization(`Bearer ${SECRET}`, SECRET)).toBe("ok");
