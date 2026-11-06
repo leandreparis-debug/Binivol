@@ -66,7 +66,9 @@ test("axe : toutes les pages de l'application", async ({ page, browser, baseURL 
   for (const route of routes) {
     const url = route
       .replace("/benevoles/[ref]", personHref.split("?")[0] ?? "")
-      .replace("/formations/sessions/[id]", sessionHref);
+      .replace("/formations/sessions/[id]", sessionHref)
+      // TOPAZE owns the seed project « Forum des associations ».
+      .replace("/a-faire/projets/[id]", "/a-faire/projets/seed_tp_forum");
     expect(url, route).not.toContain("[");
     if (route === "/connexion") {
       // The sign-in page is audited signed out.

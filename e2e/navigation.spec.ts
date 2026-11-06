@@ -18,7 +18,10 @@ test.describe("Navigation (TOPAZE)", () => {
     const nav = mainNav(page, testInfo);
     for (const section of SECTIONS) {
       await nav.getByRole("link", { name: section.label }).click();
-      await expect(page).toHaveURL(new RegExp(`${section.href === "/" ? "/" : section.href}$`));
+      // A section may open on one of its sub-pages (/formations → /formations/sessions).
+      await expect(page).toHaveURL(
+        new RegExp(section.href === "/" ? "/$" : `${section.href}(/[a-z-]+)?$`),
+      );
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       const current = nav.locator("a[aria-current='page']");
       await expect(current).toHaveCount(1);
@@ -30,7 +33,7 @@ test.describe("Navigation (TOPAZE)", () => {
     test.skip(!isMobileProject(testInfo), "Ne concerne que la largeur 390 px du projet mobile.");
     const bottomNav = page.getByTestId("bottom-nav");
     await expect(bottomNav).toBeVisible();
-    await expect(bottomNav.getByRole("link")).toHaveCount(5);
+    await expect(bottomNav.getByRole("link")).toHaveCount(6);
     await expect(
       page.getByRole("navigation", { name: "Navigation principale", exact: true }),
     ).toBeHidden();

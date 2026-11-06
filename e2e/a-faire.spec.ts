@@ -188,19 +188,15 @@ test.describe("À faire (bureau)", () => {
     await expect(row(page, first)).toBeVisible();
     await expect(row(page, second)).toBeVisible();
 
-    // Newest first in the group: B, then A. Move B down with the keyboard.
+    // B goes one step down with the keyboard (the « … » menu, « Descendre »).
+    const indexOf = async (title: string) =>
+      (await page.getByTestId("todo-row").allTextContents()).findIndex((t) => t.includes(title));
+    const before = await indexOf(second);
     await page.getByRole("button", { name: `Déplacer : ${second}` }).focus();
     await page.keyboard.press("Enter");
     await page.getByRole("menuitem", { name: "Descendre" }).focus();
     await page.keyboard.press("Enter");
-    await expect
-      .poll(async () => {
-        const titles = await page.getByTestId("todo-row").allTextContents();
-        return (
-          titles.findIndex((t) => t.includes(first)) < titles.findIndex((t) => t.includes(second))
-        );
-      })
-      .toBe(true);
+    await expect.poll(() => indexOf(second)).toBe(before + 1);
 
     await page.getByRole("checkbox", { name: `Terminer : ${first}` }).focus();
     await page.keyboard.press("Space");
