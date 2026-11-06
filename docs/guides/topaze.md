@@ -10,6 +10,16 @@ les fiches à purger.
 1. Ouvre Binivol et clique « Se connecter avec Google ».
 2. Utilise ton compte **@croix-rouge.fr**. Seuls les comptes créés par TOPAZE entrent.
 
+## Ton accueil : le tableau de bord DLUS
+
+- **Effectifs opérationnels** : secouristes, bénurs, formateurs PSC, initiateurs, stagiaires.
+  Clique un chiffre : l'annuaire s'ouvre sur exactement ces personnes. Sous chaque chiffre, la
+  variation sur 12 mois et ceux qui expirent sous 60 jours.
+- **Dernières inscriptions** en formation, et **Arrivées** (par mois, délai médian, taux de
+  transformation, entonnoir, fidélisation), avec un choix de période.
+- Les définitions se règlent dans « Paramètres de l'UL » → « Tableau de bord DLUS »
+  (« Aperçu » avant d'enregistrer).
+
 ## Tâches courantes
 
 - **Créer un compte responsable** : menu du compte → « Gérer les comptes » → « Nouveau compte »,

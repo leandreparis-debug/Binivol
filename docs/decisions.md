@@ -1005,3 +1005,28 @@ des diplômes choisis dans une liste et la copie des valeurs à la réception.
 la notice d'information le dit (à faire valider par le DPO). Avec `ADDRESS_PROVIDER=none`, la
 fonction se réduit aux codes postaux locaux. Le fichier des codes postaux (≈ 850 Ko) est inclus
 dans le serveur (`outputFileTracingIncludes`).
+
+## ADR-069 — Tableau de bord DLUS : un indicateur = une condition SQL partagée avec l'annuaire
+
+**Contexte.** Léandre demande (06/11/2026) que l'accueil de TOPAZE devienne une vue d'ensemble
+de l'unité (effectifs opérationnels, inscriptions, arrivées), chaque chiffre ouvrant la liste
+des personnes comptées.
+
+**Décision.**
+
+- Chaque indicateur est une **définition paramétrable** (`DASHBOARD_INDICATORS` : libellé,
+  type « qualification valide » ou « inscription en cours », codes requis et exclus) traduite
+  en **une** condition SQL (`src/server/dashboard/indicators.ts`). Le tableau de bord compte
+  avec `directoryConditions()` de l'annuaire (visibilité d'abord) plus cette condition ;
+  l'annuaire filtre `?indicateur=` avec la même : même filtre, même total, par construction et
+  par test.
+- Un droit dédié, `dashboard.dlus.read` (TOPAZE), plutôt qu'un test de profil.
+- Référentiel : ajout de `I_GQS`, `I_IPS`, `I_IPSEN` (seed:base). **Hypothèses à confirmer** :
+  le « GQS » de l'ancien classeur est la formation suivie, pas le droit de l'enseigner ; le
+  référentiel n'a qu'un `PSE` (pas de niveaux), donc pas de « dont PSE2 » et un stagiaire
+  secours est un inscrit à une session PSE ; « Confirmé » = inscription issue d'une liste
+  d'attente.
+- La variation sur 12 mois reconstruit le passé sans statut historisé (entrée et départ).
+
+**Conséquences.** Changer une définition change à la fois le chiffre et la liste. Les trois
+initiateurs de démonstration entrent dans le périmètre FORMAT GP.
