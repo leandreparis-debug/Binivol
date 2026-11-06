@@ -2,6 +2,8 @@ import type { Profile } from "@/generated/prisma/enums";
 import { withAudit, type Actor as AuditActor } from "../audit";
 import type { DbOrTx, Tx } from "../db";
 import { DomainError } from "../errors";
+import { authorize } from "../policy/can";
+import type { Actor } from "../policy/types";
 import { isEmailInDomain, normalizeEmail } from "../auth/signIn";
 
 /**
@@ -240,4 +242,13 @@ export async function revokeAccount(
     : null;
   if (!existing) throw new DomainError("ACCOUNT_NOT_FOUND", "Compte introuvable.");
   return setActive(db, actor, { userId: existing.id, active: false });
+}
+
+/** Names of the accounts, for the filters of the logs (step 14, TOPAZE). */
+export async function listUserNames(
+  db: DbOrTx,
+  actor: Actor,
+): Promise<{ id: string; name: string }[]> {
+  authorize(actor, "audit.read");
+  return db.user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
 }

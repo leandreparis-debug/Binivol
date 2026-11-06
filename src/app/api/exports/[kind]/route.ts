@@ -4,6 +4,7 @@ import { getDb } from "@/server/db";
 import { ForbiddenError } from "@/server/policy/can";
 import { parseDirectoryQuery } from "@/server/services/directory";
 import { directoryExport, matrixExport, prefectureExport } from "@/server/services/exports";
+import { logExport, parseLogFilters } from "@/server/services/logs";
 import { MATRIX_CATEGORIES } from "@/server/services/matrix";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,15 @@ export async function GET(
     } else if (kind === "matrice") {
       const category = url.searchParams.get("categorie");
       result = await matrixExport(db, actor, MATRIX_CATEGORIES.find((c) => c === category) ?? null);
+    } else if (kind === "journal") {
+      const raw: Record<string, string> = {};
+      for (const [key, value] of url.searchParams) raw[key] = value;
+      result = await logExport(
+        db,
+        actor,
+        raw.journal === "acces" ? "acces" : "audit",
+        parseLogFilters(raw),
+      );
     } else return text(404, "Export inconnu.");
     return new Response(result.csv, {
       status: 200,
