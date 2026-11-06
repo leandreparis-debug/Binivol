@@ -6,7 +6,7 @@ import { FileSpreadsheet } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/cn";
 import { isActivePath } from "./activePath";
-import { NAV_ITEMS, type NavHref } from "./navigation";
+import { badgeLabel, NAV_ITEMS, type NavHref } from "./navigation";
 
 /**
  * Main navigation of the direction « Galet » (ADR-066): a white panel that
@@ -64,7 +64,7 @@ export function SideNav({
                       >
                         {count > 99 ? "99+" : count}
                       </span>
-                      <span className="sr-only">, {badgeLabel(count)}</span>
+                      <span className="sr-only">, {badgeLabel(href, count)}</span>
                     </>
                   )}
                 </Link>
@@ -99,7 +99,4 @@ export function SideNav({
   );
 }
 
-/** Spoken meaning of the « Candidats » badge. */
-export function badgeLabel(count: number): string {
-  return `${String(count)} relance${count > 1 ? "s" : ""} en retard`;
-}
+export { badgeLabel };

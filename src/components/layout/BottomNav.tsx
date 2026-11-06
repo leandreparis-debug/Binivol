@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { isActivePath } from "@/components/layout/activePath";
-import { NAV_ITEMS, type NavHref } from "./navigation";
+import { badgeLabel, NAV_ITEMS, type NavHref } from "./navigation";
 
 /**
  * Bottom navigation shown under 640 px, limited to the entries the policy allows.
@@ -58,7 +58,7 @@ export function BottomNav({
                 </span>
                 {label}
                 {(navBadges?.[href] ?? 0) > 0 && (
-                  <span className="sr-only">, {navBadges?.[href]} relance(s) en retard</span>
+                  <span className="sr-only">, {badgeLabel(href, navBadges?.[href] ?? 0)}</span>
                 )}
               </Link>
             </li>

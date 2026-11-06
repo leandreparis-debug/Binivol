@@ -7,6 +7,7 @@ import { canSome } from "@/server/policy/can";
 import { PROFILE_ORDER } from "@/server/services/accounts";
 import { overdueCandidacies } from "@/server/services/candidacies";
 import { countUnreadNotifications } from "@/server/services/notifications";
+import { countUrgentTodos } from "@/server/services/todos";
 
 /** Every page of the app requires a signed-in responsible (profiles re-read). */
 export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -14,9 +15,10 @@ export default async function AppLayout({ children }: Readonly<{ children: React
   const allowedHrefs: NavHref[] = NAV_ITEMS.filter(
     (item) => item.action === null || canSome(actor, item.action),
   ).map((item) => item.href);
-  const [unreadNotifications, overdue] = await Promise.all([
+  const [unreadNotifications, overdue, urgentTodos] = await Promise.all([
     countUnreadNotifications(getDb(), actor.userId),
     canSome(actor, "candidacy.manage") ? overdueCandidacies(getDb(), actor) : Promise.resolve(0),
+    countUrgentTodos(getDb(), actor.userId),
   ]);
   return (
     <AppShell
@@ -34,7 +36,7 @@ export default async function AppLayout({ children }: Readonly<{ children: React
       }}
       allowedHrefs={allowedHrefs}
       unreadNotifications={unreadNotifications}
-      navBadges={{ "/candidats": overdue }}
+      navBadges={{ "/candidats": overdue, "/a-faire": urgentTodos }}
     >
       {children}
     </AppShell>

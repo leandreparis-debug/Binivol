@@ -169,6 +169,19 @@
     }
   }
 
+  /* « À faire »: the check mark pops when a task is done. */
+  @keyframes todo-tick {
+    0% {
+      transform: scale(0.6);
+    }
+    60% {
+      transform: scale(1.15);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
   @keyframes grow-x {
     from {
       transform: scaleX(0);

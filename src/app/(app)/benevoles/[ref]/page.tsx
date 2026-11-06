@@ -66,6 +66,7 @@ import { CancelDialog } from "../../formations/TrainingForms";
 import { IntegrationPanel } from "./IntegrationPanel";
 import { ListEditor } from "./ListEditor";
 import { PersonActions } from "./PersonActions";
+import { PersonTodos } from "./PersonTodos";
 import { SensitivePanel } from "./SensitivePanel";
 import { TimelineView } from "./TimelineView";
 
@@ -950,6 +951,9 @@ export default async function Page({
         <TabNav tabs={links} active={active} label="Sections de la fiche" />
       </div>
       {active === "apercu" && <OverviewTab {...props} />}
+      {active === "apercu" && (
+        <PersonTodos actor={actor} personId={lookup.personId} personRef={header.person.ref} />
+      )}
       {active === "integration" && <IntegrationTabView {...props} />}
       {active === "formations" && <TrainingsTab {...props} />}
       {active === "fonctions" && <AppointmentsTab {...props} />}

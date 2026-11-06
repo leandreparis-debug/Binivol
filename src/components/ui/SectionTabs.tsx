@@ -12,6 +12,8 @@ export interface SectionTabItem {
   icon?: React.ReactNode;
   /** Count shown as a danger badge after the label (0 hides it), with its spoken meaning. */
   badge?: { count: number; label: string };
+  /** Active on this exact path only (a section's first tab, whose sub-routes are other tabs). */
+  exact?: boolean;
 }
 
 export interface SectionTabsProps extends React.HTMLAttributes<HTMLElement> {
@@ -39,7 +41,7 @@ export function SectionTabs({ items, label, className, ...rest }: SectionTabsPro
     >
       <ul className="flex w-max items-center gap-1 rounded-control border border-line bg-surface p-1">
         {items.map((item) => {
-          const active = isActivePath(pathname, item.href);
+          const active = item.exact ? pathname === item.href : isActivePath(pathname, item.href);
           return (
             <li key={item.href}>
               <Link

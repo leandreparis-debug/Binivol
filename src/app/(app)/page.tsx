@@ -14,6 +14,7 @@ import { alertsFor, canSeeAlerts } from "@/server/services/alerts";
 import { dashboardFor } from "@/server/services/dashboard";
 import { listNotifications } from "@/server/services/notifications";
 import { DashboardBlocks } from "./DashboardBlocks";
+import { MyTodosCard } from "./MyTodosCard";
 
 export default async function HomePage() {
   const actor = await requireActor();
@@ -40,7 +41,11 @@ export default async function HomePage() {
 
       <DashboardBlocks blocks={blocks} />
 
-      <section aria-labelledby="rappels" className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <section aria-labelledby="mes-taches" className="mt-8">
+        <MyTodosCard actor={actor} />
+      </section>
+
+      <section aria-labelledby="rappels" className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle as="h2" id="rappels">

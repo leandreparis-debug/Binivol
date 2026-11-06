@@ -39,6 +39,8 @@ describe("status registry", () => {
       "alert-info",
       "notif-unread",
       "notif-read",
+      "todo-late",
+      "todo-today",
     ]);
   });
 

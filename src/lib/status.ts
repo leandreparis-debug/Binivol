@@ -42,8 +42,16 @@ export type QualificationStatusKey =
 export type AlertStatusKey =
   "alert-high" | "alert-medium" | "alert-low" | "alert-info" | "notif-unread" | "notif-read";
 
+/** « À faire » (step 16): an open task due before today, or today. */
+export type TodoStatusKey = "todo-late" | "todo-today";
+
 export type Status =
-  VolunteerStatus | DeadlineStatus | DossierStatusKey | QualificationStatusKey | AlertStatusKey;
+  | VolunteerStatus
+  | DeadlineStatus
+  | DossierStatusKey
+  | QualificationStatusKey
+  | AlertStatusKey
+  | TodoStatusKey;
 
 /** Colour tone, mapped to design tokens by the components. */
 export type Tone = "neutral" | "accent" | "ok" | "warn" | "danger" | "ink";
@@ -118,12 +126,18 @@ export function alertKey(priority: string): AlertStatusKey {
   return `alert-${priority.toLowerCase()}` as AlertStatusKey;
 }
 
+export const TODO_STATUSES: Record<TodoStatusKey, StatusMeta> = {
+  "todo-late": { label: "En retard", tone: "danger" },
+  "todo-today": { label: "Aujourd'hui", tone: "warn" },
+};
+
 export const STATUSES: Record<Status, StatusMeta> = {
   ...VOLUNTEER_STATUSES,
   ...DEADLINE_STATUSES,
   ...DOSSIER_STATUSES,
   ...QUALIFICATION_STATUSES,
   ...ALERT_STATUSES,
+  ...TODO_STATUSES,
 };
 
 export const STATUS_KEYS = Object.keys(STATUSES) as Status[];

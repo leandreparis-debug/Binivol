@@ -21,6 +21,7 @@ import {
   createProject,
   createTodo,
   getTodo,
+  linkablePerson,
   removeProjectMember,
   reorderMyTodos,
   restoreProject,
@@ -177,6 +178,13 @@ export const restoreTodoAction = defineAction({
     refresh();
     return result;
   },
+});
+
+/** « Ajouter une tâche » from a person page: the person, if the actor sees her. */
+export const linkablePersonAction = defineAction({
+  action: "todo.write",
+  input: z.object({ ref: z.string().min(1).max(20) }),
+  handler: async ({ input, actor }) => linkablePerson(getDb(), actor, input.ref),
 });
 
 /** The side panel (note, comments) loads on demand. */

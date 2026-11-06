@@ -365,6 +365,25 @@ export async function getProject(
   return { project: toProjectView(row, progress.get(projectId), actor.userId), todos };
 }
 
+/**
+ * A person the actor may link a task to (« Ajouter une tâche » on her page):
+ * found by readable number, visible in the actor's directory. Otherwise null.
+ */
+export async function linkablePerson(
+  db: DbOrTx,
+  actor: Actor,
+  ref: string,
+): Promise<{ id: string; name: string } | null> {
+  const row = await db.person.findUnique({
+    where: { ref },
+    select: { id: true, firstName: true, lastName: true, usageName: true },
+  });
+  if (!row) return null;
+  const facts = await loadPersonFacts(db, row.id);
+  if (!facts || !can(actor, "person.directory.read", { person: facts }).allowed) return null;
+  return { id: row.id, name: personName(row) };
+}
+
 /** Active responsibles, to confide or share a task, or to add to a project. */
 export async function listResponsibles(db: DbOrTx, actor: Actor): Promise<TodoUser[]> {
   authorize(actor, "todo.read");
