@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ClipboardCopy, Copy, Eye, FileCheck2, Undo2 } from "lucide-react";
+import { Eye, FileCheck2, Undo2 } from "lucide-react";
 import { FormMessage, useFormAction } from "@/components/person/useFormAction";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { CopyAllButton, CopyField } from "@/components/ui/CopyField";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/ui/Dialog";
 import { Field, Textarea } from "@/components/ui/Field";
 import { formatDateTime } from "@/lib/dates";
@@ -19,19 +20,9 @@ import {
   undoFinalizeAction,
 } from "./gaiaActions";
 
-async function copy(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /** The prefilled sheet: read on demand (journaled), one « Copier » per field. */
 function GaiaSheet({ personId }: { personId: string }) {
   const [rows, setRows] = useState<GaiaRow[] | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   if (!rows) {
@@ -67,23 +58,13 @@ function GaiaSheet({ personId }: { personId: string }) {
   }
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          leftIcon={<ClipboardCopy aria-hidden="true" />}
-          onClick={() => {
-            void copy(gaiaCopyText(rows)).then((ok) => {
-              setCopied(
-                ok ? "Toute la fiche est copiée." : "Copie impossible : sélectionnez le texte.",
-              );
-            });
-          }}
-        >
-          Tout copier
-        </Button>
-        <p role="status" className="text-small text-ink-2">
-          {copied}
-        </p>
-      </div>
+      <CopyAllButton
+        variant="primary"
+        doneMessage="Toute la fiche est copiée."
+        getText={() => gaiaCopyText(rows)}
+      >
+        Tout copier
+      </CopyAllButton>
       <ul className="flex flex-col divide-y divide-line" data-testid="gaia-sheet">
         {rows.map((row) => (
           <li key={row.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -97,20 +78,7 @@ function GaiaSheet({ personId }: { personId: string }) {
                 )}
               </span>
             </div>
-            {row.value && (
-              <Button
-                variant="ghost"
-                aria-label={`Copier ${row.label}`}
-                leftIcon={<Copy aria-hidden="true" />}
-                onClick={() => {
-                  void copy(row.value).then((ok) => {
-                    setCopied(ok ? `${row.label} copié.` : "Copie impossible.");
-                  });
-                }}
-              >
-                Copier
-              </Button>
-            )}
+            {row.value && <CopyField label={row.label} text={row.value} />}
           </li>
         ))}
       </ul>

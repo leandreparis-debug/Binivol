@@ -1,11 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { AlertTriangle, Eye, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Chip } from "@/components/ui/Chip";
+import { CopyAllButton, CopyField } from "@/components/ui/CopyField";
+import { Select } from "@/components/ui/Field";
+import {
+  COPY_PREFS_STORAGE_KEY,
+  copyEntries,
+  DEFAULT_COPY_PREFS,
+  tabulated,
+  valueForCopy,
+  type CopyPrefs,
+} from "@/lib/copyFormat";
 import { formatDateTime } from "@/lib/dates";
 import { DOCUMENT_KIND_LABELS } from "@/lib/labels";
 import type { ComparisonRow, ReportKey } from "@/server/dossier/compare";
@@ -19,6 +29,35 @@ const GROUP_ORDER = [
   "Profil",
   "Pour information",
 ];
+
+/** Copy preferences, remembered in this browser only (a convenience: defaults otherwise). */
+function useCopyPrefs(): [CopyPrefs, (next: CopyPrefs) => void] {
+  const [prefs, setPrefs] = useState<CopyPrefs>(DEFAULT_COPY_PREFS);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COPY_PREFS_STORAGE_KEY);
+      const stored = raw ? (JSON.parse(raw) as Partial<CopyPrefs>) : {};
+      setPrefs({
+        phone: stored.phone === "compact" ? "compact" : "international",
+        address: stored.address === "oneLine" ? "oneLine" : "fields",
+      });
+    } catch {
+      // Private window, blocked storage: the defaults apply.
+    }
+  }, []);
+  const save = (next: CopyPrefs) => {
+    setPrefs(next);
+    try {
+      window.localStorage.setItem(COPY_PREFS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // Not remembered: fine.
+    }
+  };
+  return [prefs, save];
+}
+
+const copyRows = (rows: readonly ComparisonRow[]) =>
+  rows.map((r) => ({ key: r.key, label: r.label, value: r.proposed }));
 
 function initialSelection(rows: ComparisonRow[]): Set<ReportKey> {
   return new Set(
@@ -38,6 +77,7 @@ export function DossierReview({ personId }: { personId: string }) {
   const [done, setDone] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
   const [applying, startApplying] = useTransition();
+  const [prefs, setPrefs] = useCopyPrefs();
 
   const load = (after?: string) => {
     setError(null);
@@ -116,6 +156,41 @@ export function DossierReview({ personId }: { personId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
+      <section
+        aria-label="Copier le dossier"
+        className="flex flex-col gap-3 rounded-card bg-surface p-4 sm:flex-row sm:flex-wrap sm:items-end"
+      >
+        <CopyAllButton
+          variant="primary"
+          getText={() => tabulated(copyEntries(copyRows(groups.flatMap((g) => g.rows)), prefs))}
+        >
+          Tout copier
+        </CopyAllButton>
+        <label className="flex flex-col gap-1 text-small font-medium text-ink">
+          Téléphones copiés
+          <Select
+            value={prefs.phone}
+            onChange={(e) => {
+              setPrefs({ ...prefs, phone: e.target.value as CopyPrefs["phone"] });
+            }}
+          >
+            <option value="international">+33 6 12 34 56 78</option>
+            <option value="compact">0612345678 (sans espaces)</option>
+          </Select>
+        </label>
+        <label className="flex flex-col gap-1 text-small font-medium text-ink">
+          Adresse copiée
+          <Select
+            value={prefs.address}
+            onChange={(e) => {
+              setPrefs({ ...prefs, address: e.target.value as CopyPrefs["address"] });
+            }}
+          >
+            <option value="fields">Champ par champ</option>
+            <option value="oneLine">En une ligne</option>
+          </Select>
+        </label>
+      </section>
       <p className="text-small text-muted">
         Envoyé le {formatDateTime(review.submittedAt)}. Les champs cochés seront écrits dans la
         fiche ; les autres sont laissés tels quels. Le NIVOL et l&apos;e-mail Croix-Rouge déclarés
@@ -125,6 +200,12 @@ export function DossierReview({ personId }: { personId: string }) {
         <Card key={group.name}>
           <CardHeader>
             <CardTitle as="h2">{group.name}</CardTitle>
+            <CopyAllButton
+              ariaLabel={`Copier la section ${group.name}`}
+              getText={() => tabulated(copyEntries(copyRows(group.rows), prefs))}
+            >
+              Copier la section
+            </CopyAllButton>
           </CardHeader>
           <CardContent>
             <div
@@ -141,6 +222,9 @@ export function DossierReview({ personId }: { personId: string }) {
                 <ReviewRow
                   key={row.key}
                   row={row}
+                  copyText={
+                    row.proposed === null ? null : valueForCopy(row.key, row.proposed, prefs)
+                  }
                   checked={selected.has(row.key as ReportKey)}
                   onToggle={(value) => {
                     toggle(row.key as ReportKey, value);
@@ -204,10 +288,13 @@ function ReviewRow({
   row,
   checked,
   onToggle,
+  copyText,
 }: {
   row: ComparisonRow;
   checked: boolean;
   onToggle: (value: boolean) => void;
+  /** What « Copier » writes (the dossier's value, formatted), or null. */
+  copyText: string | null;
 }) {
   return (
     <li
@@ -225,6 +312,7 @@ function ReviewRow({
       <span className="text-body break-words text-ink">
         <span className="text-small text-muted sm:sr-only">Dossier : </span>
         {row.proposed ?? <span className="text-muted">—</span>}
+        {copyText !== null && <CopyField label={row.label} text={copyText} className="ml-1" />}
         {row.warning && (
           <span className="mt-1 flex items-center gap-1.5 text-small text-warn-ink">
             <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
