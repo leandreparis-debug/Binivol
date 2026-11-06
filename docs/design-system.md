@@ -1,8 +1,10 @@
-# Design system Binivol : direction « Suisse »
+# Design system Binivol : direction « Galet »
 
-Direction validée le 06/11/2026 (ADR-064) : grille nette, noir et blanc, **un seul bleu pour
-signaler**. Rigoureux et intemporel. Référence visuelle : le canevas
-https://claude.ai/artifact/CrnbH9ZGwWK5RHrRUyMiKM (page Maquettes, ligne 01).
+Direction validée le 06/11/2026 (ADR-066, qui reprend ADR-064) : fond gris chaud, grandes
+cartes blanches très arrondies, navigation latérale flottante, boutons et navigation en pilule ;
+noir et blanc, **un seul bleu pour signaler**. Référence visuelle : la maquette A « Sobre » du
+canevas https://claude.ai/artifact/1ghHKS95R4X3UQebu3XB1Q (inspirée de deux tableaux de bord
+de référence fournis par le responsable du projet).
 
 Tout le design system est visible sur la page `/design` (toujours en développement, en
 production seulement avec `ENABLE_DESIGN_PAGE=true`). Les tokens vivent dans
@@ -18,9 +20,9 @@ production seulement avec `ENABLE_DESIGN_PAGE=true`). Les tokens vivent dans
 4. **Les motifs (hachures) sont réservés aux données** : barres, rails de progression, matrices.
 5. **Pas d'ombre sur les cartes.** Elles se détachent par le contraste blanc sur gris. Seuls les
    menus flottants portent `shadow-pop`.
-6. **Pas de pilule pour ce qui se clique** : boutons et navigation ont des angles nets (8 px,
-   6 px pour les marques). Le rond est réservé aux avatars, aux pastilles de statut et aux
-   compteurs.
+6. **Ce qui se clique est en pilule** : boutons, boutons-icônes (ronds), entrées de
+   navigation, recherche, onglets et étiquettes. Les champs de saisie gardent un rayon de 12 px
+   (un champ de plusieurs lignes en pilule serait illisible).
 
 ## Tokens
 
@@ -32,13 +34,13 @@ redéfinir les variables sous `[data-theme="dark"]` sans toucher aux composants.
 
 | Token                                   | Valeur                            | Usage                                                |
 | --------------------------------------- | --------------------------------- | ---------------------------------------------------- |
-| `canvas`                                | `#F4F4F2`                         | Fond de l'application                                |
+| `canvas`                                | `#F0EEE9`                         | Fond de l'application (gris chaud)                   |
 | `surface`                               | `#FFFFFF`                         | Cartes, menus, navigation latérale                   |
-| `veil`                                  | `#F4F4F2`                         | Survols, sous-blocs **dans** une carte blanche       |
+| `veil`                                  | `#EDEBE6`                         | Survols, rails, lignes de liste **dans** une carte   |
 | `ink`                                   | `#0F0F0F`                         | Texte, actions principales, élément actif            |
 | `ink-2`                                 | `#2B2B2B`                         | Texte secondaire fort, survol de `ink`               |
 | `muted`                                 | `#5A5A57`                         | Texte secondaire, surtitres                          |
-| `line`                                  | `#E3E3DF`                         | Filets, séparation des lignes de tableau             |
+| `line`                                  | `#E4E2DC`                         | Filets, séparation des lignes de tableau             |
 | `accent`                                | `#1F5BFF`                         | Accent unique                                        |
 | `accent-2`                              | `#A9C1FF`                         | Hachures des données **seulement** (jamais de texte) |
 | `accent-soft`                           | `#E6EDFF`                         | Fond doux d'accent                                   |
@@ -47,9 +49,9 @@ redéfinir les variables sous `[data-theme="dark"]` sans toucher aux composants.
 | `warn` / `warn-soft` / `warn-ink`       | `#E5A100` / `#FFF3D1` / `#8A6200` | inchangés                                            |
 | `danger` / `danger-soft` / `danger-ink` | `#D92D3A` / `#FDE3E5` / `#A81E29` | inchangés                                            |
 
-`veil` vaut désormais `canvas` : il ne sert plus à distinguer un bloc posé sur le fond (les
-colonnes du tableau des candidats, les onglets, les sous-navigations ont reçu un filet `line`
-ou un fond blanc).
+`veil` ne sert qu'à l'intérieur d'une carte blanche (rails des graphiques, lignes de la liste
+« à faire » de l'accueil en `veil/60`, survols) ; posé sur le fond, un bloc reçoit un fond blanc
+ou un filet `line`.
 
 ### Contrastes mesurés (WCAG 2.1, test `src/lib/__tests__/contrast.test.ts`)
 
@@ -57,15 +59,16 @@ Le test lit les valeurs dans `globals.css` : il suit la palette réelle.
 
 | Paire                                                   | Ratio                  | Verdict                                                |
 | ------------------------------------------------------- | ---------------------- | ------------------------------------------------------ |
-| `muted` sur `canvas`                                    | 6,28 : 1               | AA                                                     |
+| `muted` sur `canvas`                                    | 5,97 : 1               | AA                                                     |
+| `muted` sur `veil`                                      | 5,81 : 1               | AA                                                     |
 | `muted` sur `surface`                                   | 6,92 : 1               | AA                                                     |
 | `accent` sur `surface`                                  | 5,25 : 1               | AA                                                     |
-| `accent` sur `canvas`                                   | 4,77 : 1               | AA                                                     |
+| `accent` sur `canvas`                                   | 4,53 : 1               | AA (de justesse, voir plus bas)                        |
 | blanc sur `accent`                                      | 5,25 : 1               | AA (StatCard highlight)                                |
 | `accent-ink` sur `accent-soft`                          | 6,66 : 1               | AA                                                     |
 | `accent` sur `accent-soft`                              | 4,48 : 1               | **échec** → le texte sur fond doux est en `accent-ink` |
 | `accent-ink` sur blanc                                  | 7,80 : 1               | AA (badge de la StatCard highlight)                    |
-| blanc sur `ink`, `ink` sur `canvas`                     | 19,17 / 17,41 : 1      | AAA                                                    |
+| blanc sur `ink`, `ink` sur `canvas`                     | 19,17 / 16,53 : 1      | AAA                                                    |
 | `warn-ink` / `ok-ink` / `danger-ink` sur leur fond doux | 4,96 / 5,69 / 6,00 : 1 | AA                                                     |
 
 **Valeurs ajustées pour le contraste.**
@@ -77,23 +80,28 @@ Le test lit les valeurs dans `globals.css` : il suit la palette réelle.
   et son badge de variation est blanc avec un texte `accent-ink` (7,80 : 1) au lieu d'un blanc
   translucide (échec relevé par axe).
 - `muted` (`#5A5A57`) est conforme tel quel, sur `canvas` comme sur `surface`.
+- Le fond de la maquette (`#EDEBE6`) ne laissait à `accent` que 4,41 : 1 : le fond de
+  l'application est éclairci à `#F0EEE9` (4,53 : 1) et `#EDEBE6` devient `veil`, qui ne porte
+  jamais de texte `accent`.
 
 ### Rayons
 
-| Classe            | Valeur  | Usage                                                     |
-| ----------------- | ------- | --------------------------------------------------------- |
-| `rounded-card`    | 12 px   | Cartes, StatCard, dialogues                               |
-| `rounded-inner`   | 8 px    | Sous-blocs, menus flottants                               |
-| `rounded-field`   | 8 px    | Champs                                                    |
-| `rounded-control` | 8 px    | Boutons, boutons-icônes, liens d'action                   |
-| `rounded-mark`    | 6 px    | Chips, marques de code, éléments de navigation            |
-| `rounded-bar`     | 3 px    | Barres de graphique (en haut seulement : `rounded-t-bar`) |
-| `rounded-pill`    | 9999 px | Avatars, pastilles de statut, compteurs **seulement**     |
+| Classe            | Valeur  | Usage                                              |
+| ----------------- | ------- | -------------------------------------------------- |
+| `rounded-panel`   | 28 px   | Navigation latérale flottante                      |
+| `rounded-card`    | 24 px   | Cartes, StatCard, dialogues                        |
+| `rounded-inner`   | 16 px   | Sous-blocs, lignes de liste, menus flottants, rail |
+| `rounded-field`   | 12 px   | Champs de saisie                                   |
+| `rounded-control` | 9999 px | Boutons, boutons-icônes, navigation, recherche     |
+| `rounded-mark`    | 9999 px | Chips, onglets, entrées de menu                    |
+| `rounded-bar`     | 8 px    | Barres de graphique et rails de progression        |
+| `rounded-pill`    | 9999 px | Avatars, pastilles de statut, compteurs            |
 
 ### Ombres, espacements
 
 - `shadow-pop` : menus flottants et dialogues uniquement.
-- Grille de 4 px (échelle Tailwind). Gouttière entre cartes `gap-4` (16 px). Padding des cartes
+- Grille de 4 px (échelle Tailwind). Gouttière entre cartes `gap-5` (20 px), marge de la
+  navigation flottante 20 px. Padding des cartes
   `p-5` / `sm:p-6`. Gouttière de page `px-gutter` (16 px), conteneur `max-w-app` (1440 px).
 
 ### Motifs
@@ -112,16 +120,16 @@ Polices chargées par `next/font/google` : téléchargées au build et servies p
 - **Inter** pour le texte courant ;
 - **Geist Mono** pour les NIVOL, références et codes (ADR-064).
 
-| Classe         | Taille / interligne | Poids | Interlettrage            | Police                                       |
-| -------------- | ------------------- | ----- | ------------------------ | -------------------------------------------- |
-| `text-display` | 46 / 50             | 700   | −0,035em                 | Inter Tight                                  |
-| `text-title`   | 26 / 32             | 700   | −0,035em                 | Inter Tight                                  |
-| `text-figure`  | 34 / 38             | 700   | −0,035em, `tabular-nums` | Inter Tight (`font-display`)                 |
-| `text-section` | 19 / 26             | 700   | −0,02em                  | Inter Tight                                  |
-| `text-body`    | 15 / 22             | 400   |                          | Inter                                        |
-| `text-small`   | 13 / 18             |       |                          | Inter                                        |
-| `text-mono`    | 12,5 / 18           |       | avec `font-mono`         | Geist Mono                                   |
-| `eyebrow`      | 12 / 16, capitales  | 600   | 0,1em                    | Inter, couleur à part (`eyebrow text-muted`) |
+| Classe         | Taille / interligne | Poids | Interlettrage           | Police                                       |
+| -------------- | ------------------- | ----- | ----------------------- | -------------------------------------------- |
+| `text-display` | 46 / 50             | 700   | −0,035em                | Inter Tight                                  |
+| `text-title`   | 26 / 32             | 700   | −0,035em                | Inter Tight                                  |
+| `text-figure`  | 44 / 48             | 700   | −0,04em, `tabular-nums` | Inter Tight (`font-display`)                 |
+| `text-section` | 19 / 26             | 700   | −0,02em                 | Inter Tight                                  |
+| `text-body`    | 15 / 22             | 400   |                         | Inter                                        |
+| `text-small`   | 13 / 18             |       |                         | Inter                                        |
+| `text-mono`    | 12,5 / 18           |       | avec `font-mono`        | Geist Mono                                   |
+| `eyebrow`      | 12 / 16, capitales  | 600   | 0,1em                   | Inter, couleur à part (`eyebrow text-muted`) |
 
 ### Mouvement
 
@@ -154,26 +162,26 @@ Tout est neutralisé sous `prefers-reduced-motion` (durées ramenées à 0, aucu
 
 ## Composants
 
-| Composant                                        | Notes                                                                                                                                                          |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Button`                                         | `primary` (fond ink, texte blanc), `outline` = secondaire (blanc, filet 1 px ink), `accent`, `soft`, `ghost` ; rayon 8 ; `sm`/`md`/`lg` ; pressé `scale(0.97)` |
-| `IconButton`                                     | 44 px, rayon 8 ; `outline`, `ink`, `accent` ; `aria-label` obligatoire (typé)                                                                                  |
-| `SectionTabs` (ex-`NavPills`)                    | sous-navigation d'une section, bande blanche filetée, actif en `ink` rayon 6, `aria-current="page"`                                                            |
-| `SideNav` (`components/layout`)                  | navigation principale : barre latérale blanche dès 1024 px, rail compact dès 640 px                                                                            |
-| `BottomNav` (`components/layout`)                | navigation principale sous 640 px                                                                                                                              |
-| `Card`, `CardHeader`, `CardTitle`, `CardContent` | surface blanche, rayon 12, sans ombre, apparition `animate-rise`                                                                                               |
-| `StatCard`                                       | `default` (blanc), `highlight` (accent plein, une par écran), `dark` ; surtitre `eyebrow`, chiffre Inter Tight                                                 |
-| `Chip`                                           | rayon 6 ; tons `neutral`, `accent`, `ok`, `warn`, `danger`, `ink`                                                                                              |
-| `StatusDot`                                      | point rond **et** libellé ; statuts dans `src/lib/status.ts`                                                                                                   |
-| `Field`, `Input`, `Textarea`, `Select`           | rayon 8, 44 px ; label obligatoire, aide et erreur reliées par `aria-describedby`                                                                              |
-| `SearchInput`                                    | rayon 8, loupe, `aria-label` obligatoire                                                                                                                       |
-| `DataTable`                                      | en-tête blanc, lignes séparées par `line`, survol très léger (`veil/60`), cartes sous 640 px                                                                   |
-| `Avatar`                                         | initiales dans un rond (seul usage du rond avec les pastilles)                                                                                                 |
-| `BarChart`                                       | barres horizontales SVG, hachures pour la série secondaire, tableau des données dépliable                                                                      |
-| `HatchedBarChart`                                | barres verticales, haut arrondi 3 px, montée `animate-grow`                                                                                                    |
-| `ProgressBar`                                    | rail hachuré, rayon 3, remplissage accent, `role="progressbar"`                                                                                                |
-| `Dialog`, `DropdownMenu`                         | rayon 12 / 8, `shadow-pop`                                                                                                                                     |
-| `Logo`                                           | voir plus haut                                                                                                                                                 |
+| Composant                                        | Notes                                                                                                                                                         |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Button`                                         | `primary` (fond ink, texte blanc), `outline` = secondaire (blanc, filet 1 px ink), `accent`, `soft`, `ghost` ; pilule ; `sm`/`md`/`lg` ; pressé `scale(0.97)` |
+| `IconButton`                                     | rond de 44 px ; `outline`, `surface` (blanc sans filet, sur le fond), `ink`, `accent` ; `aria-label` obligatoire (typé)                                       |
+| `SectionTabs` (ex-`NavPills`)                    | sous-navigation d'une section, bande blanche filetée, actif en pilule `ink`, `aria-current="page"`                                                            |
+| `SideNav` (`components/layout`)                  | navigation principale : panneau blanc flottant (rayon 28) dès 1024 px, rail compact dès 640 px ; carte encre « Importer le classeur » si autorisé             |
+| `BottomNav` (`components/layout`)                | navigation principale sous 640 px                                                                                                                             |
+| `Card`, `CardHeader`, `CardTitle`, `CardContent` | surface blanche, rayon 24, sans ombre, apparition `animate-rise`                                                                                              |
+| `StatCard`                                       | `default` (blanc), `highlight` (accent plein, une par écran), `dark` ; libellé 15 px, flèche dans un rond (`arrow`) si la carte est un lien, chiffre 44 px    |
+| `Chip`                                           | pilule ; tons `neutral`, `accent`, `ok`, `warn`, `danger`, `ink`                                                                                              |
+| `StatusDot`                                      | point rond **et** libellé ; statuts dans `src/lib/status.ts`                                                                                                  |
+| `Field`, `Input`, `Textarea`, `Select`           | rayon 12, 44 px ; label obligatoire, aide et erreur reliées par `aria-describedby`                                                                            |
+| `SearchInput`                                    | rayon 12, loupe, `aria-label` obligatoire ; la recherche de la barre du haut est en pilule                                                                    |
+| `DataTable`                                      | en-tête blanc, lignes séparées par `line`, survol très léger (`veil/60`), cartes sous 640 px                                                                  |
+| `Avatar`                                         | initiales dans un rond (seul usage du rond avec les pastilles)                                                                                                |
+| `BarChart`                                       | barres horizontales SVG, hachures pour la série secondaire, tableau des données dépliable                                                                     |
+| `HatchedBarChart`                                | barres verticales, haut arrondi 8 px, montée `animate-grow`                                                                                                   |
+| `ProgressBar`                                    | rail hachuré, rayon 8, remplissage accent, `role="progressbar"`                                                                                               |
+| `Dialog`, `DropdownMenu`                         | rayon 24 / 16, `shadow-pop`                                                                                                                                   |
+| `Logo`                                           | voir plus haut                                                                                                                                                |
 
 Règles d'usage :
 
@@ -188,9 +196,12 @@ Règles d'usage :
 
 ## Coquille
 
-- **Ordinateur (≥ 1024 px)** : barre latérale blanche de 240 px (logo, navigation avec libellés,
-  actif en `ink`), barre supérieure collante (recherche, notifications, menu du compte).
-- **Tablette (640 à 1023 px)** : rail compact de 80 px (icône du logo, icônes et libellés courts).
+- **Ordinateur (≥ 1024 px)** : panneau blanc flottant de 240 px, à 20 px des bords (logo,
+  « Menu », entrées en pilule, actif en `ink`, carte encre « Importer le classeur » pour qui peut
+  importer) ; barre supérieure collante sur le fond : recherche en pilule (ouvre l'annuaire avec
+  `?q=`), cloche ronde, pilule du compte (nom et profils).
+- **Tablette (640 à 1023 px)** : rail flottant de 80 px (icône du logo, icônes et libellés
+  courts).
 - **Téléphone (< 640 px)** : logo dans la barre supérieure, `BottomNav` en bas (5 icônes et
   libellés).
 - Route group `(public)` : logo centré, sans navigation, pour le parcours candidat.

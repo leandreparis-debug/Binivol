@@ -879,7 +879,7 @@ sans dépendance ; le résumé PDF est fait avec `pdf-lib`, déjà utilisé.
 
 **Conséquences.** Pas de ZIP64 (archives de moins de 4 Go, largement suffisant).
 
-## ADR-064 — Direction « Suisse »
+## ADR-064 — Direction « Suisse » (rayons et pilules remplacés par l'ADR-066)
 
 **Contexte.** La première direction artistique (Geist, cartes de rayon 24, boutons et
 navigation en pilule) est remplacée par la direction « Suisse », validée par Léandre le
@@ -924,3 +924,28 @@ favicon, PDF). Changer le logo = relancer les deux scripts. Le PNG des e-mails e
 (`public/brand/binivol-email.png`) ; il n'est pas encore inséré dans les modèles d'e-mail, qui
 vivent dans `src/server/mail/` (hors du périmètre de cette refonte) : une ligne à ajouter en
 tête du HTML des modèles.
+
+## ADR-066 — Direction « Galet » (cartes arrondies, pilules, navigation flottante)
+
+**Contexte.** Le 06/11/2026, le responsable du projet a jugé la direction « Suisse » trop
+austère et fourni deux tableaux de bord de référence. Deux maquettes ont été proposées sur le
+canevas https://claude.ai/artifact/1ghHKS95R4X3UQebu3XB1Q : A « Sobre » (fond gris chaud,
+grandes cartes, pilules, accent bleu unique) et B « Couleur » (aplats lilas, citron, corail).
+**La maquette A est retenue.**
+
+**Décision.** On garde de l'ADR-064 la palette (encre, accent bleu unique, `accent-2` pour les
+hachures), les polices et le mouvement. Changent : fond `#F0EEE9` (gris chaud ; `#EDEBE6` de la
+maquette devient `veil`, car `accent` n'y atteint que 4,41 : 1), cartes de rayon 24, navigation
+latérale en panneau blanc flottant de rayon 28, boutons, boutons-icônes, navigation, recherche,
+onglets et étiquettes en pilule, champs en rayon 12, barres en rayon 8, chiffres clés à 44 px.
+L'accueil reçoit la date du jour au-dessus du titre, des StatCard avec une flèche quand elles
+sont des liens, et une liste « à faire » en lignes teintées. La recherche de la barre du haut
+devient un vrai formulaire (elle ouvre l'annuaire avec `?q=`) ; le bouton-loupe précédent
+n'avait pas d'action. La carte « Importer le classeur » de la navigation n'apparaît qu'à qui a
+le droit `import.run` (calculé dans le layout, comme le menu du compte).
+
+**Conséquences.** Les principes restent : le noir agit, l'accent signale ; une seule StatCard
+highlight ; statut = pastille + libellé ; hachures réservées aux données ; pas d'ombre sur les
+cartes. La règle « jamais de pilule » de l'ADR-064 est levée. La jauge et les cartes sombres de
+la maquette (taux de formations à jour) demanderaient un nouvel indicateur dans
+`src/server/services/dashboard.ts` : non fait dans cette refonte, purement visuelle.

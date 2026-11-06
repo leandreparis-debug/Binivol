@@ -58,12 +58,13 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
   `src/lib/status.ts`).
 - **Motifs (hachures) réservés aux données** : graphiques, rails de progression. Jamais en
   décoration.
-- **Direction « Suisse »** (ADR-064, `docs/design-system.md`) : grille nette, noir et blanc, un
-  seul bleu `#1F5BFF` pour signaler ; titres en Inter Tight 700, texte en Inter, codes en Geist
-  Mono (polices `next/font`, auto-hébergées).
-- Cartes blanches sur fond gris, rayon 12, **sans ombre** ; seuls les menus flottants ont
-  `shadow-pop`. Boutons rayon 8, navigation rayon 6 : **jamais de pilule** pour un bouton ou la
-  navigation (le rond est réservé aux avatars, pastilles de statut et compteurs).
+- **Direction « Galet »** (ADR-066, qui reprend ADR-064 ; `docs/design-system.md`) : fond gris
+  chaud `#F0EEE9`, noir et blanc, un seul bleu `#1F5BFF` pour signaler ; titres en Inter Tight
+  700, texte en Inter, codes en Geist Mono (polices `next/font`, auto-hébergées).
+- Grandes cartes blanches de rayon 24, **sans ombre** ; navigation latérale en panneau blanc
+  flottant (rayon 28) ; seuls les menus flottants ont `shadow-pop`. Boutons, navigation,
+  recherche et étiquettes **en pilule** (`rounded-control`, `rounded-mark`) ; champs de saisie
+  rayon 12. Jamais de rayon écrit en dur quand un token existe.
 - Logo : `src/components/ui/Logo.tsx` (piste « Point », ADR-065), jamais de croix rouge.
 - Accessibilité WCAG 2.1 AA : contraste ≥ 4,5:1, focus visible (`focus-ring`), cibles ≥ 44 px,
   `prefers-reduced-motion` respecté, champs à 16 px sur mobile.
