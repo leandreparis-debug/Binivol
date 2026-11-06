@@ -25,7 +25,7 @@ export const buttonVariantClasses: Record<ButtonVariant, string> = {
   primary: "bg-ink text-white hover:bg-ink-2 active:bg-ink",
   accent: "bg-accent text-white hover:bg-accent-ink active:bg-accent",
   soft: "bg-veil text-ink hover:bg-line active:bg-veil",
-  outline: "bg-surface text-ink border border-line hover:bg-veil active:bg-surface",
+  outline: "bg-surface text-ink border border-ink hover:bg-veil active:bg-surface",
   ghost: "bg-transparent text-ink hover:bg-veil active:bg-transparent",
 };
 
@@ -36,10 +36,12 @@ export const buttonSizeClasses: Record<ButtonSize, string> = {
 };
 
 export const buttonBaseClasses =
-  "focus-ring inline-flex shrink-0 cursor-pointer select-none items-center justify-center rounded-pill font-medium whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none";
+  "focus-ring inline-flex shrink-0 cursor-pointer select-none items-center justify-center rounded-control font-medium whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150 press disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none";
 
 /**
- * Pill-shaped button. Supports `asChild` to render a link with the same styles.
+ * Button of the direction « Suisse »: 8 px radius; `primary` ink on white text,
+ * `outline` (secondary) white with a 1 px ink border. Pressed: scale 0.97
+ * (none under reduced motion). Supports `asChild` to render a link.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {

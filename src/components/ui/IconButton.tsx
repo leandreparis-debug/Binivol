@@ -32,7 +32,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   ref,
 ) {
   const classes = cn(
-    "relative inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill focus-ring transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+    "relative inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-control focus-ring transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
     variantClasses[variant],
     className,
   );

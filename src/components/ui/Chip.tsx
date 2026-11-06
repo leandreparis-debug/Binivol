@@ -24,7 +24,7 @@ export function Chip({ tone = "neutral", icon, className, children, ...rest }: C
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-pill px-2.5 text-small font-medium whitespace-nowrap",
+        "inline-flex h-7 items-center gap-1.5 rounded-mark px-2.5 text-small font-medium whitespace-nowrap",
         chipToneClasses[tone],
         className,
       )}

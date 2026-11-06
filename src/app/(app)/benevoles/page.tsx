@@ -88,7 +88,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
               <a
                 href={`/api/exports/annuaire?${exportQuery(raw)}`}
                 download
-                className="inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-small font-medium text-ink focus-ring hover:bg-veil"
+                className="inline-flex min-h-11 items-center gap-2 rounded-control border border-line bg-surface px-4 text-small font-medium text-ink focus-ring hover:bg-veil"
               >
                 <Download aria-hidden="true" className="size-4" /> Exporter la liste (CSV)
               </a>

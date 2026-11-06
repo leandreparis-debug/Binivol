@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BinivolLogo } from "@/components/brand/BinivolLogo";
+import { Logo } from "@/components/ui/Logo";
 
 /**
  * Minimal layout for the public candidate flow (phone first): centered logo,
@@ -9,7 +9,7 @@ export default function PublicLayout({ children }: Readonly<{ children: React.Re
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
       <header className="flex justify-center px-gutter py-5">
-        <BinivolLogo size={28} />
+        <Logo size={24} />
       </header>
       <main id="contenu" className="mx-auto w-full max-w-lg flex-1 px-gutter pb-10">
         {children}

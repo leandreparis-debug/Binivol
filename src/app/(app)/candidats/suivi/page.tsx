@@ -84,7 +84,7 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Sea
       <div className="mb-6 flex flex-wrap items-center gap-4">
         <Link
           href="/candidats"
-          className="inline-flex min-h-11 items-center gap-2 rounded-pill text-small text-ink-2 focus-ring hover:text-ink"
+          className="inline-flex min-h-11 items-center gap-2 rounded-control text-small text-ink-2 focus-ring hover:text-ink"
         >
           <ArrowLeft aria-hidden="true" className="size-4" /> Candidats
         </Link>
@@ -92,14 +92,14 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Sea
           <Link
             href="/candidats/suivi"
             aria-current={owner !== "moi" ? "page" : undefined}
-            className="inline-flex min-h-11 items-center rounded-pill px-4 text-body focus-ring aria-[current=page]:bg-ink aria-[current=page]:text-white"
+            className="inline-flex min-h-11 items-center rounded-control px-4 text-body focus-ring aria-[current=page]:bg-ink aria-[current=page]:text-white"
           >
             Tous les responsables
           </Link>
           <Link
             href="/candidats/suivi?responsable=moi"
             aria-current={owner === "moi" ? "page" : undefined}
-            className="inline-flex min-h-11 items-center rounded-pill px-4 text-body focus-ring aria-[current=page]:bg-ink aria-[current=page]:text-white"
+            className="inline-flex min-h-11 items-center rounded-control px-4 text-body focus-ring aria-[current=page]:bg-ink aria-[current=page]:text-white"
           >
             Mes candidats
           </Link>

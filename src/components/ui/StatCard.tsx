@@ -15,7 +15,7 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Footer text, after the pill. */
   footer?: string;
   /**
-   * `default` (veil), `dark` (ink) or `highlight` (accent gradient).
+   * `default` (white), `dark` (ink) or `highlight` (solid accent).
    * Rule: **one `highlight` per screen at most** — it marks the single figure that matters.
    */
   variant?: StatCardVariant;
@@ -26,22 +26,23 @@ const variantClasses: Record<
   { root: string; label: string; icon: string; footer: string }
 > = {
   default: {
-    root: "bg-veil text-ink",
+    root: "bg-surface text-ink",
     label: "text-muted",
-    icon: "bg-surface text-ink",
+    icon: "bg-veil text-ink",
     footer: "text-muted",
   },
   highlight: {
-    root: "bg-accent-gradient text-white",
-    label: "text-white/85",
-    icon: "bg-white/20 text-white",
-    footer: "text-white/85",
+    // Solid accent: white text at 5.25:1 (a gradient to the pale accent-2 would fail).
+    root: "bg-accent text-white",
+    label: "text-white",
+    icon: "bg-white/15 text-white",
+    footer: "text-white",
   },
   dark: {
     root: "bg-ink text-white",
-    label: "text-white/70",
+    label: "text-white/80",
     icon: "bg-white/10 text-white",
-    footer: "text-white/70",
+    footer: "text-white/80",
   },
 };
 
@@ -69,17 +70,21 @@ export function StatCard({
   const styles = variantClasses[variant];
   return (
     <div
-      className={cn("flex flex-col gap-4 rounded-card p-5 sm:p-6", styles.root, className)}
+      className={cn(
+        "flex animate-rise flex-col gap-4 rounded-card p-5 sm:p-6",
+        styles.root,
+        className,
+      )}
       data-variant={variant}
       {...rest}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className={cn("text-small font-medium", styles.label)}>{label}</p>
+        <p className={cn("eyebrow", styles.label)}>{label}</p>
         {icon && (
           <span
             aria-hidden="true"
             className={cn(
-              "inline-flex size-9 shrink-0 items-center justify-center rounded-pill [&>svg]:size-4",
+              "inline-flex size-9 shrink-0 items-center justify-center rounded-control [&>svg]:size-4",
               styles.icon,
             )}
           >
@@ -87,13 +92,13 @@ export function StatCard({
           </span>
         )}
       </div>
-      <p className="text-figure tabular-nums">{value}</p>
+      <p className="font-display text-figure tabular-nums">{value}</p>
       {(delta ?? footer) && (
         <div className={cn("flex flex-wrap items-center gap-2 text-small", styles.footer)}>
           {delta && (
             <span
               className={cn(
-                "inline-flex h-6 items-center rounded-pill px-2 font-medium tabular-nums",
+                "inline-flex h-6 items-center rounded-mark px-2 font-medium tabular-nums",
                 deltaClasses(variant, deltaTone),
               )}
             >

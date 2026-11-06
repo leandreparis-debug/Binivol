@@ -64,7 +64,7 @@ function NameCell({ item }: { item: DirectoryItem }) {
       <span
         tabIndex={0}
         aria-describedby={tipId}
-        className="inline-flex size-11 items-center justify-center rounded-pill text-muted focus-ring"
+        className="inline-flex size-11 items-center justify-center rounded-control text-muted focus-ring"
       >
         <Info aria-hidden="true" className="size-4" />
         <span className="sr-only">Pourquoi pas de fiche ?</span>

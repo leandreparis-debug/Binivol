@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Exports" };
 export const dynamic = "force-dynamic";
 
 const DOWNLOAD =
-  "inline-flex min-h-11 items-center gap-2 self-start rounded-pill bg-ink px-5 text-body font-medium text-white focus-ring hover:bg-ink-2";
+  "inline-flex min-h-11 items-center gap-2 self-start rounded-control bg-ink px-5 text-body font-medium text-white focus-ring hover:bg-ink-2";
 
 /**
  * Exports (step 13, TOPAZE, docs/exports.md). Every download is written to

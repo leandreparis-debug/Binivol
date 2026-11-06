@@ -9,7 +9,7 @@ export * from "./EmptyState";
 export * from "./Field";
 export * from "./HatchedBarChart";
 export * from "./IconButton";
-export * from "./NavPills";
+export * from "./SectionTabs";
 export * from "./ProgressBar";
 export * from "./Spinner";
 export * from "./StatCard";

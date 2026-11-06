@@ -79,8 +79,8 @@ export default async function LogsPage({ searchParams }: { searchParams: SearchP
                 aria-current={journal === t.key ? "page" : undefined}
                 className={
                   journal === t.key
-                    ? "inline-flex min-h-11 items-center rounded-pill bg-ink px-4 text-body text-white focus-ring"
-                    : "inline-flex min-h-11 items-center rounded-pill bg-surface px-4 text-body text-ink focus-ring hover:bg-veil"
+                    ? "inline-flex min-h-11 items-center rounded-control bg-ink px-4 text-body text-white focus-ring"
+                    : "inline-flex min-h-11 items-center rounded-control bg-surface px-4 text-body text-ink focus-ring hover:bg-veil"
                 }
               >
                 {t.label}
@@ -164,7 +164,7 @@ export default async function LogsPage({ searchParams }: { searchParams: SearchP
               <a
                 href={`/api/exports/journal?${query({ page: "" })}`}
                 download
-                className="inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-small font-medium text-ink focus-ring hover:bg-veil"
+                className="inline-flex min-h-11 items-center gap-2 rounded-control border border-line bg-surface px-4 text-small font-medium text-ink focus-ring hover:bg-veil"
               >
                 <Download aria-hidden="true" className="size-4" /> Exporter (CSV)
               </a>
@@ -289,7 +289,7 @@ export default async function LogsPage({ searchParams }: { searchParams: SearchP
             {filters.page > 1 && (
               <Link
                 href={`/admin/journaux?${query({ page: String(filters.page - 1) })}`}
-                className="inline-flex min-h-11 items-center rounded-pill bg-surface px-4 text-body text-ink focus-ring"
+                className="inline-flex min-h-11 items-center rounded-control bg-surface px-4 text-body text-ink focus-ring"
               >
                 Page précédente
               </Link>
@@ -297,7 +297,7 @@ export default async function LogsPage({ searchParams }: { searchParams: SearchP
             {filters.page < pages && (
               <Link
                 href={`/admin/journaux?${query({ page: String(filters.page + 1) })}`}
-                className="inline-flex min-h-11 items-center rounded-pill bg-surface px-4 text-body text-ink focus-ring"
+                className="inline-flex min-h-11 items-center rounded-control bg-surface px-4 text-body text-ink focus-ring"
               >
                 Page suivante
               </Link>

@@ -81,15 +81,18 @@ export function HatchedBarChart({
               const primaryPct = (d.primary / max) * 100;
               const secondaryPct = ((d.secondary ?? 0) / max) * 100;
               return (
-                <div key={d.label} className="flex h-full w-full max-w-12 flex-col justify-end">
+                <div
+                  key={d.label}
+                  className="flex h-full w-full max-w-12 origin-bottom animate-grow flex-col justify-end"
+                >
                   {secondaryPct > 0 && (
                     <div
-                      className="rounded-t-[6px] bg-hatch-accent"
+                      className="rounded-t-bar bg-hatch-accent"
                       style={{ height: `${secondaryPct}%` }}
                     />
                   )}
                   <div
-                    className={cn("bg-ink", secondaryPct > 0 ? "" : "rounded-t-[6px]")}
+                    className={cn("bg-ink", secondaryPct > 0 ? "" : "rounded-t-bar")}
                     style={{ height: `${primaryPct}%` }}
                   />
                 </div>
@@ -109,12 +112,12 @@ export function HatchedBarChart({
       </div>
       <figcaption className="flex flex-wrap items-center gap-4 text-small text-muted">
         <span className="inline-flex items-center gap-2">
-          <span aria-hidden="true" className="size-3 rounded-[3px] bg-ink" />
+          <span aria-hidden="true" className="size-3 rounded-bar bg-ink" />
           {primaryLabel}
         </span>
         {secondaryLabel && (
           <span className="inline-flex items-center gap-2">
-            <span aria-hidden="true" className="size-3 rounded-[3px] bg-hatch-accent" />
+            <span aria-hidden="true" className="size-3 rounded-bar bg-hatch-accent" />
             {secondaryLabel}
           </span>
         )}

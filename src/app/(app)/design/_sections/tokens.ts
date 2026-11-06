@@ -29,5 +29,9 @@ export const TYPE_SCALE = [
   { name: "section", className: "text-section", spec: "19 / 26 · 600" },
   { name: "body", className: "text-body", spec: "15 / 22 · 400" },
   { name: "small", className: "text-small", spec: "13 / 18" },
-  { name: "mono", className: "text-mono font-mono", spec: "12,5 / 18 · Geist Mono" },
+  {
+    name: "mono",
+    className: "text-mono font-mono",
+    spec: "12,5 / 18 · Geist Mono (auto-hébergée)",
+  },
 ] as const;

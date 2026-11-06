@@ -10,6 +10,6 @@ describe("IconButton", () => {
       </IconButton>,
     );
     const button = screen.getByRole("button", { name: "Rechercher" });
-    expect(button).toHaveClass("size-11", "rounded-pill", "bg-ink");
+    expect(button).toHaveClass("size-11", "rounded-control", "bg-ink");
   });
 });

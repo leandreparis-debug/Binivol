@@ -176,7 +176,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
         ref={ref}
         type="search"
         {...props}
-        className={cn(controlClasses, "h-11 rounded-pill pl-11")}
+        className={cn(controlClasses, "h-11 rounded-field pl-11")}
       />
     </span>
   );

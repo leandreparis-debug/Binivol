@@ -31,7 +31,7 @@ export default async function DossierReviewPage({ params }: { params: Promise<{ 
     <div className="flex flex-col gap-6">
       <Link
         href={`/benevoles/${person.ref}?onglet=integration`}
-        className="inline-flex min-h-11 w-max items-center gap-2 rounded-pill text-small text-ink-2 focus-ring hover:text-ink"
+        className="inline-flex min-h-11 w-max items-center gap-2 rounded-control text-small text-ink-2 focus-ring hover:text-ink"
       >
         <ArrowLeft aria-hidden="true" className="size-4" /> Retour à la fiche
       </Link>

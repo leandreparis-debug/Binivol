@@ -28,7 +28,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
     <>
       <Link
         href="/formations/sessions"
-        className="inline-flex min-h-11 w-max items-center gap-2 rounded-pill text-small text-ink-2 focus-ring hover:text-ink"
+        className="inline-flex min-h-11 w-max items-center gap-2 rounded-control text-small text-ink-2 focus-ring hover:text-ink"
       >
         <ArrowLeft aria-hidden="true" className="size-4" /> Sessions
       </Link>

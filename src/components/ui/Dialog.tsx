@@ -36,7 +36,7 @@ export function DialogContent({
         <div className="flex items-start justify-between gap-4">
           <RadixDialog.Title className="text-section text-ink">{title}</RadixDialog.Title>
           <RadixDialog.Close
-            className="-mt-2 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-pill text-muted focus-ring hover:bg-veil"
+            className="-mt-2 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-control text-muted focus-ring hover:bg-veil"
             aria-label="Fermer"
           >
             <X className="size-5" aria-hidden="true" />

@@ -675,7 +675,7 @@ export function ReviewStep({
                 </span>
                 <button
                   type="button"
-                  className="min-h-11 self-start rounded-pill text-small font-medium text-ink underline underline-offset-2 focus-ring"
+                  className="min-h-11 self-start rounded-control text-small font-medium text-ink underline underline-offset-2 focus-ring"
                   onClick={() => {
                     onGoTo(issue.step);
                   }}
@@ -719,7 +719,7 @@ export function ReviewStep({
           Vos données personnelles
         </h3>
         <details className="rounded-inner bg-veil p-4">
-          <summary className="min-h-11 cursor-pointer rounded-pill py-2 font-medium text-ink focus-ring">
+          <summary className="min-h-11 cursor-pointer rounded-control py-2 font-medium text-ink focus-ring">
             Lire l&apos;information sur vos données
           </summary>
           <div className="mt-2 text-small whitespace-pre-line text-ink-2">{rgpdNotice}</div>

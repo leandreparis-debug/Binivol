@@ -62,7 +62,7 @@ export function TimelineView({ events }: { events: TimelineEvent[] }) {
                   });
                 }}
                 className={cn(
-                  "inline-flex h-11 items-center gap-2 rounded-pill border px-4 text-small font-medium focus-ring",
+                  "inline-flex h-11 items-center gap-2 rounded-control border px-4 text-small font-medium focus-ring",
                   shown ? "border-ink bg-ink text-white" : "border-line bg-surface text-ink-2",
                 )}
               >

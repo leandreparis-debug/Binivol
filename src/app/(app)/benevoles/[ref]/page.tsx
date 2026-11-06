@@ -134,7 +134,7 @@ function ReducedPersonHeader({ header }: { header: ReducedHeader }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/benevoles"
-          className="inline-flex min-h-11 w-max items-center gap-2 rounded-pill text-small text-ink-2 focus-ring hover:text-ink"
+          className="inline-flex min-h-11 w-max items-center gap-2 rounded-control text-small text-ink-2 focus-ring hover:text-ink"
         >
           <ArrowLeft aria-hidden="true" className="size-4" /> Annuaire
         </Link>
@@ -174,7 +174,7 @@ function Header({ header, day, alerts }: { header: PersonHeader; day: Date; aler
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/benevoles"
-          className="inline-flex min-h-11 w-max items-center gap-2 rounded-pill text-small text-ink-2 focus-ring hover:text-ink"
+          className="inline-flex min-h-11 w-max items-center gap-2 rounded-control text-small text-ink-2 focus-ring hover:text-ink"
         >
           <ArrowLeft aria-hidden="true" className="size-4" /> Annuaire
         </Link>
@@ -206,7 +206,7 @@ function Header({ header, day, alerts }: { header: PersonHeader; day: Date; aler
             {alerts > 0 && (
               <Link
                 href={`/alertes?personne=${person.ref}`}
-                className="inline-flex min-h-11 items-center rounded-pill focus-ring"
+                className="inline-flex min-h-11 items-center rounded-control focus-ring"
                 data-testid="person-alerts"
               >
                 <Chip tone="danger">

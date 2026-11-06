@@ -22,7 +22,7 @@ export function TabNav({
 }) {
   return (
     <nav aria-label={label} className="max-w-full [scrollbar-width:none] overflow-x-auto">
-      <ul className="flex w-max items-center gap-1 rounded-pill bg-veil p-1">
+      <ul className="flex w-max items-center gap-1 rounded-control border border-line bg-surface p-1">
         {tabs.map((tab) => {
           const current = tab.key === active;
           return (
@@ -32,8 +32,8 @@ export function TabNav({
                 scroll={false}
                 aria-current={current ? "page" : undefined}
                 className={cn(
-                  "inline-flex h-11 items-center rounded-pill px-4 text-body font-medium whitespace-nowrap focus-ring",
-                  current ? "bg-ink text-white" : "text-ink-2 hover:bg-surface hover:text-ink",
+                  "inline-flex h-11 items-center rounded-mark px-4 text-body font-medium whitespace-nowrap focus-ring",
+                  current ? "bg-ink text-white" : "text-ink-2 hover:bg-veil hover:text-ink",
                 )}
               >
                 {tab.label}

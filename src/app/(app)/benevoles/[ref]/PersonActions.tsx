@@ -472,7 +472,7 @@ export function PersonActions(props: PersonActionsProps) {
         <a
           href={`/api/rgpd/${props.personRef}`}
           download
-          className="inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-body font-medium text-ink focus-ring hover:bg-veil"
+          className="inline-flex min-h-11 items-center gap-2 rounded-control px-4 text-body font-medium text-ink focus-ring hover:bg-veil"
         >
           <FileArchive aria-hidden="true" className="size-4" /> Exporter les données (RGPD)
         </a>

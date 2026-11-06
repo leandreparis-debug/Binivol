@@ -1,8 +1,8 @@
 "use client";
 
-import { NavPills, type NavPillItem } from "@/components/ui/NavPills";
+import { SectionTabs, type SectionTabItem } from "@/components/ui/SectionTabs";
 
 /** Sub-navigation of /formations (pills), items filtered by the server. */
-export function FormationsNav({ items }: { items: NavPillItem[] }) {
-  return <NavPills items={items} label="Sections des formations" />;
+export function FormationsNav({ items }: { items: SectionTabItem[] }) {
+  return <SectionTabs items={items} label="Sections des formations" />;
 }

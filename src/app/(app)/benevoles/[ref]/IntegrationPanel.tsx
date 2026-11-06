@@ -715,7 +715,7 @@ export function IntegrationPanel({
 
       {tab.past.length > 0 && (
         <details className="rounded-card bg-surface p-6">
-          <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-pill text-section text-ink focus-ring">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-control text-section text-ink focus-ring">
             Candidatures passées ({tab.past.length})
           </summary>
           <div className="mt-4 flex flex-col gap-6">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { isActivePath } from "@/components/ui/NavPills";
+import { isActivePath } from "@/components/layout/activePath";
 import { NAV_ITEMS, type NavHref } from "./navigation";
 
 /**
@@ -42,7 +42,7 @@ export function BottomNav({
               >
                 <span
                   className={cn(
-                    "relative inline-flex h-7 w-11 items-center justify-center rounded-pill transition-colors motion-reduce:transition-none",
+                    "relative inline-flex h-7 w-11 items-center justify-center rounded-mark transition-colors motion-reduce:transition-none",
                     active && "bg-ink text-white",
                   )}
                 >

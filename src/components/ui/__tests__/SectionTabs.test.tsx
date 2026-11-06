@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isActivePath } from "@/components/ui/NavPills";
+import { isActivePath } from "@/components/layout/activePath";
 
 describe("isActivePath", () => {
   it("matches the home route exactly", () => {

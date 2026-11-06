@@ -4,7 +4,8 @@ import { cn } from "@/lib/cn";
 export type CardProps = React.HTMLAttributes<HTMLDivElement>;
 
 /**
- * White surface, 24 px radius, no shadow: the card stands out from the canvas by contrast only.
+ * White surface, 12 px radius, no shadow: the card stands out from the canvas by contrast
+ * only. It rises into place (0.6 s), never under reduced motion.
  */
 export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   { className, ...rest },
@@ -13,7 +14,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   return (
     <div
       ref={ref}
-      className={cn("rounded-card bg-surface p-5 text-ink sm:p-6", className)}
+      className={cn("animate-rise rounded-card bg-surface p-5 text-ink sm:p-6", className)}
       {...rest}
     />
   );

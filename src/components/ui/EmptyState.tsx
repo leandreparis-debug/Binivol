@@ -31,7 +31,7 @@ export function EmptyState({
       {icon && (
         <span
           aria-hidden="true"
-          className="inline-flex size-12 items-center justify-center rounded-pill bg-veil text-muted [&>svg]:size-6"
+          className="inline-flex size-12 items-center justify-center rounded-control bg-veil text-muted [&>svg]:size-6"
         >
           {icon}
         </span>

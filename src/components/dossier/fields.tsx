@@ -59,7 +59,7 @@ export function ChoiceGroup({
           <label
             key={option.value}
             className={cn(
-              "inline-flex min-h-11 cursor-pointer items-center rounded-pill border px-4 text-body",
+              "inline-flex min-h-11 cursor-pointer items-center rounded-control border px-4 text-body",
               "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent has-[:focus-visible]:ring-offset-2",
               value === option.value
                 ? "border-ink bg-ink text-white"

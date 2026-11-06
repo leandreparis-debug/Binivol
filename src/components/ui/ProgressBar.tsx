@@ -44,10 +44,10 @@ export function ProgressBar({
         aria-valuemax={safeMax}
         aria-valuenow={clamped}
         aria-valuetext={text}
-        className="h-2.5 flex-1 overflow-hidden rounded-pill bg-hatch-track"
+        className="h-2.5 flex-1 overflow-hidden rounded-bar bg-hatch-track"
       >
         <div
-          className="h-full rounded-pill bg-accent transition-[width] duration-300 motion-reduce:transition-none"
+          className="h-full rounded-bar bg-accent transition-[width] duration-300 motion-reduce:transition-none"
           style={{ width: `${percent}%` }}
         />
       </div>

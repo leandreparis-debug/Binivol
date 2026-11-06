@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BinivolLogo } from "@/components/brand/BinivolLogo";
+import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
 
 export interface GlobalErrorProps {
@@ -16,7 +16,7 @@ export interface GlobalErrorProps {
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-canvas px-gutter py-12 text-center">
-      <BinivolLogo size={32} />
+      <Logo size={28} />
       <div
         className="rounded-card bg-surface px-6 py-10 sm:px-12"
         role="alert"

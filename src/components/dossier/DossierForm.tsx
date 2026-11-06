@@ -487,7 +487,7 @@ function SaveStatus({ state, onRetry }: { state: SaveState; onRetry: () => void 
           <span>{state.message}</span>
           <button
             type="button"
-            className="min-h-11 rounded-pill px-2 font-medium text-ink underline focus-ring"
+            className="min-h-11 rounded-control px-2 font-medium text-ink underline focus-ring"
             onClick={onRetry}
           >
             Réessayer

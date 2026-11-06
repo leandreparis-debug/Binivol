@@ -1,8 +1,8 @@
 "use client";
 
-import { NavPills, type NavPillItem } from "@/components/ui/NavPills";
+import { SectionTabs, type SectionTabItem } from "@/components/ui/SectionTabs";
 
 /** Sub-navigation of « Rappels »: the dated reminders and the computed alerts. */
-export function RemindersNav({ items }: { items: NavPillItem[] }) {
-  return <NavPills items={items} label="Rappels et alertes" />;
+export function RemindersNav({ items }: { items: SectionTabItem[] }) {
+  return <SectionTabs items={items} label="Rappels et alertes" />;
 }

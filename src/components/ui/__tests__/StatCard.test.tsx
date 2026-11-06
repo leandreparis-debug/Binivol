@@ -19,7 +19,7 @@ describe("StatCard", () => {
     render(<StatCard variant="highlight" label="Taux" value="92 %" />);
     const card = screen.getByText("Taux").closest("[data-variant]");
     expect(card).toHaveAttribute("data-variant", "highlight");
-    expect(card).toHaveClass("bg-accent-gradient", "text-white");
+    expect(card).toHaveClass("bg-accent", "text-white");
   });
 
   it("renders the dark variant on ink", () => {

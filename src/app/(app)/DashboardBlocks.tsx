@@ -30,7 +30,7 @@ export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
             {block.stats.map((s, i) => (
               <li key={s.label}>
                 {s.href ? (
-                  <Link href={s.href} className="block rounded-card focus-ring">
+                  <Link href={s.href} className="block hover-lift rounded-card focus-ring">
                     <StatCard
                       variant={b === 0 && i === 0 ? "highlight" : "default"}
                       label={s.label}

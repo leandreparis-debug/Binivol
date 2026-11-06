@@ -117,7 +117,7 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
               <section
                 key={stage}
                 aria-labelledby={`col-${stage}`}
-                className="flex flex-col gap-3 rounded-card bg-veil p-3"
+                className="flex flex-col gap-3 rounded-card border border-line p-3"
               >
                 <h2
                   id={`col-${stage}`}

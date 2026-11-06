@@ -67,7 +67,7 @@ export function Countersign({
             href={`/benevoles/${personRef}/dossier/apercu/charte`}
             target="_blank"
             rel="noopener"
-            className="inline-flex min-h-11 w-max items-center rounded-pill text-small text-ink underline focus-ring"
+            className="inline-flex min-h-11 w-max items-center rounded-control text-small text-ink underline focus-ring"
           >
             Ouvrir l&apos;aperçu dans un nouvel onglet
           </a>

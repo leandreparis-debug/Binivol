@@ -164,7 +164,7 @@ export function DossierReview({ personId }: { personId: string }) {
                   {a.documentId ? (
                     <a
                       href={`/api/documents/${a.documentId}`}
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-pill text-body text-ink underline focus-ring"
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-control text-body text-ink underline focus-ring"
                     >
                       <FileDown className="size-4" aria-hidden="true" />
                       {a.fileName}

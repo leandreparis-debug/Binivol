@@ -19,7 +19,7 @@ export function QualificationPills({
       {codes.map((code) => (
         <li
           key={code}
-          className="inline-flex h-6 items-center rounded-pill bg-veil px-2 font-mono text-mono text-ink-2"
+          className="inline-flex h-6 items-center rounded-mark bg-veil px-2 font-mono text-mono text-ink-2"
         >
           {code}
         </li>

@@ -36,7 +36,7 @@ export const DropdownMenuItem = forwardRef<
     <RadixDropdown.Item
       ref={ref}
       className={cn(
-        "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[10px] px-3 text-body outline-none select-none",
+        "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-mark px-3 text-body outline-none select-none",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-veil",
         "[&>svg]:size-4 [&>svg]:text-muted",
         className,

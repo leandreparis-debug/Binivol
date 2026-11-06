@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { FlaskConical, Lock } from "lucide-react";
-import { BinivolLogo } from "@/components/brand/BinivolLogo";
+import { Logo } from "@/components/ui/Logo";
 import { Chip } from "@/components/ui/Chip";
 import { getEnv, isDemoLoginEnabled, isGoogleConfigured } from "@/lib/env";
 import { getActor } from "@/server/auth/actor";
@@ -33,7 +33,7 @@ export default async function SignInPage({
   return (
     <div className="w-full max-w-md rounded-card bg-surface p-6 sm:p-8">
       <div className="flex flex-col items-center gap-3 text-center">
-        <BinivolLogo size={40} />
+        <Logo size={34} />
         <h1 className="text-title text-ink">Connexion</h1>
         <p className="text-body text-muted">
           Espace réservé aux responsables de l'unité locale de Versailles.

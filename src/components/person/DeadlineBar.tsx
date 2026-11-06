@@ -27,7 +27,7 @@ export function DeadlineBar({
       <div
         role="img"
         aria-label={`Qualifications — ${summary}`}
-        className="flex h-4 w-full overflow-hidden rounded-pill bg-veil"
+        className="flex h-4 w-full overflow-hidden rounded-bar bg-veil"
       >
         {total > 0 &&
           SEGMENTS.filter((s) => counts[s.key] > 0).map((s) => (

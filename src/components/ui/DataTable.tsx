@@ -120,7 +120,7 @@ export function DataTable<Row extends Record<string, unknown>>({
           <caption id={captionId} className="sr-only">
             {caption}
           </caption>
-          <thead className="bg-veil text-small text-muted">
+          <thead className="bg-surface text-small text-muted">
             <tr>
               {selectable && (
                 <th scope="col" className="w-11 px-1 py-1 text-left">
@@ -159,7 +159,10 @@ export function DataTable<Row extends Record<string, unknown>>({
                 <tr
                   key={key}
                   aria-selected={selectable ? isSelected : undefined}
-                  className={cn("border-t border-line", isSelected && "bg-veil")}
+                  className={cn(
+                    "border-t border-line transition-colors duration-150 hover:bg-veil/60 motion-reduce:transition-none",
+                    isSelected && "bg-veil",
+                  )}
                 >
                   {selectable && (
                     <td className="px-1 py-1">
@@ -194,7 +197,9 @@ export function DataTable<Row extends Record<string, unknown>>({
       {/* Card list, under 640 px */}
       <ul className="flex flex-col gap-3 sm:hidden" aria-label={caption}>
         {rows.length === 0 && (
-          <li className="rounded-inner bg-veil p-4 text-center text-muted">{emptyMessage}</li>
+          <li className="rounded-inner border border-line bg-surface p-4 text-center text-muted">
+            {emptyMessage}
+          </li>
         )}
         {rows.map((row) => {
           const key = rowKey(row);

@@ -8,7 +8,7 @@ describe("Button", () => {
     (variant) => {
       render(<Button variant={variant}>Action</Button>);
       const button = screen.getByRole("button", { name: "Action" });
-      expect(button).toHaveClass("rounded-pill");
+      expect(button).toHaveClass("rounded-control");
       for (const cls of buttonVariantClasses[variant].split(" ")) {
         expect(button).toHaveClass(cls);
       }

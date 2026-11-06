@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowRight, Bell, Inbox, Plus, Search, Users } from "lucide-react";
-import { BinivolLogo } from "@/components/brand/BinivolLogo";
-import { BinivolMark, MARK_VARIANTS } from "@/components/brand/BinivolMark";
+import { Logo } from "@/components/ui/Logo";
 import { FakeDataBanner } from "@/components/layout/FakeDataBanner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Avatar } from "@/components/ui/Avatar";
@@ -46,29 +45,27 @@ export default function DesignPage() {
         <Section
           id="logo"
           title="Logo"
-          description="Trois variantes, quatre tailles. Le « b » reste lisible à 16 px."
+          description="Piste A « Point » : le mot en Inter Tight 700 et son carré bleu ; l'icône pour les petites tailles."
         >
-          {MARK_VARIANTS.map((variant) => (
-            <Row key={variant} label={`variant="${variant}"`}>
-              <div
-                className={
-                  variant === "inverse"
-                    ? "flex flex-wrap items-center gap-6 rounded-inner bg-ink p-4"
-                    : "flex flex-wrap items-center gap-6 rounded-inner bg-veil p-4"
-                }
-              >
-                {MARK_SIZES.map((size) => (
-                  <BinivolMark
-                    key={size}
-                    size={size}
-                    variant={variant}
-                    label={`Binivol, ${size} px`}
-                  />
-                ))}
-                <BinivolLogo size={28} variant={variant} />
-              </div>
-            </Row>
-          ))}
+          <Row label='variant="full"'>
+            <div className="flex flex-wrap items-center gap-6 rounded-inner bg-veil p-4">
+              {[20, 28, 40].map((size) => (
+                <Logo key={size} size={size} />
+              ))}
+            </div>
+          </Row>
+          <Row label='tone="white"'>
+            <div className="flex flex-wrap items-center gap-6 rounded-inner bg-ink p-4">
+              <Logo size={28} tone="white" />
+            </div>
+          </Row>
+          <Row label='variant="mark"'>
+            <div className="flex flex-wrap items-center gap-6 rounded-inner bg-veil p-4">
+              {MARK_SIZES.map((size) => (
+                <Logo key={size} variant="mark" size={size} />
+              ))}
+            </div>
+          </Row>
         </Section>
 
         <Section
@@ -117,7 +114,7 @@ export default function DesignPage() {
         <Section
           id="typographie"
           title="Typographie"
-          description="Geist et Geist Mono, embarquées."
+          description="Inter Tight 700 pour les titres, Inter pour le texte, Geist Mono pour les références : auto-hébergées."
         >
           <ul className="flex flex-col gap-4">
             {TYPE_SCALE.map((step) => (

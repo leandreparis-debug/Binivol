@@ -263,7 +263,7 @@ export function NewCandidateDialog({ sources }: { sources: string[] }) {
               className="sm:col-span-2"
               open={Boolean(draft?.source ?? draft?.interest ?? draft?.note)}
             >
-              <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-pill text-body font-medium text-ink focus-ring">
+              <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-control text-body font-medium text-ink focus-ring">
                 Plus d&apos;informations (facultatif)
               </summary>
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">

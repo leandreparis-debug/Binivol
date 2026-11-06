@@ -78,11 +78,15 @@ export function BarChart({
               className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3"
             >
               <span className="truncate text-small text-ink-2">{d.label}</span>
-              <svg viewBox="0 0 100 10" preserveAspectRatio="none" className="h-4 w-full">
-                <rect x="0" y="0" width="100" height="10" rx="2" className="fill-veil" />
-                {p > 0 && <rect x="0" y="0" width={p} height="10" rx="2" className="fill-ink" />}
+              <svg
+                viewBox="0 0 100 10"
+                preserveAspectRatio="none"
+                className="h-4 w-full origin-left animate-grow-x"
+              >
+                <rect x="0" y="0" width="100" height="10" rx="1.5" className="fill-veil" />
+                {p > 0 && <rect x="0" y="0" width={p} height="10" rx="1.5" className="fill-ink" />}
                 {s > 0 && (
-                  <rect x={p} y="0" width={s} height="10" rx="2" fill={`url(#hatch-${id})`} />
+                  <rect x={p} y="0" width={s} height="10" rx="1.5" fill={`url(#hatch-${id})`} />
                 )}
               </svg>
               <span className="min-w-8 text-right font-mono text-small text-ink tabular-nums">
@@ -94,12 +98,12 @@ export function BarChart({
       </ul>
       <div className="flex flex-wrap items-center gap-4 text-small text-muted" aria-hidden="true">
         <span className="inline-flex items-center gap-2">
-          <span className="size-3 rounded-[3px] bg-ink" />
+          <span className="size-3 rounded-bar bg-ink" />
           {primaryLabel}
         </span>
         {secondaryLabel && (
           <span className="inline-flex items-center gap-2">
-            <span className="size-3 rounded-[3px] bg-hatch-accent" />
+            <span className="size-3 rounded-bar bg-hatch-accent" />
             {secondaryLabel}
           </span>
         )}
