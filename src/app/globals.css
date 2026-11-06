@@ -11,17 +11,19 @@
 :root {
   color-scheme: light;
 
-  /* Direction « Suisse » (ADR-064): black and white, one blue that signals. */
-  --canvas: #f4f4f2;
+  /* Direction « Galet » (ADR-066, after ADR-064): warm grey canvas, white
+     cards, ink that acts, one blue that signals. */
+  --canvas: #f0eee9;
   --surface: #ffffff;
-  --veil: #f4f4f2;
+  /* Tracks, chips and quiet blocks inside a white card. */
+  --veil: #edebe6;
   --ink: #0f0f0f;
   --ink-2: #2b2b2b;
-  /* 6.28:1 on canvas, 6.92:1 on white (docs/design-system.md). */
+  /* 5.97:1 on canvas, 5.81:1 on veil, 6.92:1 on white (docs/design-system.md). */
   --muted: #5a5a57;
-  --line: #e3e3df;
+  --line: #e4e2dc;
 
-  /* Accent: 5.25:1 on white. Text on accent-soft uses accent-ink (6.66:1), never accent. */
+  /* Accent: 5.25:1 on white, 4.53:1 on canvas. Text on accent-soft uses accent-ink (6.66:1), never accent. */
   --accent: #1f5bff;
   /* Hatches only (data), never text. */
   --accent-2: #a9c1ff;
@@ -89,17 +91,19 @@
 }
 
 @theme {
-  /* Radii (direction « Suisse »): no pill for buttons or navigation. */
-  --radius-card: 12px;
-  --radius-inner: 8px;
-  --radius-field: 8px;
-  /* Buttons, navigation items, icon buttons. */
-  --radius-control: 8px;
-  /* Marks and chips. */
-  --radius-mark: 6px;
-  /* Chart bars (top corners only). */
-  --radius-bar: 3px;
-  /* Avatars and status dots only. */
+  /* Radii (direction « Galet », ADR-066): large soft cards, round controls. */
+  --radius-card: 24px;
+  /* Floating side navigation. */
+  --radius-panel: 28px;
+  --radius-inner: 16px;
+  --radius-field: 12px;
+  /* Buttons, navigation items, icon buttons, search: a pill. */
+  --radius-control: 9999px;
+  /* Marks, chips, tabs and menu items: a pill too. */
+  --radius-mark: 9999px;
+  /* Chart bars and progress tracks. */
+  --radius-bar: 8px;
+  /* Avatars, status dots, counters. */
   --radius-pill: 9999px;
 
   /* Type scale: size / line-height / weight / tracking */
@@ -109,10 +113,10 @@
   --text-display--font-weight: 700;
   --text-display--letter-spacing: -0.035em;
 
-  --text-figure: 34px;
-  --text-figure--line-height: 38px;
+  --text-figure: 44px;
+  --text-figure--line-height: 48px;
   --text-figure--font-weight: 700;
-  --text-figure--letter-spacing: -0.035em;
+  --text-figure--letter-spacing: -0.04em;
 
   --text-title: 26px;
   --text-title--line-height: 32px;
@@ -250,8 +254,8 @@
   }
 
   html {
-    /* The sticky top bar (64 px) never hides a scrolled-to element or title. */
-    scroll-padding-top: 4rem;
+    /* The sticky top bar (80 px) never hides a scrolled-to element or title. */
+    scroll-padding-top: 5rem;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

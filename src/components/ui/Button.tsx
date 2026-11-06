@@ -39,7 +39,7 @@ export const buttonBaseClasses =
   "focus-ring inline-flex shrink-0 cursor-pointer select-none items-center justify-center rounded-control font-medium whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150 press disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none";
 
 /**
- * Button of the direction « Suisse »: 8 px radius; `primary` ink on white text,
+ * Button of the direction « Galet » (ADR-066): a pill; `primary` ink on white text,
  * `outline` (secondary) white with a 1 px ink border. Pressed: scale 0.97
  * (none under reduced motion). Supports `asChild` to render a link.
  */

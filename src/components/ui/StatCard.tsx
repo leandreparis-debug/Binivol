@@ -1,3 +1,4 @@
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export type StatCardVariant = "default" | "highlight" | "dark";
@@ -15,6 +16,11 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Footer text, after the pill. */
   footer?: string;
   /**
+   * Shows an arrow in a disc at the top right: the card is the content of a
+   * link (the link itself is the caller's). Ignored when `icon` is given.
+   */
+  arrow?: boolean;
+  /**
    * `default` (white), `dark` (ink) or `highlight` (solid accent).
    * Rule: **one `highlight` per screen at most** — it marks the single figure that matters.
    */
@@ -23,12 +29,13 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const variantClasses: Record<
   StatCardVariant,
-  { root: string; label: string; icon: string; footer: string }
+  { root: string; label: string; icon: string; arrow: string; footer: string }
 > = {
   default: {
     root: "bg-surface text-ink",
-    label: "text-muted",
+    label: "text-ink-2",
     icon: "bg-veil text-ink",
+    arrow: "border border-line text-ink",
     footer: "text-muted",
   },
   highlight: {
@@ -36,12 +43,14 @@ const variantClasses: Record<
     root: "bg-accent text-white",
     label: "text-white",
     icon: "bg-white/15 text-white",
+    arrow: "bg-white text-ink",
     footer: "text-white",
   },
   dark: {
     root: "bg-ink text-white",
     label: "text-white/80",
     icon: "bg-white/10 text-white",
+    arrow: "bg-white text-ink",
     footer: "text-white/80",
   },
 };
@@ -52,11 +61,12 @@ function deltaClasses(variant: StatCardVariant, tone: NonNullable<StatCardProps[
   if (variant === "dark") return "bg-white/15 text-white";
   if (tone === "up") return "bg-ok-soft text-ok-ink";
   if (tone === "down") return "bg-danger-soft text-danger-ink";
-  return "bg-surface text-ink-2";
+  return "bg-veil text-ink";
 }
 
 /**
- * Key figure card: label, icon, big value, footer with a variation pill.
+ * Key figure card (direction « Galet »): label, icon or arrow disc, big value
+ * in Inter Tight, footer with a variation pill.
  */
 export function StatCard({
   label,
@@ -65,6 +75,7 @@ export function StatCard({
   delta,
   deltaTone = "neutral",
   footer,
+  arrow = false,
   variant = "default",
   className,
   ...rest
@@ -73,7 +84,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "flex animate-rise flex-col gap-4 rounded-card p-5 sm:p-6",
+        "flex min-h-32 animate-rise flex-col gap-4 rounded-card p-5 sm:min-h-40 sm:p-6",
         styles.root,
         className,
       )}
@@ -81,7 +92,18 @@ export function StatCard({
       {...rest}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className={cn("eyebrow", styles.label)}>{label}</p>
+        <p className={cn("text-body font-medium", styles.label)}>{label}</p>
+        {!icon && arrow && (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "inline-flex size-9 shrink-0 items-center justify-center rounded-pill",
+              styles.arrow,
+            )}
+          >
+            <ArrowUpRight className="size-4" />
+          </span>
+        )}
         {icon && (
           <span
             aria-hidden="true"
@@ -94,13 +116,13 @@ export function StatCard({
           </span>
         )}
       </div>
-      <p className="font-display text-figure tabular-nums">{value}</p>
+      <p className="mt-auto font-display text-figure tabular-nums">{value}</p>
       {(delta ?? footer) && (
         <div className={cn("flex flex-wrap items-center gap-2 text-small", styles.footer)}>
           {delta && (
             <span
               className={cn(
-                "inline-flex h-6 items-center rounded-mark px-2 font-medium tabular-nums",
+                "inline-flex h-6 items-center rounded-pill px-2.5 font-semibold tabular-nums",
                 deltaClasses(variant, deltaTone),
               )}
             >

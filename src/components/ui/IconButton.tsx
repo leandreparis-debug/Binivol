@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/cn";
 
-export type IconButtonVariant = "outline" | "ink" | "accent";
+export type IconButtonVariant = "outline" | "surface" | "ink" | "accent";
 
 export interface IconButtonProps extends Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
@@ -20,6 +20,8 @@ export interface IconButtonProps extends Omit<
 
 const variantClasses: Record<IconButtonVariant, string> = {
   outline: "bg-surface text-ink border border-line hover:bg-veil",
+  /** White disc without border, on the canvas (top bar). */
+  surface: "bg-surface text-ink hover:bg-veil",
   ink: "bg-ink text-white hover:bg-ink-2",
   accent: "bg-accent text-white hover:bg-accent-ink",
 };

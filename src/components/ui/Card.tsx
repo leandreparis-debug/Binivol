@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 export type CardProps = React.HTMLAttributes<HTMLDivElement>;
 
 /**
- * White surface, 12 px radius, no shadow: the card stands out from the canvas by contrast
+ * White surface, 24 px radius, no shadow: the card stands out from the canvas by contrast
  * only. It rises into place (0.6 s), never under reduced motion.
  */
 export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(

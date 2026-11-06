@@ -47,8 +47,8 @@ const T = {
 };
 
 describe("colour contrast (WCAG AA, 4.5:1 for normal text)", () => {
-  it("reads the Swiss palette from globals.css", () => {
-    expect(T).toMatchObject({ canvas: "#f4f4f2", ink: "#0f0f0f", accent: "#1f5bff" });
+  it("reads the « Galet » palette from globals.css", () => {
+    expect(T).toMatchObject({ canvas: "#f0eee9", ink: "#0f0f0f", accent: "#1f5bff" });
   });
 
   it.each([
