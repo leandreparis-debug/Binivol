@@ -258,7 +258,9 @@ function Header({ header, day, alerts }: { header: PersonHeader; day: Date; aler
             changeStatus: header.permissions.changeStatus,
             returnFormer: header.permissions.returnFormer,
             correctNivol: header.permissions.correctNivol,
+            gdprExport: header.permissions.gdprExport,
           }}
+          personRef={person.ref}
         />
       </div>
     </header>

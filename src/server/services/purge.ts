@@ -299,3 +299,26 @@ export async function runPurge(
   });
   return { mode: purgeMode, eligible: candidates.length, purged: 0 };
 }
+
+/**
+ * Early erasure (right to erasure, opposition): TOPAZE purges a person
+ * before the end of her retention, with a reason kept in the trace.
+ */
+export async function earlyPurge(
+  db: Db,
+  storage: StorageService,
+  actor: Actor,
+  input: { ref: string; reason: string },
+  day: Date = toParisDay(),
+): Promise<PurgeOutcome> {
+  authorize(actor, "person.purge");
+  const person = await db.person.findUnique({ where: { ref: input.ref }, select: { id: true } });
+  if (!person) throw new DomainError("INVALID_DATA", "Fiche introuvable.");
+  return purgePeople(
+    db,
+    storage,
+    actor,
+    { personIds: [person.id], early: { reason: input.reason } },
+    day,
+  );
+}

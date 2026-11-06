@@ -776,7 +776,10 @@ export async function dossierFootprint(
       where: { submissionId: { in: submissionIds } },
       select: { id: true, storageKey: true },
     }),
-    db.signature.findMany({ where: { submissionId: { in: submissionIds } }, select: { id: true } }),
+    db.signature.findMany({
+      where: { submissionId: { in: submissionIds } },
+      select: { id: true, imageKey: true },
+    }),
     db.otpChallenge.findMany({
       where: { submissionId: { in: submissionIds } },
       select: { id: true },
@@ -788,6 +791,37 @@ export async function dossierFootprint(
       ...submissionIds,
       ...[...attachments, ...signatures, ...challenges, ...links].map((r) => r.id),
     ],
-    storageKeys: attachments.map((a) => a.storageKey),
+    storageKeys: [
+      ...attachments.map((a) => a.storageKey),
+      ...signatures.flatMap((g) => (g.imageKey ? [g.imageKey] : [])),
+    ],
   };
+}
+
+/**
+ * Every dossier of a person, for her GDPR export (step 14, TOPAZE): status,
+ * dates and the data she typed. Journaled (`SENSITIVE_VIEW`, « export RGPD »).
+ */
+export async function dossiersForGdprExport(db: DbOrTx, actor: Actor, personId: string) {
+  const facts = (await loadPersonFactsMany(db, [personId])).get(personId);
+  if (!facts) throw new DomainError("INVALID_DATA", "Personne introuvable.");
+  authorize(actor, "person.gdprExport", { person: facts });
+  const rows = await db.dossierSubmission.findMany({
+    where: { personId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      status: true,
+      schemaVersion: true,
+      submittedAt: true,
+      signedAt: true,
+      completedAt: true,
+      data: true,
+      attachments: { select: { kind: true, fileName: true } },
+      signatures: { select: { signerRole: true, signerName: true, method: true, signedAt: true } },
+    },
+  });
+  await db.accessLog.create({
+    data: { userId: actor.userId, personId, scope: "SENSITIVE_VIEW", context: "export RGPD" },
+  });
+  return rows;
 }

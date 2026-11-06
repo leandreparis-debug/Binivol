@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Hash, Pencil, RefreshCw } from "lucide-react";
+import { Hash, Pencil, RefreshCw, FileArchive } from "lucide-react";
 import type { LeftReason, PersonStatus } from "@/generated/prisma/enums";
 import { FormMessage, useFormAction } from "@/components/person/useFormAction";
 import { Button } from "@/components/ui/Button";
@@ -43,7 +43,15 @@ export interface PersonActionsProps {
   nivol: string | null;
   legacyImport: boolean;
   identity: IdentityValues;
-  can: { update: boolean; changeStatus: boolean; correctNivol: boolean; returnFormer: boolean };
+  can: {
+    update: boolean;
+    changeStatus: boolean;
+    correctNivol: boolean;
+    returnFormer: boolean;
+    gdprExport: boolean;
+  };
+  /** Readable reference, for the GDPR export link. */
+  personRef: string;
 }
 
 const DIALOG_CLASS = "max-h-[calc(100dvh-2rem)] overflow-y-auto";
@@ -451,13 +459,24 @@ function NivolDialog({ personId, nivol }: PersonActionsProps) {
 export function PersonActions(props: PersonActionsProps) {
   const { can } = props;
   const returnOnly = !can.changeStatus && can.returnFormer && props.status === "LEFT";
-  if (!can.update && !can.changeStatus && !can.correctNivol && !returnOnly) return null;
+  if (!can.update && !can.changeStatus && !can.correctNivol && !returnOnly && !can.gdprExport) {
+    return null;
+  }
   return (
     <div className="flex flex-wrap gap-2">
       {can.update && <IdentityDialog {...props} />}
       {can.changeStatus && props.status !== "CANDIDATE" && <StatusDialog {...props} />}
       {returnOnly && <ReturnDialog personId={props.personId} />}
       {can.correctNivol && <NivolDialog {...props} />}
+      {can.gdprExport && (
+        <a
+          href={`/api/rgpd/${props.personRef}`}
+          download
+          className="inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-body font-medium text-ink focus-ring hover:bg-veil"
+        >
+          <FileArchive aria-hidden="true" className="size-4" /> Exporter les données (RGPD)
+        </a>
+      )}
     </div>
   );
 }

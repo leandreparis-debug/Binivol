@@ -72,6 +72,8 @@ export interface PersonPermissions {
   /** « Retour d'un ancien » (LEFT → ACTIVE), TOPAZE and DIAMANT. */
   returnFormer: boolean;
   correctNivol: boolean;
+  /** Export of all the data (GDPR, TOPAZE). */
+  gdprExport: boolean;
   readSensitive: boolean;
   readTrainings: boolean;
   readAppointments: boolean;
@@ -90,6 +92,7 @@ export function permissionsOn(actor: Actor, facts: PersonFacts): PersonPermissio
     changeStatus: on("person.status.change"),
     returnFormer: on("person.return"),
     correctNivol: on("person.nivol.correct"),
+    gdprExport: on("person.gdprExport"),
     readSensitive: on("person.sensitive.read"),
     readTrainings: on("training.read"),
     readAppointments: on("appointment.read"),
