@@ -512,14 +512,29 @@ model PersonLicense {
   @@map("person_licenses")
 }
 
+/// Who issued a declared diploma (step 16, online dossier).
+enum DeclaredDiplomaIssuer {
+  CRF
+  CIVIL_PROTECTION
+  SDIS
+  EMPLOYER
+  OTHER
+}
+
 model PersonDeclaredDiploma {
-  id          String   @id @default(cuid(2))
-  personId    String   @map("person_id")
+  id          String                 @id @default(cuid(2))
+  personId    String                 @map("person_id")
+  /// Text shown (« PSE1 — Premiers secours en équipe de niveau 1 », or what was typed).
   label       String
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById String?  @map("created_by_id")
-  updatedById String?  @map("updated_by_id")
+  /// Code of the catalogue `DECLARED_DIPLOMA_CATALOG` (null for « Autre »).
+  code        String?
+  /// Year obtained, AAAA (CHECK 1900–2100).
+  year        Int?
+  issuer      DeclaredDiplomaIssuer?
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?                @map("created_by_id")
+  updatedById String?                @map("updated_by_id")
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 

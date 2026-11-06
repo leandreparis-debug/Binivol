@@ -418,6 +418,7 @@ export function DossierForm({ view, actions, personId, exitHref }: DossierFormPr
           {current === "profil" && (
             <ProfileStep
               draft={draft}
+              catalog={view.diplomaCatalog}
               errorOf={errorOf}
               onChange={(value) => {
                 patch("profile", value);

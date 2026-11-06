@@ -27,8 +27,13 @@ export function ParameterForm({ def, value }: { def: ParameterDef; value: string
       }}
     >
       <Field label={def.label} htmlFor={id} hint={`${def.help} Par défaut : ${def.defaultLabel}.`}>
-        {def.kind === "longtext" || def.kind === "gaia" ? (
-          <Textarea id={id} name="value" rows={def.kind === "gaia" ? 5 : 8} defaultValue={value} />
+        {def.kind === "longtext" || def.kind === "gaia" || def.kind === "diplomas" ? (
+          <Textarea
+            id={id}
+            name="value"
+            rows={def.kind === "longtext" ? 8 : def.kind === "diplomas" ? 12 : 5}
+            defaultValue={value}
+          />
         ) : def.kind === "enum" ? (
           <Select id={id} name="value" defaultValue={value}>
             {def.options?.map((o) => (

@@ -10,6 +10,7 @@ import type {
   TrainingResult,
 } from "../../src/generated/prisma/enums";
 import { toParisDay } from "../../src/lib/dates";
+import { DEFAULT_DIPLOMA_CATALOG } from "../../src/lib/diplomas";
 import { DEFAULT_GAIA_CHECKLIST } from "../../src/lib/gaia";
 import { documentFileName } from "../../src/lib/fileNames";
 import { DOSSIER_SCHEMA_VERSION, type DossierDraft } from "../../src/lib/dossierSchema";
@@ -218,7 +219,14 @@ export function seedDossierData(
       sector: p.minor ? "Étudiant" : "Services",
       skills: [{ label: "Informatique", level: "CONFIRMED" }],
       languages: [{ label: "Anglais", level: "FLUENT" }],
-      diplomas: ["PSC1 (autre organisme)"],
+      diplomas: [
+        {
+          code: "PSC",
+          label: "PSC (Prévention et secours civiques, ex-PSC1)",
+          year: "2019",
+          issuer: "OTHER",
+        },
+      ],
       licenses: p.minor ? [] : ["B"],
     },
     ...(p.minor
@@ -398,6 +406,11 @@ async function seedBaseIn(tx: SeedTx): Promise<void> {
     ["DOSSIER_LINK_DAYS", 7, "Durée de validité, en jours, d'un lien de dossier bénévole."],
     ["UL_NAME", "Unité locale de Versailles", "Structure de rattachement des dossiers bénévoles."],
     ["UL_CITY", "Versailles", "« Fait à » de la charte du bénévolat."],
+    [
+      "DECLARED_DIPLOMA_CATALOG",
+      DEFAULT_DIPLOMA_CATALOG as unknown as Prisma.InputJsonValue,
+      "Diplômes proposés dans le dossier en ligne (étape 16) : code, libellé, groupe, référentiel.",
+    ],
     [
       "GAIA_CHECKLIST",
       DEFAULT_GAIA_CHECKLIST as unknown as Prisma.InputJsonValue,

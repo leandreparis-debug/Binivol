@@ -1,5 +1,7 @@
 "use client";
 
+import { DIPLOMA_ISSUER_LABELS, DIPLOMA_ISSUERS, type DiplomaCatalogItem } from "@/lib/diplomas";
+import { DiplomaPicker } from "./DiplomaPicker";
 import { useRef, useState } from "react";
 import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -171,12 +173,19 @@ function AddButton({
   );
 }
 
+type DeclaredDiplomaDraft = NonNullable<Profile["diplomas"]>[number];
+
 /** Step « Profil »: profession, skills, languages, declared diplomas, licence categories. */
 export function ProfileStep({
   draft,
   errorOf,
   onChange,
-}: StepProps & { onChange: (patch: Partial<Profile>) => void }) {
+  catalog,
+}: StepProps & {
+  onChange: (patch: Partial<Profile>) => void;
+  /** Catalogue of diplomas (setting `DECLARED_DIPLOMA_CATALOG`). */
+  catalog: readonly DiplomaCatalogItem[];
+}) {
   const p = draft.profile ?? {};
   const skills = p.skills ?? [];
   const languages = p.languages ?? [];
@@ -342,39 +351,99 @@ export function ProfileStep({
           Diplômes ({diplomas.length}/{LIMITS.diplomas})
         </h3>
         <p className="text-small text-muted">
-          Secourisme, animation, santé… Vous pourrez joindre les copies à l&apos;étape « Pièces
-          jointes ».
+          Choisissez dans la liste, ou tapez un autre diplôme. Ils seront vérifiés dans Pegass : pas
+          de copie à joindre.
         </p>
-        {diplomas.map((diploma, i) => (
-          <div key={i} className="flex items-end gap-2">
-            <Field
-              label={`Diplôme ${String(i + 1)}`}
-              htmlFor={`dossier-diploma-${String(i)}`}
-              className="flex-1"
+        {diplomas.map((diploma, i) => {
+          const set = (patch: Partial<DeclaredDiplomaDraft>) => {
+            onChange({ diplomas: diplomas.map((d, j) => (j === i ? { ...d, ...patch } : d)) });
+          };
+          return (
+            <fieldset
+              key={i}
+              className="flex flex-col gap-3 rounded-inner border border-line p-3"
+              aria-label={`Diplôme ${String(i + 1)}`}
             >
-              <Input
-                value={diploma}
-                maxLength={60}
-                onChange={(e) => {
-                  onChange({ diplomas: diplomas.map((d, j) => (j === i ? e.target.value : d)) });
-                }}
-              />
-            </Field>
-            <IconButton
-              aria-label={`Retirer le diplôme ${String(i + 1)}`}
-              type="button"
-              onClick={() => {
-                onChange({ diplomas: diplomas.filter((_, j) => j !== i) });
-              }}
-            >
-              <Trash2 className="size-5" />
-            </IconButton>
-          </div>
-        ))}
+              <div className="flex items-end gap-2">
+                <Field
+                  label={`Diplôme ${String(i + 1)}`}
+                  htmlFor={`dossier-diploma-${String(i)}`}
+                  className="flex-1"
+                >
+                  <DiplomaPicker
+                    id={`dossier-diploma-${String(i)}`}
+                    catalog={catalog}
+                    value={diploma.label}
+                    onChange={(next) => {
+                      onChange({
+                        diplomas: diplomas.map((d, j) =>
+                          j === i
+                            ? {
+                                label: next.label,
+                                ...(next.code ? { code: next.code } : {}),
+                                ...(d.year ? { year: d.year } : {}),
+                                ...(d.issuer ? { issuer: d.issuer } : {}),
+                              }
+                            : d,
+                        ),
+                      });
+                    }}
+                  />
+                </Field>
+                <IconButton
+                  aria-label={`Retirer le diplôme ${String(i + 1)}`}
+                  type="button"
+                  onClick={() => {
+                    onChange({ diplomas: diplomas.filter((_, j) => j !== i) });
+                  }}
+                >
+                  <Trash2 className="size-5" />
+                </IconButton>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="Année (facultatif)"
+                  htmlFor={`dossier-diploma-${String(i)}-year`}
+                  error={errorOf(`diplomas.${String(i)}.year`)}
+                >
+                  <Input
+                    value={diploma.year ?? ""}
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="AAAA"
+                    onChange={(e) => {
+                      set({ year: e.target.value.replace(/\D/g, "") || undefined });
+                    }}
+                  />
+                </Field>
+                <Field
+                  label="Organisme (facultatif)"
+                  htmlFor={`dossier-diploma-${String(i)}-issuer`}
+                >
+                  <Select
+                    value={diploma.issuer ?? ""}
+                    onChange={(e) => {
+                      set({
+                        issuer: (e.target.value || undefined) as DeclaredDiplomaDraft["issuer"],
+                      });
+                    }}
+                  >
+                    <option value="">Non précisé</option>
+                    {DIPLOMA_ISSUERS.map((issuer) => (
+                      <option key={issuer} value={issuer}>
+                        {DIPLOMA_ISSUER_LABELS[issuer]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+            </fieldset>
+          );
+        })}
         <AddButton
           disabled={diplomas.length >= LIMITS.diplomas}
           onClick={() => {
-            onChange({ diplomas: [...diplomas, ""] });
+            onChange({ diplomas: [...diplomas, { label: "" }] });
           }}
         >
           Ajouter un diplôme
@@ -624,7 +693,17 @@ export function summaryRows(
         .map((l) => `${l.label}${l.level ? ` (${LANGUAGE_LEVEL_LABELS[l.level]})` : ""}`)
         .join(", "),
     );
-    push("Diplômes", (p.diplomas ?? []).filter((d) => d.trim() !== "").join(", "));
+    push(
+      "Diplômes",
+      (p.diplomas ?? [])
+        .filter((d) => d.label.trim() !== "")
+        .map((d) =>
+          [d.label, d.year, d.issuer ? DIPLOMA_ISSUER_LABELS[d.issuer] : undefined]
+            .filter(Boolean)
+            .join(", "),
+        )
+        .join(" ; "),
+    );
     push("Permis", (p.licenses ?? []).join(", "));
   }
   if (step === "pieces") {

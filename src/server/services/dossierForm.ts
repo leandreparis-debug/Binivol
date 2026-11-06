@@ -1,3 +1,4 @@
+import type { DiplomaCatalogItem } from "@/lib/diplomas";
 import { toParisDay } from "@/lib/dates";
 import { getEnv, isHostedDemo } from "@/lib/env";
 import type { DossierAttachmentKind } from "@/lib/dossierForms";
@@ -69,6 +70,8 @@ export interface DossierFormView {
   savedAt: string;
   ulName: string;
   rgpdNotice: string;
+  /** Diplomas offered in the Profil step (setting `DECLARED_DIPLOMA_CATALOG`). */
+  diplomaCatalog: readonly DiplomaCatalogItem[];
   /** False on a hosted demo without document storage (ADR-035): the step says so upfront. */
   attachmentsEnabled: boolean;
 }
@@ -77,7 +80,7 @@ export async function dossierFormView(
   db: Db,
   context: DossierSessionContext,
 ): Promise<DossierFormView> {
-  const { ulName, rgpdNotice } = await dossierSettings(db);
+  const { ulName, rgpdNotice, diplomaCatalog } = await dossierSettings(db);
   return {
     mode: context.mode,
     data: context.draft.data,
@@ -93,6 +96,7 @@ export async function dossierFormView(
     ulName,
     attachmentsEnabled: !(isHostedDemo() && getEnv().STORAGE_DRIVER === "local"),
     rgpdNotice,
+    diplomaCatalog,
   };
 }
 

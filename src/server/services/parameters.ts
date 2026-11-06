@@ -1,3 +1,4 @@
+import { catalogToLines, parseDiplomaCatalog } from "@/lib/diplomas";
 import type { Prisma } from "@/generated/prisma/client";
 import { parseGaiaChecklist } from "@/lib/gaia";
 import { withAudit } from "../audit";
@@ -21,6 +22,7 @@ export async function parametersOverview(
     PARAMETERS.map((p) => {
       const value = byKey.get(p.key);
       if (p.kind === "gaia") return [p.key, gaiaToLines(parseGaiaChecklist(value))];
+      if (p.kind === "diplomas") return [p.key, catalogToLines(parseDiplomaCatalog(value))];
       const text =
         typeof value === "string" || typeof value === "number" || typeof value === "boolean"
           ? String(value)

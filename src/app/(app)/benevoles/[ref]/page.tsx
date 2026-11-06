@@ -67,6 +67,8 @@ import { IntegrationPanel } from "./IntegrationPanel";
 import { ListEditor } from "./ListEditor";
 import { PersonActions } from "./PersonActions";
 import { PersonTodos } from "./PersonTodos";
+import { DeclaredDiplomas } from "./DeclaredDiplomas";
+import { diplomaProposals } from "@/server/services/declaredDiplomas";
 import { SensitivePanel } from "./SensitivePanel";
 import { TimelineView } from "./TimelineView";
 
@@ -454,9 +456,10 @@ async function TrainingsTab({
   day: Date;
 }) {
   const db = getDb();
-  const [data, options] = await Promise.all([
+  const [data, options, proposals] = await Promise.all([
     personTrainings(db, actor, header.person.id, facts, header.alertDays, day),
     referenceOptions(db, { kind: "TRAINING" }),
+    diplomaProposals(db, actor, header.person.id),
   ]);
   const canWrite = can(actor, "training.write", { person: facts }).allowed;
   const canWish = can(actor, "trainingWish.manage", { person: facts }).allowed;
@@ -472,6 +475,7 @@ async function TrainingsTab({
           {canWish && <AddWishDialog personId={header.person.id} trainings={trainings} />}
         </div>
       )}
+      {proposals.length > 0 && <DeclaredDiplomas proposals={proposals} canWrite={canWrite} />}
       <Card>
         <CardHeader>
           <CardTitle as="h2">Qualifications détenues</CardTitle>

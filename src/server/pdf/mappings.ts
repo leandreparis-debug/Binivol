@@ -1,3 +1,6 @@
+import { diplomaPdfText, type DeclaredDiploma } from "@/lib/diplomas";
+
+const diplomaText = (d: DeclaredDiploma | undefined) => (d ? diplomaPdfText(d) : undefined);
 import type { SignerRole } from "@/generated/prisma/enums";
 import type { DossierDraft } from "@/lib/dossierSchema";
 import { formatPhone } from "@/lib/phone";
@@ -146,7 +149,8 @@ export function dossierMapping(ctx: MappingContext): TemplateMapping {
       fields[`Langue ${n} - ${label}`] = language?.level === level;
     }
   }
-  for (let i = 0; i < 5; i += 1) fields[`Diplome ${String(i + 1)}`] = s(p.diplomas?.[i]);
+  for (let i = 0; i < 5; i += 1)
+    fields[`Diplome ${String(i + 1)}`] = s(diplomaText(p.diplomas?.[i]));
   for (let i = 0; i < 4; i += 1) {
     const category = s(p.licenses?.[i]);
     fields[`Permis ${String(i + 1)}`] = category ? `Permis ${category}` : "";

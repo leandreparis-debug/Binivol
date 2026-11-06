@@ -1,3 +1,4 @@
+import { parseDiplomaCatalog, type DiplomaCatalogItem } from "@/lib/diplomas";
 import type { DbOrTx } from "./db";
 
 /**
@@ -45,6 +46,8 @@ export interface DossierSettings {
   ulCity: string;
   /** `FINAL_MAIL_TEXT`: e-mail with the signed documents ({prenom}, {pieces}, {ul}). */
   finalMailText: string;
+  /** `DECLARED_DIPLOMA_CATALOG`: diplomas offered in the dossier (step 16). */
+  diplomaCatalog: readonly DiplomaCatalogItem[];
 }
 
 export const FINAL_MAIL_DEFAULT = [
@@ -67,7 +70,16 @@ export const FINAL_MAIL_DEFAULT = [
 export async function dossierSettings(db: DbOrTx): Promise<DossierSettings> {
   const rows = await db.setting.findMany({
     where: {
-      key: { in: ["DOSSIER_LINK_DAYS", "UL_NAME", "RGPD_NOTICE", "UL_CITY", "FINAL_MAIL_TEXT"] },
+      key: {
+        in: [
+          "DOSSIER_LINK_DAYS",
+          "UL_NAME",
+          "RGPD_NOTICE",
+          "UL_CITY",
+          "FINAL_MAIL_TEXT",
+          "DECLARED_DIPLOMA_CATALOG",
+        ],
+      },
     },
     select: { key: true, value: true },
   });
@@ -85,6 +97,7 @@ export async function dossierSettings(db: DbOrTx): Promise<DossierSettings> {
     ),
     ulCity: text("UL_CITY", "Versailles"),
     finalMailText: text("FINAL_MAIL_TEXT", FINAL_MAIL_DEFAULT),
+    diplomaCatalog: parseDiplomaCatalog(byKey.get("DECLARED_DIPLOMA_CATALOG")),
   };
 }
 

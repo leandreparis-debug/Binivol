@@ -16,6 +16,7 @@ import { DomainError } from "@/server/errors";
 import { loadPersonFacts } from "@/server/policy/facts";
 import type { PolicyResource } from "@/server/policy/types";
 import { documentOwner, readPersonSensitive } from "@/server/sensitive";
+import { openDeclaredQualification } from "@/server/services/declaredDiplomas";
 import { archiveDocument, uploadDocument } from "@/server/services/documents";
 import {
   archivePersonListItem,
@@ -178,5 +179,19 @@ export const archiveDocumentAction = defineAction({
     await archiveDocument(getDb(), actor, input.documentId);
     refresh();
     return null;
+  },
+});
+
+/**
+ * A declared diploma matching the reference list: open the qualification
+ * « à vérifier dans Pegass » (step 16). The service checks `training.write`.
+ */
+export const openDeclaredQualificationAction = defineAction({
+  action: "training.read",
+  input: z.object({ diplomaId: z.string().min(1).max(40) }),
+  handler: async ({ input, actor }) => {
+    const result = await openDeclaredQualification(getDb(), actor, input);
+    revalidatePath("/benevoles/[ref]", "page");
+    return result;
   },
 });

@@ -693,10 +693,21 @@ export async function applyDossier(
       const existing = await tx.personDeclaredDiploma.findMany({
         where: { personId: input.personId },
       });
-      for (const label of p.diplomas ?? []) {
-        if (existing.some((x) => same(x.label, label))) continue;
+      for (const d of p.diplomas ?? []) {
+        // Same catalogue code, or same text: already on the person.
+        const known = existing.some(
+          (x) => (d.code !== undefined && x.code === d.code) || same(x.label, d.label),
+        );
+        if (known) continue;
         const row = await tx.personDeclaredDiploma.create({
-          data: { personId: input.personId, label, ...who },
+          data: {
+            personId: input.personId,
+            label: d.label,
+            code: d.code ?? null,
+            year: d.year ? Number(d.year) : null,
+            issuer: d.issuer ?? null,
+            ...who,
+          },
         });
         audit.created("PersonDeclaredDiploma", row.id, row);
         written += 1;

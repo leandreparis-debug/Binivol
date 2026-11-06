@@ -37,8 +37,10 @@ import type {
   TrainingWishStatus,
   TodoProjectColor,
   TodoProjectRole,
+  DeclaredDiplomaIssuer,
 } from "@/generated/prisma/enums";
 import type { PolicyAction } from "@/lib/actions";
+import { DIPLOMA_ISSUER_LABELS } from "@/lib/diplomas";
 import { PROJECT_COLOR_LABELS } from "@/lib/todos";
 
 export const PROFILE_LABELS: Record<Profile, string> = {
@@ -270,6 +272,9 @@ export const TODO_PROJECT_ROLE_LABELS: Record<TodoProjectRole, string> = {
   MEMBER: "Membre",
 };
 
+export const DECLARED_DIPLOMA_ISSUER_LABELS: Record<DeclaredDiplomaIssuer, string> =
+  DIPLOMA_ISSUER_LABELS;
+
 /** Every label table, keyed by the enum name in `prisma/schema.prisma`. */
 export const ENUM_LABELS = {
   Profile: PROFILE_LABELS,
@@ -304,6 +309,7 @@ export const ENUM_LABELS = {
   AutomatedMessageStatus: AUTOMATED_MESSAGE_STATUS_LABELS,
   TodoProjectColor: TODO_PROJECT_COLOR_LABELS,
   TodoProjectRole: TODO_PROJECT_ROLE_LABELS,
+  DeclaredDiplomaIssuer: DECLARED_DIPLOMA_ISSUER_LABELS,
 } as const;
 
 export type EnumName = keyof typeof ENUM_LABELS;

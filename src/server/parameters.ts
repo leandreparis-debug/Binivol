@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_GAIA_CHECKLIST, parseGaiaChecklist, type GaiaChecklistItem } from "@/lib/gaia";
+import { DEFAULT_DIPLOMA_CATALOG, linesToCatalog } from "@/lib/diplomas";
 import { DEFAULT_SETTINGS } from "./settings";
 
 /**
@@ -9,17 +10,18 @@ import { DEFAULT_SETTINGS } from "./settings";
  * greetings, alert rules) keep their own screen, /admin/reglages.
  */
 
-export const PARAMETER_THEMES = ["identite", "delais", "emails", "gaia"] as const;
+export const PARAMETER_THEMES = ["identite", "delais", "emails", "dossier", "gaia"] as const;
 export type ParameterTheme = (typeof PARAMETER_THEMES)[number];
 
 export const PARAMETER_THEME_LABELS: Record<ParameterTheme, string> = {
   identite: "Identité de l'unité locale",
   delais: "Délais et conservation",
   emails: "Textes",
+  dossier: "Dossier en ligne",
   gaia: "Gaia",
 };
 
-export type ParameterKind = "int" | "text" | "longtext" | "enum" | "gaia";
+export type ParameterKind = "int" | "text" | "longtext" | "enum" | "gaia" | "diplomas";
 
 export interface ParameterDef {
   key: string;
@@ -148,6 +150,14 @@ export const PARAMETERS: readonly ParameterDef[] = [
     defaultLabel: "brouillon d'origine",
   },
   {
+    key: "DECLARED_DIPLOMA_CATALOG",
+    theme: "dossier",
+    label: "Diplômes proposés dans le dossier",
+    help: "Une ligne par diplôme : « code | libellé | groupe | code du référentiel ». Même code que le référentiel = même chose ; le dernier champ propose d'ouvrir la qualification « à vérifier dans Pegass ».",
+    kind: "diplomas",
+    defaultLabel: `${String(DEFAULT_DIPLOMA_CATALOG.length)} diplômes (PSC, GQS, PSE1, PSE2…)`,
+  },
+  {
     key: "GAIA_CHECKLIST",
     theme: "gaia",
     label: "Liste à cocher de la création dans Gaia",
@@ -210,6 +220,8 @@ export function parseParameter(
       return def.options?.some((o) => o.value === raw)
         ? { ok: true, value: raw }
         : { ok: false, error: "Choisissez une valeur." };
+    case "diplomas":
+      return linesToCatalog(raw);
     case "gaia": {
       const items = raw
         .split("\n")

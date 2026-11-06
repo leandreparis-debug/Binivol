@@ -105,6 +105,9 @@ describe("mappings", () => {
     expect(fields["Compétence 1 - Confirmé"]).toBe(true);
     expect(fields["Langue 1 - Courant"]).toBe(true);
     expect(fields["Structure de rattachement"]).toBe("Unité locale de Versailles");
+    // Declared diplomas (step 16): the label, then the year when known; empty boxes stay empty.
+    expect(fields["Diplome 1"]).toBe("PSC (Prévention et secours civiques, ex-PSC1) (2019)");
+    expect(fields["Diplome 2"]).toBe("");
   });
 
   it("the charte: volunteer left, Croix-Rouge right, parent below, emergency contact", () => {

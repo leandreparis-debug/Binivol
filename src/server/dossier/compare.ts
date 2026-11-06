@@ -1,3 +1,4 @@
+import { diplomaPdfText } from "@/lib/diplomas";
 import type { DossierDraft } from "@/lib/dossierSchema";
 import { formatPhone } from "@/lib/phone";
 
@@ -213,7 +214,7 @@ export function proposedValues(draft: DossierDraft): Record<ReportKey, string | 
       ),
     ),
     licenses: listText(p.licenses ?? []),
-    diplomas: listText(p.diplomas ?? []),
+    diplomas: listText((p.diplomas ?? []).map((d) => diplomaPdfText(d))),
     activities: listText(draft.crf?.activities ?? []),
   };
 }

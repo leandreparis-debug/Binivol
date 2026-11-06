@@ -88,7 +88,7 @@ function completeDossier(birthDate = "1995-04-12"): DossierDraft {
       skills: [{ label: "Logistique", level: "EXPERT" }],
       profession: "Infirmière (fictif)",
       languages: [{ label: "Anglais", level: "FLUENT" }],
-      diplomas: ["BAFA"],
+      diplomas: [{ label: "BAFA" }],
       licenses: ["b"],
     },
     consent: { rgpd: true },
@@ -267,7 +267,7 @@ describe("draft, submission and review", () => {
     });
     expect(ok.ok).toBe(true);
     const row = await db.dossierSubmission.findUniqueOrThrow({ where: { id: draft.submissionId } });
-    expect(row).toMatchObject({ status: "SUBMITTED", schemaVersion: 2 });
+    expect(row).toMatchObject({ status: "SUBMITTED", schemaVersion: 3 });
     expect(row.data).toMatchObject({
       crf: { nivol: "00099881111A" },
       contact: { phone: "0639981234" },

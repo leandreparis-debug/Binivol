@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ageOn } from "./age";
+import { DIPLOMA_ISSUERS } from "./diplomas";
 import { normalizeNivol } from "./nivol";
 import { parsePhone } from "./phone";
 
@@ -12,9 +13,11 @@ import { parsePhone } from "./phone";
 
 /**
  * Version of the stored JSON. 1: step 7. 2: e-mail of the legal guardian
- * (step 8, she signs with her own code).
+ * (step 8, she signs with her own code). 3: declared diplomas are objects
+ * (catalogue code, label, year, issuer; step 16) — a plain text of an older
+ * version is read as `{ label }`.
  */
-export const DOSSIER_SCHEMA_VERSION = 2;
+export const DOSSIER_SCHEMA_VERSION = 3;
 
 export const DOSSIER_STEPS = [
   "accueil",
@@ -71,6 +74,21 @@ const yesNo = z.boolean().optional();
 const civility = z.enum(["MME", "M"]).optional();
 const SKILL_LEVELS = ["BEGINNER", "CONFIRMED", "EXPERT"] as const;
 const LANGUAGE_LEVELS = ["NOTIONS", "FLUENT", "BILINGUAL"] as const;
+
+/** A declared diploma; a plain text (versions 1 and 2) becomes `{ label }`. */
+const diplomaObject = z.object({
+  code: z
+    .string()
+    .regex(/^[A-Z0-9_]{1,20}$/)
+    .optional(),
+  label: text(LEN.short),
+  year: z.string().max(4).optional(),
+  issuer: z.enum(DIPLOMA_ISSUERS).optional(),
+});
+const diploma = z.union([
+  text(LEN.short).transform((label): z.infer<typeof diplomaObject> => ({ label })),
+  diplomaObject,
+]);
 
 /**
  * Draft: every field optional, only types and lengths checked, so an
@@ -146,7 +164,7 @@ export const dossierDraftSchema = z.object({
         .array(z.object({ label: text(LEN.short), level: z.enum(LANGUAGE_LEVELS).optional() }))
         .max(LIMITS.languages)
         .optional(),
-      diplomas: z.array(text(LEN.short)).max(LIMITS.diplomas).optional(),
+      diplomas: z.array(diploma).max(LIMITS.diplomas).optional(),
       licenses: z.array(text(10)).max(LIMITS.licenses).optional(),
     })
     .partial()
@@ -326,6 +344,18 @@ export function submissionIssues(draft: DossierDraft, ctx: SubmissionContext): D
       add("profile", `skills.${String(i)}.level`, "Choisissez le niveau de cette compétence.");
     }
   }
+  const thisYear = ctx.day.getUTCFullYear();
+  for (const [i, d] of (draft.profile?.diplomas ?? []).entries()) {
+    if (blank(d.year)) continue;
+    const year = Number(d.year);
+    if (!/^\d{4}$/.test(d.year ?? "") || year < 1950 || year > thisYear) {
+      add(
+        "profile",
+        `diplomas.${String(i)}.year`,
+        `Année d'obtention : quatre chiffres, entre 1950 et ${String(thisYear)}.`,
+      );
+    }
+  }
   for (const [i, language] of (draft.profile?.languages ?? []).entries()) {
     if (!blank(language.label) && !language.level) {
       add("profile", `languages.${String(i)}.level`, "Choisissez le niveau de cette langue.");
@@ -503,7 +533,14 @@ export function normalizeSubmission(draft: DossierDraft): DossierDraft {
       languages: (pr.languages ?? [])
         .filter((l) => !blank(l.label))
         .map((l) => ({ ...l, label: l.label.trim() })),
-      diplomas: list(pr.diplomas),
+      diplomas: (pr.diplomas ?? [])
+        .filter((d) => !blank(d.label))
+        .map((d) => ({
+          label: d.label.trim(),
+          ...(d.code ? { code: d.code } : {}),
+          ...(t(d.year) ? { year: t(d.year) } : {}),
+          ...(d.issuer ? { issuer: d.issuer } : {}),
+        })),
       licenses: list(pr.licenses).map((l) => l.toUpperCase()),
     },
     guardian: {

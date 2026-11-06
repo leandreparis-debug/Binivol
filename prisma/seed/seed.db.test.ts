@@ -1,3 +1,4 @@
+import { DEFAULT_DIPLOMA_CATALOG } from "../../src/lib/diplomas";
 import {
   ANNIVERSARY_TEXT_DEFAULT,
   BIRTHDAY_TEXT_DEFAULT,
@@ -262,10 +263,10 @@ describe("seed", () => {
       include: { attachments: true, person: { select: { status: true } } },
     });
     expect(subs.map((s) => [s.id, s.status, s.schemaVersion])).toEqual([
-      ["seed_sub_adult", "SIGNED", 2],
-      ["seed_sub_draft", "DRAFT", 2],
-      ["seed_sub_minor", "SUBMITTED", 2],
-      ["seed_sub_signed", "COMPLETE", 2],
+      ["seed_sub_adult", "SIGNED", 3],
+      ["seed_sub_draft", "DRAFT", 3],
+      ["seed_sub_minor", "SUBMITTED", 3],
+      ["seed_sub_signed", "COMPLETE", 3],
     ]);
     for (const s of subs.filter((x) => x.status !== "DRAFT")) {
       const data = migrateDossierData(s.data, s.schemaVersion).data;
@@ -321,6 +322,7 @@ describe("seed", () => {
       UL_NAME: "Unité locale de Versailles",
       UL_CITY: "Versailles",
       GAIA_CHECKLIST: DEFAULT_GAIA_CHECKLIST,
+      DECLARED_DIPLOMA_CATALOG: DEFAULT_DIPLOMA_CATALOG,
       FINAL_MAIL_TEXT: FINAL_MAIL_DEFAULT,
       RGPD_NOTICE: RGPD_NOTICE_DRAFT,
     });
