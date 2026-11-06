@@ -17,6 +17,9 @@ import {
 import { dossierLinksUnsigned, runReminders } from "../reminders/engine";
 import { birthdaysOn } from "../sensitive";
 import { dossierSettings } from "../settings";
+import { getStorage } from "../storage";
+import type { StorageService } from "../storage/types";
+import { runPurge } from "./purge";
 
 /**
  * Automatic e-mails and the daily task (step 12, docs/taches.md). Every
@@ -203,6 +206,8 @@ export interface DailyResult {
   dossierReminders?: number;
   digests?: number;
   greetings?: number;
+  purgeEligible?: number;
+  purged?: number;
 }
 
 /**
@@ -211,7 +216,11 @@ export interface DailyResult {
  * same day, the second run does nothing. A failed run may be run again (each
  * step is idempotent by itself).
  */
-export async function runDailyTask(db: Db, now: Date = new Date()): Promise<DailyResult> {
+export async function runDailyTask(
+  db: Db,
+  now: Date = new Date(),
+  storage: () => StorageService = getStorage,
+): Promise<DailyResult> {
   const day = toParisDay(now);
   const existing = await db.jobRun.findUnique({ where: { job_day: { job: DAILY_JOB, day } } });
   if (existing && existing.status !== "FAILED") return { status: "already", day: iso(day) };
@@ -231,7 +240,15 @@ export async function runDailyTask(db: Db, now: Date = new Date()): Promise<Dail
     const dossierReminders = await runDossierReminders(db, day);
     const digests = await runDigest(db, day);
     const greetings = await runGreetings(db, day);
-    const summary = { notifications, dossierReminders, digests, greetings };
+    const purge = await runPurge(db, storage(), day);
+    const summary = {
+      notifications,
+      dossierReminders,
+      digests,
+      greetings,
+      purgeEligible: purge.eligible,
+      purged: purge.purged,
+    };
     await db.jobRun.update({
       where: { job_day: { job: DAILY_JOB, day } },
       data: { status: "DONE", finishedAt: new Date(), summary },

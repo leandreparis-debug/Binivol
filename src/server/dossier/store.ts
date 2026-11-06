@@ -757,3 +757,37 @@ export async function countDossiersToCountersign(
     where: { personId: { in: [...personIds] }, status: "SIGNED" },
   });
 }
+
+/**
+ * GDPR purge (step 14): identifiers of the dossier rows of a person and the
+ * storage keys of the files attached to her drafts. Nothing else is read.
+ */
+export async function dossierFootprint(
+  db: DbOrTx,
+  personId: string,
+): Promise<{ rowIds: string[]; storageKeys: string[] }> {
+  const submissions = await db.dossierSubmission.findMany({
+    where: { personId },
+    select: { id: true },
+  });
+  const submissionIds = submissions.map((s) => s.id);
+  const [attachments, signatures, challenges, links] = await Promise.all([
+    db.dossierAttachment.findMany({
+      where: { submissionId: { in: submissionIds } },
+      select: { id: true, storageKey: true },
+    }),
+    db.signature.findMany({ where: { submissionId: { in: submissionIds } }, select: { id: true } }),
+    db.otpChallenge.findMany({
+      where: { submissionId: { in: submissionIds } },
+      select: { id: true },
+    }),
+    db.dossierLink.findMany({ where: { personId }, select: { id: true } }),
+  ]);
+  return {
+    rowIds: [
+      ...submissionIds,
+      ...[...attachments, ...signatures, ...challenges, ...links].map((r) => r.id),
+    ],
+    storageKeys: attachments.map((a) => a.storageKey),
+  };
+}

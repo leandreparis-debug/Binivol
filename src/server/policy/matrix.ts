@@ -147,6 +147,9 @@ export const MATRIX = {
   },
   "alert.integration.read": diamantInScope("person"),
   "alert.admin.read": topazeOnly("person"),
+  // GDPR (step 14): purge and export of a person's data, TOPAZE only.
+  "person.purge": topazeOnly("none"),
+  "person.gdprExport": topazeOnly("person"),
   // Export of the competence matrix (step 13): the rows are those of `training.read`.
   "training.matrix.export": {
     target: "none",

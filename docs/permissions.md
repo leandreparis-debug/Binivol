@@ -54,6 +54,8 @@ Toutes les règles sont appliquées par `can()` (`src/server/policy/can.ts`), fo
 | Voir les alertes d'intégration et de suivi d'une personne (relances, points, pauses, fiche) (`alert.integration.read`) | une personne | Oui | — | — | — | — | Si la personne relève du profil |
 | Voir les alertes réservées à TOPAZE (B3, purge, NIVOL, référentiel) (`alert.admin.read`) | une personne | Oui | — | — | — | — | — |
 | Exporter la matrice des compétences (personnes de son périmètre) (`training.matrix.export`) | — | Oui | Oui | Oui | Oui | Oui | — |
+| Purger les fiches arrivées au terme de leur conservation (RGPD) (`person.purge`) | — | Oui | — | — | — | — | — |
+| Exporter toutes les données d'une personne (droit d'accès, RGPD) (`person.gdprExport`) | une personne | Oui | — | — | — | — | — |
 
 ## Fiche d'une personne
 

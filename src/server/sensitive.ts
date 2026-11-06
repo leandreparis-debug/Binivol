@@ -578,3 +578,24 @@ export async function birthdaysOn(
       )`;
   return rows.map((r) => r.person_id);
 }
+
+// ---------------------------------------------------------------------------
+// GDPR purge (step 14): identifiers of the sensitive rows of a person (to
+// anonymise the logs that name them) and the storage keys of her documents.
+// Nothing is read beyond identifiers.
+// ---------------------------------------------------------------------------
+
+export async function sensitiveFootprint(
+  db: DbOrTx,
+  personId: string,
+): Promise<{ rowIds: string[]; storageKeys: string[] }> {
+  const [sensitive, contacts, documents] = await Promise.all([
+    db.personSensitive.findMany({ where: { personId }, select: { id: true } }),
+    db.emergencyContact.findMany({ where: { personId }, select: { id: true } }),
+    db.document.findMany({ where: { personId }, select: { id: true, storageKey: true } }),
+  ]);
+  return {
+    rowIds: [...sensitive, ...contacts, ...documents].map((r) => r.id),
+    storageKeys: documents.map((d) => d.storageKey),
+  };
+}

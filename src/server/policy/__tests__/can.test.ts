@@ -117,6 +117,7 @@ const PERSON_TABLE: Partial<Record<PolicyAction, Expected>> = {
   "alert.training.read": { ...personRead, DIAMANT: NONE, FORMAT: VOLUNTEERS },
   "alert.integration.read": diamantOnly,
   "alert.admin.read": {},
+  "person.gdprExport": {},
 };
 
 /** Resource-less actions: profiles allowed. */
@@ -133,6 +134,7 @@ const GLOBAL_TABLE: Partial<Record<PolicyAction, Profile[]>> = {
   "mail.log.read": ["TOPAZE"],
   "candidacy.create": ["TOPAZE", "DIAMANT"],
   "notification.readOwn": PROFILES,
+  "person.purge": ["TOPAZE"],
   "training.matrix.export": ["TOPAZE", "FORMAT", "ACTION", "LASER", "FORMAT_GP"],
 };
 

@@ -53,6 +53,8 @@ const SCHEMAS = {
   GREETING_BIRTHDAY_TEXT: z.string().trim().min(10).max(2000),
   GREETING_ANNIVERSARY_TEXT: z.string().trim().min(10).max(2000),
   PREFECTURE_CODES: codes,
+  PURGE_MODE: z.enum(["MANUAL", "AUTOMATIC"]),
+  ABANDONED_RETENTION_MONTHS: z.number().int().min(1).max(120),
 } as const;
 
 export type AutomationKey = keyof typeof SCHEMAS;
@@ -69,6 +71,10 @@ export interface AutomationSettings {
   anniversaryText: string;
   /** Export préfecture (step 13): trainings that put a volunteer on the list. */
   prefectureCodes: string[];
+  /** GDPR purge (step 14): validated by TOPAZE (MANUAL) or run by the daily task. */
+  purgeMode: "MANUAL" | "AUTOMATIC";
+  /** An abandoned candidacy is purged after this many months. */
+  abandonedRetentionMonths: number;
 }
 
 export const AUTOMATION_DEFAULTS: AutomationSettings = {
@@ -82,6 +88,8 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   birthdayText: BIRTHDAY_TEXT_DEFAULT,
   anniversaryText: ANNIVERSARY_TEXT_DEFAULT,
   prefectureCodes: ["PSE", "FPSE"],
+  purgeMode: "MANUAL",
+  abandonedRetentionMonths: 12,
 };
 
 /** Setting key of each field, and the description written by the base seed. */
@@ -116,6 +124,14 @@ export const AUTOMATION_KEYS: Record<keyof AutomationSettings, [AutomationKey, s
   prefectureCodes: [
     "PREFECTURE_CODES",
     "Export préfecture : formations valides qui mettent un bénévole sur la liste.",
+  ],
+  purgeMode: [
+    "PURGE_MODE",
+    "Purge RGPD : MANUAL (validée par TOPAZE) ou AUTOMATIC (par la tâche quotidienne).",
+  ],
+  abandonedRetentionMonths: [
+    "ABANDONED_RETENTION_MONTHS",
+    "Conservation, en mois, d'une candidature abandonnée avant sa purge.",
   ],
 };
 

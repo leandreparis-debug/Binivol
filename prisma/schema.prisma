@@ -1128,6 +1128,19 @@ model AutomatedMessage {
   @@map("automated_messages")
 }
 
+/// A stored file whose deletion failed during a GDPR purge (step 14): its row is gone, the
+/// file is retried from /admin/purge until it is deleted. No personal data here.
+model StorageOrphan {
+  id          String   @id @default(cuid(2))
+  storageKey  String   @unique @map("storage_key")
+  attempts    Int      @default(1)
+  lastError   String?  @map("last_error")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastTriedAt DateTime @default(now()) @map("last_tried_at") @db.Timestamptz(3)
+
+  @@map("storage_orphans")
+}
+
 model Setting {
   id          String   @id @default(cuid(2))
   key         String   @unique

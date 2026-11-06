@@ -320,6 +320,8 @@ export const POLICY_ACTION_LABELS: Record<PolicyAction, string> = {
     "Voir les alertes d'intégration et de suivi d'une personne (relances, points, pauses, fiche)",
   "alert.admin.read": "Voir les alertes réservées à TOPAZE (B3, purge, NIVOL, référentiel)",
   "training.matrix.export": "Exporter la matrice des compétences (personnes de son périmètre)",
+  "person.purge": "Purger les fiches arrivées au terme de leur conservation (RGPD)",
+  "person.gdprExport": "Exporter toutes les données d'une personne (droit d'accès, RGPD)",
   "candidacy.finalize.undo": "Annuler une intégration finalisée par erreur (7 jours)",
   "dossier.manage": "Gérer les dossiers en ligne",
   "mentorship.manage": "Gérer les parrainages",
