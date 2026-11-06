@@ -949,3 +949,30 @@ highlight ; statut = pastille + libellé ; hachures réservées aux données ; p
 cartes. La règle « jamais de pilule » de l'ADR-064 est levée. La jauge et les cartes sombres de
 la maquette (taux de formations à jour) demanderaient un nouvel indicateur dans
 `src/server/services/dashboard.ts` : non fait dans cette refonte, purement visuelle.
+
+## ADR-067 — « À faire » : listes personnelles et projets, sans passe-droit
+
+**Contexte.** Léandre demande (06/11/2026) une liste de tâches par responsable, avec la
+possibilité de confier une tâche, de la partager et de monter des projets d'équipe, sans
+complexité (ni Gantt ni sous-sous-tâches).
+
+**Décision.**
+
+- **Visibilité relationnelle** : on voit une tâche si on en est l'auteur, un assigné actif ou
+  un membre actif de son projet. **TOPAZE n'a pas de passe-droit** : ce sont des listes de
+  travail personnelles et d'équipe, pas un outil de contrôle. Les règles restent dans la
+  politique (`can()`, conditions `todoParticipant`, `todoManager`, `projectOwner`), avec un
+  miroir SQL testé.
+- Quatre actions au lieu des trois demandées : `todo.read`, `todo.write`, `todo.project.manage`,
+  plus **`todo.manage`** (modifier, réattribuer, archiver une tâche : l'auteur ou un OWNER du
+  projet), qui ne se confond ni avec cocher/commenter ni avec gérer un projet.
+- **Une tâche partagée est faite dès qu'un assigné la coche** (`completed_by_id` dit qui) :
+  une seule case, pas de « fait à 2 / 3 ».
+- Une tâche sans assigné revient toujours à son auteur (création, refus, désactivation).
+- Titres, notes et commentaires ne sont jamais écrits dans le journal d'audit (masqués) ;
+  l'interface rappelle de ne pas y écrire de donnée sensible.
+- Notifications dans la cloche seulement en V1 (pas d'e-mail).
+
+**Conséquences.** Le menu gagne une entrée « À faire » (6 entrées en barre basse sur
+téléphone). Un responsable qui quitte l'équipe ne bloque rien : désactiver son compte retire
+ses assignations et transmet ses projets au membre le plus ancien.

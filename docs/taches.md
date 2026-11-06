@@ -1,7 +1,9 @@
 # Tâches planifiées (étape 12)
 
 Une **route unique**, appelée une fois par jour, fait tout le travail planifié : rappels,
-relances de dossier, récapitulatifs d'alertes, e-mails d'anniversaire.
+relances de dossier, récapitulatifs d'alertes, e-mails d'anniversaire, purge, et le matin les
+tâches « À faire » dues aujourd'hui (une notification par assigné actif, `dedupeKey`
+`todo:due:<tâche>:<jour>` : rejouée, elle ne prévient personne deux fois ; étape 16).
 
 ## La route
 

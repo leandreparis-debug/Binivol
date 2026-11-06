@@ -74,6 +74,11 @@ test("captures", async ({ browser }) => {
     ["/admin/exports", "exports"],
     ["/admin/comptes", "admin-comptes"],
     ["/aide", "aide"],
+    ["/a-faire", "a-faire"],
+    ["/a-faire/confiees", "a-faire-confiees"],
+    ["/a-faire/projets", "a-faire-projets"],
+    ["/a-faire/projets/seed_tp_forum", "a-faire-projet"],
+    ["/a-faire?tache=seed_todo_shared", "a-faire-panneau"],
     ["/moi", "moi"],
     ["/design", "design"],
   ] as const) {

@@ -33,7 +33,7 @@ export default async function HelpPage() {
       <PageHeader title="Aide" subtitle="Le guide de chacun de tes profils." />
       <div className="flex flex-col gap-6">
         {guides.map((g) => (
-          <Card key={g.profile}>
+          <Card key={g.key}>
             <CardContent className="flex flex-col gap-3 pt-6 text-body text-ink-2">
               {g.blocks.map((b, i) => {
                 if (b.type === "h1")

@@ -26,7 +26,7 @@ les e-mails d'anniversaire et le droit de s'y opposer.
 
 | Droit                      | Comment                                                                                                                                                                                                                                                                                                                                                                                                              |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Accès, portabilité         | TOPAZE, fiche de la personne : « Exporter les données (RGPD) ». Une archive ZIP : `donnees.json` (tout, données sensibles comprises, commenté), `resume.pdf` (lisible) et les documents stockés. Journalisé (« export RGPD »). Sans stockage (démo), l'archive liste les fichiers absents.                                                                                                                           |
+| Accès, portabilité         | TOPAZE, fiche de la personne : « Exporter les données (RGPD) ». Une archive ZIP : `donnees.json` (tout, données sensibles comprises, commenté ; avec `taches_liees` : titre et dates des tâches « À faire » qui lui sont rattachées), `resume.pdf` (lisible) et les documents stockés. Journalisé (« export RGPD »). Sans stockage (démo), l'archive liste les fichiers absents.                                     |
 | Rectification              | Par la fiche (« Modifier »), tracé dans le journal d'audit.                                                                                                                                                                                                                                                                                                                                                          |
 | Opposition (anniversaires) | Case « Ne pas recevoir les messages d'anniversaire » de la fiche.                                                                                                                                                                                                                                                                                                                                                    |
 | Opposition, effacement     | **Qui décide** : TOPAZE, sur demande écrite de la personne, après avis du DPO si besoin. **Comment** : `/admin/purge`, « Effacement anticipé » : référence, motif (gardé dans la trace), confirmation « PURGER ». **Ce qui doit rester** : ce qu'une obligation légale impose (par exemple une vérification du B3 encore requise, un litige en cours) ; dans ce cas, refuser l'effacement et répondre à la personne. |
@@ -44,11 +44,13 @@ les e-mails d'anniversaire et le droit de s'y opposer.
      l'identifiant de la personne et de toutes ses lignes (formations, candidatures, documents…)
      est remplacé par un pseudonyme aléatoire, les valeurs avant/après effacées ; dans
      `access_logs`, l'identifiant de la personne est remplacé et le contexte effacé ;
-  2. la personne est **supprimée physiquement**, et tout ce qui en dépend par cascade (la seule
+  2. les tâches « À faire » qui lui étaient rattachées sont **détachées** (`person_id` à nul) :
+     elles restent dans les listes des responsables, sans lien vers personne (étape 16) ;
+  3. la personne est **supprimée physiquement**, et tout ce qui en dépend par cascade (la seule
      suppression physique autorisée) ;
-  3. une **trace minimale** est écrite : « 1 fiche purgée, par X, règle Y » (action `PURGE`,
+  4. une **trace minimale** est écrite : « 1 fiche purgée, par X, règle Y » (action `PURGE`,
      sans donnée personnelle) ;
-  4. après la transaction, ses fichiers (documents, pièces jointes du dossier, images de
+  5. après la transaction, ses fichiers (documents, pièces jointes du dossier, images de
      signature) sont supprimés du stockage ; un fichier qui ne se supprime pas est gardé dans
      `storage_orphans` et retenté (bouton « Réessayer », et chaque jour).
 - Les journaux sont en ajout seul : seule une transaction qui pose `SET LOCAL

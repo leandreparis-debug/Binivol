@@ -14,21 +14,27 @@ const FILES: Record<Profile, string> = {
   DIAMANT: "diamant.md",
 };
 
+/** Guides every responsible gets, after those of her profiles (« À faire », step 16). */
+const COMMON_FILES = ["a-faire.md"] as const;
+
+async function readGuide(file: string): Promise<GuideBlock[]> {
+  try {
+    return parseGuide(await readFile(join(process.cwd(), "docs", "guides", file), "utf8"));
+  } catch {
+    return [{ type: "p" as const, content: [{ text: "Guide indisponible.", bold: false }] }];
+  }
+}
+
 export async function guidesFor(
   profiles: ReadonlySet<Profile>,
-): Promise<{ profile: Profile; blocks: GuideBlock[] }[]> {
+): Promise<{ key: string; profile: Profile | null; blocks: GuideBlock[] }[]> {
   const out = [];
   for (const profile of PROFILE_ORDER) {
     if (!profiles.has(profile)) continue;
-    try {
-      const text = await readFile(join(process.cwd(), "docs", "guides", FILES[profile]), "utf8");
-      out.push({ profile, blocks: parseGuide(text) });
-    } catch {
-      out.push({
-        profile,
-        blocks: [{ type: "p" as const, content: [{ text: "Guide indisponible.", bold: false }] }],
-      });
-    }
+    out.push({ key: profile, profile, blocks: await readGuide(FILES[profile]) });
+  }
+  for (const file of COMMON_FILES) {
+    out.push({ key: file, profile: null, blocks: await readGuide(file) });
   }
   return out;
 }
