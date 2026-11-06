@@ -57,7 +57,7 @@ export default async function Page() {
                       {n.href ? (
                         <Link
                           href={n.href}
-                          className="text-body text-ink underline-offset-4 focus-ring hover:underline"
+                          className="inline-flex min-h-11 items-center text-body text-ink underline-offset-4 focus-ring hover:underline"
                         >
                           {n.title}
                         </Link>

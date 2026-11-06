@@ -28,7 +28,7 @@
 | 9   | Assistant Gaia et passage au statut bénévole       | terminée                  |
 | 10  | Formations, compétences et nominations             | terminée                  |
 | 11  | Points de suivi, parrainage, B3, pauses et départs | terminée                  |
-| 12  | Alertes, rappels et e-mails automatiques           | à faire                   |
+| 12  | Alertes, rappels et e-mails automatiques           | terminée                  |
 | 13  | Tableaux de bord, matrice et exports               | à faire                   |
 | 14  | RGPD et administration                             | à faire                   |
 | 15  | Recette, audit et guides (sans VPS)                | à faire                   |
@@ -136,3 +136,36 @@ verts, 38 ignorés (ignorés par projet). `pnpm db:fresh` passe.
   nombreuses (`max-w-full`), relevé par l'e2e de navigation mobile.
 - Les schémas Zod des actions de suivi sont dans `src/lib/followUpForms.ts` (un fichier
   `"use server"` ne peut exporter que des fonctions asynchrones).
+
+## Étape 12 — terminée
+
+**Commits** : `80db74b` (moteurs d'alertes et de rappels, e-mails automatiques, route
+protégée), `7704d9b` (tests base), `dbf4119` (écrans, seed), puis accueil, e2e, captures et
+documentation.
+
+**Migration** : `20261110090000_alerts_reminders_jobs` (`persons.greeting_opt_out`,
+`job_runs` + unique `(job, day)`, `automated_messages`, déclencheurs `PAUSE_RETURN` et
+`GREETINGS_REVIEW`, délais par défaut de l'étape 12 là où ceux de l'étape 2 n'avaient pas
+changé).
+
+**Résultats** : `pnpm verify` 832 tests unitaires ; `pnpm test:db` 277 ; `pnpm test:e2e` 98
+verts, 38 ignorés (par projet). `pnpm db:fresh` passe ; chacune des 17 règles d'alerte a un cas
+dans le seed (vérifié par un test).
+
+**Captures** : `docs/captures/alertes-1440.png`, `cloche-1440.png`, `reglages-1440.png`.
+
+**Documentation** : `docs/alertes.md`, `docs/taches.md`, `docs/mail.md` complété, ADR-056 à
+ADR-058, `.env.example` (`CRON_SECRET`, sans valeur), `docs/permissions.md` régénéré.
+
+**À faire par Léandre** : créer `CRON_SECRET` dans Vercel (Production) ; sans elle, la tâche
+quotidienne refuse tout (c'est voulu).
+
+**Écarts, justifiés** :
+
+- NIVOL en double et code inconnu du référentiel : impossibles par construction (index unique,
+  clé étrangère) ; pas de règle, documenté.
+- Permissions : trois actions nouvelles (`alert.training.read`, `alert.integration.read`,
+  `alert.admin.read`) portent la correspondance sujet → profils dans la matrice.
+- Le récapitulatif TCAU est réservé à TOPAZE et FORMAT.
+- Correction annexe : la cloche était un bouton inerte ; l'accueil affichait « à l'étape 12 ».
+- `GREETING_EMAILS_ENABLED` vaut désormais `false` par défaut (le cahier le demande).

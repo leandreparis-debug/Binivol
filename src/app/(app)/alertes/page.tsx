@@ -141,7 +141,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Searc
                         <span className="flex min-w-0 flex-col gap-0.5">
                           <Link
                             href={a.href}
-                            className="text-body text-ink underline-offset-4 focus-ring hover:underline"
+                            className="inline-flex min-h-11 items-center text-body text-ink underline-offset-4 focus-ring hover:underline"
                           >
                             {a.subject}
                           </Link>

@@ -59,3 +59,5 @@ export function alertCountsFor(
 ): Promise<Map<string, number>> {
   return alertCounts(db, actor, personIds);
 }
+
+export { alertsFor, canSeeAlerts };

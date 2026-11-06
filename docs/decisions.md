@@ -777,3 +777,44 @@ liste des points est une section de `/candidats` (`/candidats/suivi`) : mêmes r
 
 **Conséquences.** Si l'usage révèle des comptes rendus sensibles, il faudra les déplacer dans
 `PersonSensitive` (nouvelle migration) et les lire par `sensitive.ts`.
+
+## ADR-056 — Des alertes calculées, visibles par sujet
+
+**Contexte.** L'ancien outil calculait des contrôles de qualité chaque semaine. Les stocker
+imposerait de les tenir à jour à chaque écriture.
+
+**Décision.** Les alertes sont **calculées à la demande** (`src/server/alerts/`) : fonctions
+pures testées une à une, chargement groupé (sept requêtes, pas de N+1). Chaque règle a un
+sujet ; chaque sujet est une action de la matrice (`alert.training.read`,
+`alert.integration.read`, `alert.admin.read`, `reference.manage`), appliquée en SQL par
+`visibleSql()`. Les rappels, eux, sont **datés et stockés** (`Notification`, dédoublonnés par
+`dedupeKey`).
+
+**Conséquences.** Une alerte disparaît d'elle-même ; ajouter une règle = une fonction pure,
+un test, une ligne dans `ALERT_RULES`. Le coût est payé à l'affichage (moins d'une seconde
+pour 500 personnes).
+
+## ADR-057 — Une seule tâche quotidienne, derrière un secret et un verrou
+
+**Contexte.** Le plan gratuit de Vercel n'autorise qu'un cron par jour ; plus tard, un cron
+système sur le VPS.
+
+**Décision.** Une route `GET|POST /api/taches/quotidienne` fait tout ; `Authorization: Bearer
+<CRON_SECRET>` comparé en temps constant ; sans secret configuré, refus total. Verrou
+`job_runs` (une ligne par tâche et par jour de Paris) ; chaque envoi est en plus dédoublonné.
+
+**Conséquences.** Le passage au VPS ne change que l'appelant. Un jour manqué n'est pas
+rattrapé automatiquement (les règles portent sur des échéances passées ou atteintes : le
+lendemain les reprend).
+
+## ADR-058 — Faits sensibles dérivés pour les alertes et les anniversaires
+
+**Contexte.** Les règles ont besoin de l'âge, de la date du dernier B3, de l'autorisation
+parentale ; les anniversaires, de savoir qui est né ce jour-là.
+
+**Décision.** `sensitive.ts` expose `alertSensitiveFacts` et `birthdaysOn`, qui ne rendent que
+des faits dérivés (âge, date du B3 sans l'issue, oui/non, liste d'identifiants), sans journal
+d'accès, comme `agesOf` : personne ne consulte une valeur sensible. L'issue du B3 et la date
+de naissance ne sortent jamais.
+
+**Conséquences.** Le module sensible reste le seul à lire ces tables (test d'architecture).

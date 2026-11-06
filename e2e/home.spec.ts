@@ -11,7 +11,8 @@ test.describe("Accueil", () => {
   }) => {
     await expect(page.getByRole("heading", { level: 1, name: "Bonjour Alex" })).toBeVisible();
     await expect(page.getByTestId("fake-data")).toHaveText("Données fictives");
-    await expect(page.getByText("Aucun rappel pour l'instant")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Derniers rappels" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Alertes de ton périmètre" })).toBeVisible();
     await expect(page.locator("[data-variant='highlight']")).toHaveCount(1);
   });
 

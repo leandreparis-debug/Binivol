@@ -45,6 +45,8 @@ export function BellMenu({ unread }: { unread: number }) {
 
   return (
     <DropdownMenu
+      // Non-modal: the page is not hidden from assistive technologies while it is open.
+      modal={false}
       onOpenChange={(open) => {
         if (open) load();
       }}

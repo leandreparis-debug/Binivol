@@ -47,3 +47,25 @@ Chaque point : la question, le choix fait, comment le changer.
 13. **Départ** : les points de suivi prévus ne sont pas annulés (la liste n'affiche que les
     personnes actives ou en pause, et un retour les retrouve). **Pour les annuler** : ajouter
     une case « Annuler les points prévus » au départ.
+
+## Étape 12 — Alertes, rappels, e-mails
+
+14. **`/alertes` est rangée sous « Rappels »** (pilules Rappels / Alertes), sans nouvelle entrée
+    dans la barre du bas (5 entrées au plus sur mobile). **Pour une entrée dédiée** : l'ajouter
+    à `NAV_ITEMS` et retirer l'alias de `NavPills.tsx`.
+15. **E-mails d'anniversaire désactivés par défaut** (`GREETING_EMAILS_ENABLED=false`). La base
+    hébergée garde sa valeur actuelle (le seed n'écrase pas un paramètre existant) et l'import
+    du classeur reprend `MAILS_VOEUX_ACTIFS`. **Pour les couper** : `/admin/reglages`.
+16. **RGPD** : l'information donnée aux bénévoles (notice du dossier, `RGPD_NOTICE`) doit
+    mentionner les e-mails d'anniversaire et le droit de s'y opposer (case « Ne pas recevoir les
+    messages d'anniversaire » de la fiche). À faire valider par le DPO.
+17. **Adresse d'envoi** : le cahier parle de `MAIL_FROM` ; la variable existante est
+    `SMTP_FROM`, réutilisée (pas de seconde variable).
+18. **« Récapitulatif TCAU »** : bouton réservé à TOPAZE et FORMAT (`trainingSession.manage`) ;
+    il liste les présents que l'expéditeur voit.
+19. **Démo seulement** : la fonction `CH_RESEAUX` est désactivée et `F_CI` exige `TCAU`, pour
+    que chaque règle d'alerte ait un cas. Rien de tel dans `db:seed:base`.
+20. **« Activité »** (sans activité depuis 6 mois) : session de formation, début d'une
+    nomination ou point de suivi fait.
+21. **Délais par défaut** des rappels (7 j, 5 j, B3 en janvier) : la migration ne les change
+    sur la base hébergée que s'ils avaient encore les valeurs de l'étape 2.

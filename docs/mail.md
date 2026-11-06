@@ -46,3 +46,22 @@ Un SMTP en panne (connexion refusée, délai de 10 s dépassé, identifiants ref
 `MailUnavailableError`. DIAMANT voit « L'e-mail n'a pas pu être envoyé pour le moment. Le lien reste valable : copiez-le pour le transmettre. »
 dans la boîte de dialogue ; **le lien reste valable** et peut être copié. L'envoi réussi est
 journalisé (`DossierLink`, champ `sentByMail`, pilote utilisé), sans le contenu.
+
+## E-mails automatiques (étape 12)
+
+Tous passent par `MailService` ; textes dans `src/server/mail/automatedTexts.ts`
+(tutoiement, **jamais l'âge**, pas de tiret cadratin, aucune donnée sensible). Chacun porte une
+clé de dédoublonnage (`automated_messages`) : jamais envoyé deux fois ; un échec est conservé
+(type, date, erreur générique) et visible dans `/admin/reglages`, et ne défait jamais ce qui a
+été enregistré avant.
+
+| E-mail                       | Quand                                                                                                                                                                                | Destinataires                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| Récapitulatif des alertes    | `DIGEST_FREQUENCY` : le 1er du mois (défaut), le lundi, ou jamais                                                                                                                    | chaque responsable, ses alertes visibles seulement |
+| Prévenance du pôle Urgence   | une session `URGENCE_NOTIFY_CODES` (TCAU) validée ou inscrite, **un e-mail par saisie de groupe**, après la transaction                                                              | `URGENCE_NOTIFY_RECIPIENTS` (vide : rien ne part)  |
+| Récapitulatif TCAU           | bouton sur `/formations` (TOPAZE, FORMAT)                                                                                                                                            | idem                                               |
+| Anniversaire, engagement     | **désactivés par défaut** (`GREETING_EMAILS_ENABLED`) ; 29/02 fêté le 28 ; un seul message par jour et par personne ; case « Ne pas recevoir les messages d'anniversaire » respectée | la personne, depuis `SMTP_FROM`                    |
+| Relance de dossier non signé | règle `DOSSIER_UNSIGNED` (5 j) ; **sans le lien** (le jeton n'est jamais stocké) : invite à demander un nouveau lien                                                                 | le candidat                                        |
+
+Sur la démo hébergée (`MAIL_DRIVER=log`), tout est consigné dans `/admin/courriels` au lieu de
+partir.
