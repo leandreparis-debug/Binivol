@@ -70,6 +70,14 @@ export const envObject = z.object({
   /** Sender, e.g. « Binivol <no-reply@exemple.org> ». */
   SMTP_FROM: z.string().trim().min(3).optional(),
 
+  // --- Address suggestions of the online dossier (docs/dossier.md) ----------
+  /**
+   * `ban`: the public Base Adresse Nationale (Géoplateforme, no key), called by
+   * the server only; `none`: no suggestion (free typing); `fake`: synthetic
+   * suggestions, tests only (refused outside a demo sign-in, never on Vercel).
+   */
+  ADDRESS_PROVIDER: z.enum(["ban", "none", "fake"]).default("ban"),
+
   // --- Scheduled tasks (docs/taches.md) -------------------------------------
   /**
    * Shared secret of the daily task route (`Authorization: Bearer …`). Unset:
@@ -109,6 +117,13 @@ export const envSchema = envObject.superRefine((env, ctx) => {
       path: ["AUTH_DEMO_LOGIN"],
       message:
         "la connexion de démonstration est interdite sur Vercel (VERCEL_ENV est défini) : retire AUTH_DEMO_LOGIN (exception de test : AUTH_DEMO_ON_VERCEL=true, ADR-035)",
+    });
+  }
+  if (env.ADDRESS_PROVIDER === "fake" && (!env.AUTH_DEMO_LOGIN || env.VERCEL_ENV !== undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["ADDRESS_PROVIDER"],
+      message: "le pilote fake est réservé aux tests (AUTH_DEMO_LOGIN, jamais sur Vercel)",
     });
   }
   if (env.MAIL_DRIVER === "smtp") {

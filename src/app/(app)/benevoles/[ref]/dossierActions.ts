@@ -15,6 +15,7 @@ import { requestSignatureCode, submitSignature } from "@/server/services/signatu
 import { dossierLinkUrl } from "@/server/dossier/token";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
+import { addressQuerySchema, suggestForDossier } from "@/server/geo/suggest";
 import { loadPersonFacts } from "@/server/policy/facts";
 import type { Actor, PolicyResource } from "@/server/policy/types";
 import {
@@ -148,6 +149,17 @@ async function onSite(personId: string | undefined, actor: Actor) {
   }
   return { context, audit: formActor(context, actor) };
 }
+
+/** On-site mode: address suggestions (step 16), the same service as the candidate's route. */
+export const suggestOnSiteAddressAction = defineAction({
+  action: "dossier.manage",
+  input: addressQuerySchema.extend({ personId: z.string().min(1).max(40) }),
+  resource: (input) => personResource(input.personId),
+  handler: async ({ input, actor }) => {
+    const { context } = await onSite(input.personId, actor);
+    return suggestForDossier(getDb(), context.linkId, { kind: input.kind, q: input.q });
+  },
+});
 
 export const saveOnSiteDossierAction = defineAction({
   action: "dossier.manage",

@@ -1,5 +1,7 @@
 "use client";
 
+import type { AddressSuggestion } from "@/lib/geo";
+import { AddressCombobox, type SuggestAddress } from "./AddressCombobox";
 import { useId } from "react";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
@@ -136,12 +138,17 @@ export function DeclaredField({
   error,
   onChange,
   today,
+  suggest,
+  onPick,
 }: {
   def: FieldDef;
   draft: DossierDraft;
   error?: string;
   onChange: (value: string) => void;
   today: string;
+  /** Address suggestions (fields with `assist`). */
+  suggest?: SuggestAddress;
+  onPick?: (suggestion: AddressSuggestion) => void;
 }) {
   const id = fieldId(def.section, def.name);
   const value = fieldValue(draft, def);
@@ -177,6 +184,24 @@ export function DeclaredField({
             </option>
           ))}
         </Select>
+      </Field>
+    );
+  }
+  if (def.assist && suggest && onPick) {
+    return (
+      <Field label={def.label} htmlFor={id} required={required} error={error} hint={def.hint}>
+        <AddressCombobox
+          id={id}
+          kind={def.assist}
+          value={value}
+          maxLength={def.maxLength}
+          autoComplete={def.autoComplete}
+          inputMode={def.kind === "postal" ? "numeric" : undefined}
+          placeholder={def.placeholder}
+          onChange={onChange}
+          onPick={onPick}
+          suggest={suggest}
+        />
       </Field>
     );
   }

@@ -18,7 +18,9 @@ import {
   type DossierIssue,
   type DossierStep,
 } from "@/lib/dossierSchema";
+import type { AddressQueryKind, AddressSuggestion } from "@/lib/geo";
 import type { ActionResult } from "@/server/actions/defineAction";
+import type { SuggestAddress } from "./AddressCombobox";
 import type { DossierFormView, DossierSubmitResult } from "@/server/services/dossierForm";
 import { STEP_FIELDS, type TextSection } from "./config";
 import { DeclaredField } from "./fields";
@@ -39,6 +41,15 @@ export interface DossierFormActions {
     personId?: string;
     data: DossierDraft;
   }) => Promise<ActionResult<DossierSubmitResult>>;
+  /**
+   * On-site mode only: address suggestions through `dossier.manage`. The
+   * candidate's own device asks the route `/dossier/adresse` instead.
+   */
+  suggestAddress?: (input: {
+    personId: string;
+    kind: AddressQueryKind;
+    q: string;
+  }) => Promise<ActionResult<AddressSuggestion[]>>;
 }
 
 export interface DossierFormProps {
@@ -177,6 +188,41 @@ export function DossierForm({ view, actions, personId, exitHref }: DossierFormPr
   };
   const setText = (section: TextSection, name: string, value: string) => {
     patch(section, { [name]: value } as Partial<NonNullable<DossierDraft[TextSection]>>);
+  };
+
+  // --- Address suggestions (step 16) ----------------------------------------
+  const suggestAddress = useCallback<SuggestAddress>(
+    async (kind, q) => {
+      if (personId) {
+        const result = await actions.suggestAddress?.({ personId, kind, q });
+        return result?.ok ? result.data : [];
+      }
+      try {
+        const response = await fetch("/dossier/adresse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind, q }),
+          cache: "no-store",
+        });
+        if (!response.ok) return [];
+        const body = (await response.json()) as { suggestions?: AddressSuggestion[] };
+        return body.suggestions ?? [];
+      } catch {
+        return [];
+      }
+    },
+    [actions, personId],
+  );
+
+  /** A suggestion fills the address fields of its section; everything stays editable. */
+  const pickAddress = (section: TextSection, assist: string, s: AddressSuggestion) => {
+    const streetKey = section === "contact" ? "street" : "address";
+    const fields: Record<string, string> = { postalCode: s.postalCode, city: s.city };
+    if (assist === "address") {
+      if (s.street) fields[streetKey] = s.street;
+      fields.country = s.country;
+    }
+    patch(section, fields as Partial<NonNullable<DossierDraft[TextSection]>>);
   };
 
   const retry = () => {
@@ -349,6 +395,10 @@ export function DossierForm({ view, actions, personId, exitHref }: DossierFormPr
                   error={errorOf(def.name)}
                   onChange={(value) => {
                     setText(def.section, def.name, value);
+                  }}
+                  suggest={suggestAddress}
+                  onPick={(s) => {
+                    if ("assist" in def && def.assist) pickAddress(def.section, def.assist, s);
                   }}
                 />
               ))}

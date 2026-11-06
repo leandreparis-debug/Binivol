@@ -79,6 +79,8 @@ export default defineConfig({
       PORT: String(PORT),
       ENABLE_DESIGN_PAGE: "true",
       AUTH_DEMO_LOGIN: "true",
+      // No network in tests: synthetic address suggestions.
+      ADDRESS_PROVIDER: "fake",
       STORAGE_DRIVER: "local",
       STORAGE_LOCAL_DIR: "./storage/e2e",
       AUTH_URL: baseURL,

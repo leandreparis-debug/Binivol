@@ -19,6 +19,7 @@ import {
   signOnSiteAction,
   saveOnSiteDossierAction,
   submitOnSiteDossierAction,
+  suggestOnSiteAddressAction,
 } from "@/app/(app)/benevoles/[ref]/dossierActions";
 
 export const metadata: Metadata = {
@@ -105,6 +106,7 @@ export default async function OnSitePage({ params }: { params: Promise<{ ref: st
           addAttachment: addOnSiteAttachmentAction,
           removeAttachment: removeOnSiteAttachmentAction,
           submit: submitOnSiteDossierAction,
+          suggestAddress: suggestOnSiteAddressAction,
         }}
       />
     </div>

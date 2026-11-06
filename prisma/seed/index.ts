@@ -43,6 +43,8 @@ export const RGPD_NOTICE_DRAFT = [
   "",
   "Elles sont conservées pendant votre engagement, puis 5 ans après votre départ, avant d'être supprimées.",
   "",
+  "Pour vous proposer des adresses pendant la saisie, le texte que vous tapez dans les champs d'adresse est transmis au service public Base Adresse Nationale (Géoplateforme, IGN). Il n'y est pas associé à votre nom et Binivol ne le conserve pas.",
+  "",
   "Vous pouvez accéder à vos données, les faire corriger ou supprimer, et vous opposer à leur traitement en écrivant au responsable de l'unité locale ou au délégué à la protection des données de la Croix-Rouge française. Vous pouvez aussi saisir la CNIL.",
 ].join("\n");
 export const FAKER_SEED = 20261104;

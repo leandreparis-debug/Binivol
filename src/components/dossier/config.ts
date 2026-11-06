@@ -8,6 +8,10 @@ import { GUARDIAN_QUALITIES } from "@/lib/dossierForms";
  * PDF fields (docs/dossier.md).
  */
 
+/** Under the address fields: where the suggestions come from (step 16, RGPD). */
+export const ADDRESS_HINT =
+  "Des adresses vous sont proposées pendant la saisie : le texte tapé est alors transmis au service public Base Adresse Nationale.";
+
 export type TextSection = "identity" | "contact" | "emergency" | "guardian";
 
 interface BaseDef {
@@ -24,6 +28,12 @@ export interface InputDef extends BaseDef {
   autoComplete?: string;
   maxLength: number;
   placeholder?: string;
+  /**
+   * Address suggestions while typing (step 16): `address` fills number and
+   * street, postal code, city and country; `postalCode` proposes the communes;
+   * `city` proposes the postal codes. Free typing always stays possible.
+   */
+  assist?: "address" | "postalCode" | "city";
 }
 
 interface OptionsDef extends BaseDef {
@@ -145,7 +155,9 @@ export const STEP_FIELDS: Partial<Record<DossierStep, FieldDef[]>> = {
       section: "contact",
       name: "street",
       label: "Numéro et voie",
-      autoComplete: "address-line1",
+      hint: ADDRESS_HINT,
+      autoComplete: "street-address",
+      assist: "address",
       maxLength: 100,
       required: true,
     },
@@ -164,6 +176,7 @@ export const STEP_FIELDS: Partial<Record<DossierStep, FieldDef[]>> = {
       name: "postalCode",
       label: "Code postal",
       autoComplete: "postal-code",
+      assist: "postalCode",
       maxLength: 10,
       required: true,
     },
@@ -173,6 +186,7 @@ export const STEP_FIELDS: Partial<Record<DossierStep, FieldDef[]>> = {
       name: "city",
       label: "Ville",
       autoComplete: "address-level2",
+      assist: "city",
       maxLength: 60,
       required: true,
     },
@@ -262,15 +276,31 @@ export const STEP_FIELDS: Partial<Record<DossierStep, FieldDef[]>> = {
     },
     { kind: "tel", section: "emergency", name: "phone2", label: "Téléphone 2", maxLength: 20 },
     { kind: "email", section: "emergency", name: "email", label: "E-mail", maxLength: 120 },
-    { kind: "text", section: "emergency", name: "address", label: "Adresse", maxLength: 100 },
+    {
+      kind: "text",
+      section: "emergency",
+      name: "address",
+      label: "Adresse",
+      hint: ADDRESS_HINT,
+      maxLength: 100,
+      assist: "address",
+    },
     {
       kind: "postal",
       section: "emergency",
       name: "postalCode",
       label: "Code postal",
       maxLength: 10,
+      assist: "postalCode",
     },
-    { kind: "text", section: "emergency", name: "city", label: "Ville", maxLength: 60 },
+    {
+      kind: "text",
+      section: "emergency",
+      name: "city",
+      label: "Ville",
+      maxLength: 60,
+      assist: "city",
+    },
     { kind: "text", section: "emergency", name: "country", label: "Pays", maxLength: 60 },
   ],
   representant: [

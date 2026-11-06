@@ -24,6 +24,8 @@ export const RATE_RULES = {
   signIn: { limit: 30, windowSeconds: 15 * 60 },
   /** Saving the dossier, attachments, submission. */
   dossierWrite: { limit: 300, windowSeconds: 15 * 60 },
+  /** Address suggestions, per dossier link (step 16). */
+  addressSuggest: { limit: 200, windowSeconds: 15 * 60 },
 } as const satisfies Record<string, RateRule>;
 
 export type RateBucket = keyof typeof RATE_RULES;

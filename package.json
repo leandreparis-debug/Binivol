@@ -40,7 +40,8 @@
     "db:backup": "tsx scripts/db-backup.ts",
     "db:restore": "tsx scripts/db-restore.ts",
     "import:classeur": "tsx scripts/import-classeur.ts",
-    "fixtures:classeur": "tsx scripts/make-fixture-classeur.ts"
+    "fixtures:classeur": "tsx scripts/make-fixture-classeur.ts",
+    "geo:postal-codes": "tsx scripts/generate-postal-codes.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1153.0",
