@@ -1,3 +1,4 @@
+import { loadIndicators } from "@/server/dashboard/indicators";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchX, Users, Download } from "lucide-react";
@@ -74,6 +75,11 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
     training: row.training,
   }));
   const filtered = hasFilters(query);
+  const indicator = query.indicateur
+    ? ((await loadIndicators(db)).find((i) => i.key === query.indicateur) ?? {
+        label: "inconnu (aucune personne)",
+      })
+    : null;
   const count = `${String(page.total)} ${page.total > 1 ? "personnes" : "personne"}`;
 
   return (
@@ -102,6 +108,20 @@ export default async function Page({ searchParams }: { searchParams: SearchParam
         alertDays={page.alertDays}
         canSeeArchived={directoryShowsArchived(actor)}
       />
+      {indicator && (
+        <p className="mb-3 flex flex-wrap items-center gap-3 rounded-inner bg-accent-soft px-4 py-2 text-small text-accent-ink">
+          <span>
+            Indicateur du tableau de bord :{" "}
+            <strong className="font-semibold">{indicator.label}</strong>
+          </span>
+          <Link
+            href="/benevoles"
+            className="inline-flex min-h-11 items-center font-medium underline underline-offset-4 focus-ring"
+          >
+            Retirer ce filtre
+          </Link>
+        </p>
+      )}
       <p className="mb-3 text-body font-medium text-ink" role="status" aria-live="polite">
         {count}
       </p>

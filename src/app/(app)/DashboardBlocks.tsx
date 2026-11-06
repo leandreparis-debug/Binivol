@@ -10,7 +10,14 @@ import type { DashboardBlock } from "@/server/services/dashboard";
  * The blocks of the home page (step 13), one per profile of the user. Only
  * the very first key figure of the screen is the highlighted one.
  */
-export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
+export function DashboardBlocks({
+  blocks,
+  highlightFirst = true,
+}: {
+  blocks: DashboardBlock[];
+  /** False when another figure of the screen is already highlighted (DLUS dashboard). */
+  highlightFirst?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-8">
       {blocks.map((block, b) => (
@@ -32,7 +39,7 @@ export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
                 {s.href ? (
                   <Link href={s.href} className="block hover-lift rounded-card focus-ring">
                     <StatCard
-                      variant={b === 0 && i === 0 ? "highlight" : "default"}
+                      variant={highlightFirst && b === 0 && i === 0 ? "highlight" : "default"}
                       label={s.label}
                       value={String(s.value)}
                       footer={s.hint}
@@ -41,7 +48,7 @@ export function DashboardBlocks({ blocks }: { blocks: DashboardBlock[] }) {
                   </Link>
                 ) : (
                   <StatCard
-                    variant={b === 0 && i === 0 ? "highlight" : "default"}
+                    variant={highlightFirst && b === 0 && i === 0 ? "highlight" : "default"}
                     label={s.label}
                     value={String(s.value)}
                     footer={s.hint}

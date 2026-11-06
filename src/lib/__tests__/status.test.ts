@@ -41,6 +41,9 @@ describe("status registry", () => {
       "notif-read",
       "todo-late",
       "todo-today",
+      "enrol-registered",
+      "enrol-waitlisted",
+      "enrol-confirmed",
     ]);
   });
 

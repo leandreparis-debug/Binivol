@@ -74,6 +74,7 @@ test("captures", async ({ browser }) => {
     ["/admin/exports", "exports"],
     ["/admin/comptes", "admin-comptes"],
     ["/aide", "aide"],
+    ["/benevoles?indicateur=BENURS", "annuaire-indicateur"],
     ["/a-faire", "a-faire"],
     ["/a-faire/confiees", "a-faire-confiees"],
     ["/a-faire/projets", "a-faire-projets"],

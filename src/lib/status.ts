@@ -45,13 +45,17 @@ export type AlertStatusKey =
 /** « À faire » (step 16): an open task due before today, or today. */
 export type TodoStatusKey = "todo-late" | "todo-today";
 
+/** DLUS dashboard (step 16): an enrolment in a training. */
+export type EnrolmentStatusKey = "enrol-registered" | "enrol-waitlisted" | "enrol-confirmed";
+
 export type Status =
   | VolunteerStatus
   | DeadlineStatus
   | DossierStatusKey
   | QualificationStatusKey
   | AlertStatusKey
-  | TodoStatusKey;
+  | TodoStatusKey
+  | EnrolmentStatusKey;
 
 /** Colour tone, mapped to design tokens by the components. */
 export type Tone = "neutral" | "accent" | "ok" | "warn" | "danger" | "ink";
@@ -131,6 +135,12 @@ export const TODO_STATUSES: Record<TodoStatusKey, StatusMeta> = {
   "todo-today": { label: "Aujourd'hui", tone: "warn" },
 };
 
+export const ENROLMENT_STATUSES: Record<EnrolmentStatusKey, StatusMeta> = {
+  "enrol-registered": { label: "Inscrit", tone: "accent" },
+  "enrol-waitlisted": { label: "Liste d'attente", tone: "warn" },
+  "enrol-confirmed": { label: "Confirmé", tone: "ok" },
+};
+
 export const STATUSES: Record<Status, StatusMeta> = {
   ...VOLUNTEER_STATUSES,
   ...DEADLINE_STATUSES,
@@ -138,6 +148,7 @@ export const STATUSES: Record<Status, StatusMeta> = {
   ...QUALIFICATION_STATUSES,
   ...ALERT_STATUSES,
   ...TODO_STATUSES,
+  ...ENROLMENT_STATUSES,
 };
 
 export const STATUS_KEYS = Object.keys(STATUSES) as Status[];

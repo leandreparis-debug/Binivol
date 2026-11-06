@@ -13,17 +13,29 @@ import { getDb } from "@/server/db";
 import { alertsFor, canSeeAlerts } from "@/server/services/alerts";
 import { dashboardFor } from "@/server/services/dashboard";
 import { listNotifications } from "@/server/services/notifications";
+import { ARRIVAL_PERIODS, type ArrivalPeriod } from "@/server/dashboard/aggregates";
+import { canSome } from "@/server/policy/can";
+import { dlusDashboard } from "@/server/services/dlusDashboard";
 import { DashboardBlocks } from "./DashboardBlocks";
+import { DlusDashboard } from "./DlusDashboard";
 import { MyTodosCard } from "./MyTodosCard";
 
-export default async function HomePage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function HomePage({ searchParams }: { searchParams: SearchParams }) {
   const actor = await requireActor();
   const firstName = actor.name.trim().split(/\s+/)[0] ?? actor.name;
   const db = getDb();
-  const [blocks, notifications, alerts] = await Promise.all([
+  const rawPeriod = (await searchParams).periode;
+  const period: ArrivalPeriod = (ARRIVAL_PERIODS as readonly string[]).includes(String(rawPeriod))
+    ? (rawPeriod as ArrivalPeriod)
+    : "12mois";
+  const showDlus = canSome(actor, "dashboard.dlus.read");
+  const [blocks, notifications, alerts, dlus] = await Promise.all([
     dashboardFor(db, actor),
     listNotifications(db, actor.userId, 5),
     canSeeAlerts(actor) ? alertsFor(db, actor) : Promise.resolve(null),
+    showDlus ? dlusDashboard(db, actor, { period }) : Promise.resolve(null),
   ]);
   const alertCounts = alerts
     ? Object.fromEntries(
@@ -39,7 +51,13 @@ export default async function HomePage() {
         actions={<FakeDataBanner />}
       />
 
-      <DashboardBlocks blocks={blocks} />
+      {dlus && <DlusDashboard data={dlus} />}
+      {blocks.length > 0 && (
+        <div className={dlus ? "mt-8" : undefined}>
+          {/* One highlighted figure per screen: the DLUS one when it is shown. */}
+          <DashboardBlocks blocks={blocks} highlightFirst={!dlus} />
+        </div>
+      )}
 
       <section aria-labelledby="mes-taches" className="mt-8">
         <MyTodosCard actor={actor} />

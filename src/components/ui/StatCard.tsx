@@ -20,6 +20,8 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
    * link (the link itself is the caller's). Ignored when `icon` is given.
    */
   arrow?: boolean;
+  /** Extra line under the footer (e.g. a status dot « 3 expirent sous 60 j »). */
+  extra?: React.ReactNode;
   /**
    * `default` (white), `dark` (ink) or `highlight` (solid accent).
    * Rule: **one `highlight` per screen at most** — it marks the single figure that matters.
@@ -76,6 +78,7 @@ export function StatCard({
   deltaTone = "neutral",
   footer,
   arrow = false,
+  extra,
   variant = "default",
   className,
   ...rest
@@ -132,6 +135,7 @@ export function StatCard({
           {footer && <span>{footer}</span>}
         </div>
       )}
+      {extra && <div className={cn("text-small", styles.footer)}>{extra}</div>}
     </div>
   );
 }

@@ -17,3 +17,4 @@ export * from "./StatusDot";
 export * from "./Checkbox";
 export * from "./Dialog";
 export * from "./CopyField";
+export * from "./FlowChart";
