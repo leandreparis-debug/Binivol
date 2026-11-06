@@ -31,7 +31,7 @@
 | 12  | Alertes, rappels et e-mails automatiques           | terminée                  |
 | 13  | Tableaux de bord, matrice et exports               | terminée                  |
 | 14  | RGPD et administration                             | terminée                  |
-| 15  | Recette, audit et guides (sans VPS)                | à faire                   |
+| 15  | Recette, audit et guides (sans VPS)                | partielle                 |
 
 ## Étape 8 — terminée (version de `main`)
 
@@ -230,3 +230,33 @@ purge, journaux), `docs/sauvegarde.md`, ADR-061 à ADR-063, `docs/permissions.md
   l'adresse de contact est le nouveau paramètre `UL_CONTACT_EMAIL` (vide par défaut).
 - Un test e2e d'accessibilité (page 403 sur mobile) a échoué une fois (`html-has-lang`) puis
   passé 3 fois de suite seul et dans la suite complète : instabilité notée, test non modifié.
+
+## Étape 15 — partielle
+
+**Commits** : `7fbbd49` (CSP, HSTS, limitation de débit, test des gardes de page, dépendances
+corrigées), `ee917d7` (test de purge), `af9f33f` (guides, `/aide`, audit axe de toutes les
+pages, parcours droits et vie du bénévole, audits, mise en service, README), puis journal et
+récapitulatif.
+
+**Migration** : `20261112090000_rate_limits`.
+
+**Résultats** : `pnpm verify` 873 tests unitaires ; `pnpm test:db` 294 ; `pnpm test:e2e` 118
+verts, 47 ignorés (par projet). `pnpm audit` : plus de vulnérabilité haute.
+
+**CI GitHub** : rouge depuis l'étape 14 sur le job base (nombre de tables, corrigé) et sur `main`
+à l'étape 14 (test de purge instable sous les relances de la CI, corrigé). À vérifier sur le
+dernier commit.
+
+**Fait** : en-têtes, limitation de débit, gardes de page, `pnpm audit`, recherche de secrets,
+axe sur toutes les pages (bureau et 390 px, 3 corrections), droits par profil (6 profils et un
+compte double), vie du bénévole (pause, reprise, départ), guides par profil et candidat, `/aide`,
+`docs/audit-securite.md`, `docs/audit-accessibilite.md`, `docs/mise-en-service.md`, README.
+
+**Reste à faire** :
+
+- un parcours e2e **continu** « candidat jusqu'au NIVOL » et « mineur » : aujourd'hui couverts par
+  segments successifs (`candidates`, `dossier`, `signature` specs), pas d'un seul tenant ;
+- les parcours sont dans `e2e/parcours/` (le dépôt n'a pas de `tests/e2e/`) ;
+- CSP avec nonce (aujourd'hui `'unsafe-inline'` pour les scripts) ;
+- audit manuel au lecteur d'écran ; relecture complète des messages d'erreur et états vides
+  (faite seulement sur les écrans des étapes 11 à 15).
