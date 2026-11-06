@@ -1579,6 +1579,15 @@ export async function seedDemo(
         },
       ]);
 
+      // -- Step 16: « À faire » (tasks, shared tasks, projects; all invented) ---------------
+      await seedTodos(tx, {
+        today,
+        volunteerIds: people
+          .filter((p) => p.status === "ACTIVE" && !p.recentlyIntegrated)
+          .map((p) => p.id),
+        candidateId: candidateAt("MEETING").id,
+      });
+
       // -- Reminder rules and notifications ---------------------------------------------
       const someone = required(
         people.find((p) =>
@@ -1802,3 +1811,166 @@ export async function countRows(db: PrismaClient): Promise<Record<string, number
 
 /** @deprecated Alias kept for existing callers: the demo seed. */
 export const seed = seedDemo;
+
+/**
+ * « À faire » (step 16): 8 tasks per demo responsible (late, today, this
+ * week, later, no date, linked to a fictitious volunteer, done yesterday,
+ * confided to the next one), a task shared by three, a task linked to a
+ * candidate and shared with ACTION (who does not see candidates: « Personne
+ * non accessible »), and two projects of three members. Demo only.
+ */
+async function seedTodos(
+  tx: SeedTx,
+  ctx: { today: Date; volunteerIds: string[]; candidateId: string },
+): Promise<void> {
+  const { today } = ctx;
+  const due = (days: number | null) => (days === null ? null : addDays(today, days));
+  const todos: WithId<Prisma.TodoUncheckedCreateInput>[] = [];
+  const assignees: WithId<Prisma.TodoAssigneeUncheckedCreateInput>[] = [];
+  const position = new Map<string, number>();
+  const assign = (todoId: string, user: string, by: string | null = null) => {
+    const next = position.get(user) ?? 0;
+    position.set(user, next + 1);
+    assignees.push({
+      id: `seed_ta_${todoId.slice("seed_todo_".length)}_${user}`,
+      todoId,
+      userId: userId(user),
+      assignedById: by ? userId(by) : null,
+      position: next,
+    });
+  };
+  const plan: {
+    suffix: string;
+    title: string;
+    days: number | null;
+    done?: boolean;
+    person?: boolean;
+  }[] = [
+    { suffix: "late", title: "Relancer la mairie pour la salle du forum", days: -3 },
+    { suffix: "today", title: "Préparer l'ordre du jour de la réunion d'équipe", days: 0 },
+    { suffix: "week", title: "Vérifier les trousses du poste de secours", days: 2 },
+    { suffix: "later", title: "Réserver le véhicule pour la maraude", days: 12 },
+    { suffix: "nodate", title: "Mettre à jour le tableau d'affichage", days: null },
+    { suffix: "person", title: "Appeler pour le point de suivi", days: 4, person: true },
+    { suffix: "done", title: "Envoyer le planning du mois", days: -1, done: true },
+  ];
+  for (const [u, user] of USERS.entries()) {
+    for (const item of plan) {
+      const id = `seed_todo_${user.key}_${item.suffix}`;
+      todos.push({
+        id,
+        ownerId: userId(user.key),
+        title: item.title,
+        dueDate: due(item.days),
+        personId: item.person ? (ctx.volunteerIds[u % ctx.volunteerIds.length] ?? null) : null,
+        completedAt: item.done ? addDays(today, -1) : null,
+        completedById: item.done ? userId(user.key) : null,
+      });
+      assign(id, user.key);
+    }
+    // Confided to the next responsible.
+    const next = USERS[(u + 1) % USERS.length]?.key ?? user.key;
+    const confided = `seed_todo_${user.key}_confided`;
+    todos.push({
+      id: confided,
+      ownerId: userId(user.key),
+      title: "Vérifier le stock de couvertures",
+      dueDate: due(3),
+    });
+    assign(confided, next, user.key);
+  }
+  // Shared by three: done as soon as one of them checks it.
+  todos.push({
+    id: "seed_todo_shared",
+    ownerId: userId("topaze"),
+    title: "Inventaire du lot de secours A",
+    note: "Compter les couvertures de survie et les attelles (fictif).",
+    dueDate: due(5),
+  });
+  for (const user of ["topaze", "action", "diamant"]) {
+    assign("seed_todo_shared", user, user === "topaze" ? null : "topaze");
+  }
+  // Linked to a candidate, shared with ACTION, who cannot see candidates.
+  todos.push({
+    id: "seed_todo_hidden_person",
+    ownerId: userId("diamant"),
+    title: "Proposer une date de rencontre",
+    dueDate: due(1),
+    personId: ctx.candidateId,
+  });
+  assign("seed_todo_hidden_person", "diamant");
+  assign("seed_todo_hidden_person", "action", "diamant");
+
+  // Projects of three members.
+  const projects: WithId<Prisma.TodoProjectUncheckedCreateInput>[] = [
+    {
+      id: "seed_tp_forum",
+      name: "Forum des associations",
+      description: "Stand de l'unité locale au forum de septembre (fictif).",
+      color: "ACCENT",
+      ownerId: userId("topaze"),
+    },
+    {
+      id: "seed_tp_recrutement",
+      name: "Recrutement printemps",
+      description: "Campagne de recrutement de bénévoles (fictif).",
+      color: "OK",
+      ownerId: userId("diamant"),
+    },
+  ];
+  const members: WithId<Prisma.TodoProjectMemberUncheckedCreateInput>[] = [
+    ["forum", "topaze", "OWNER"],
+    ["forum", "action", "MEMBER"],
+    ["forum", "diamant", "MEMBER"],
+    ["recrutement", "diamant", "OWNER"],
+    ["recrutement", "topaze", "MEMBER"],
+    ["recrutement", "format-diamant", "MEMBER"],
+  ].map(([project = "", user = "", role = "MEMBER"]) => ({
+    id: `seed_tpm_${project}_${user}`,
+    projectId: `seed_tp_${project}`,
+    userId: userId(user),
+    role: role as "OWNER" | "MEMBER",
+    addedById: userId(project === "forum" ? "topaze" : "diamant"),
+  }));
+  const projectTasks: [string, string, string, number | null, boolean][] = [
+    ["forum", "Réserver le stand", "topaze", -10, true],
+    ["forum", "Imprimer les affiches", "action", -5, true],
+    ["forum", "Préparer la démonstration des gestes qui sauvent", "action", 6, false],
+    ["forum", "Planning des permanences du stand", "diamant", null, false],
+    ["recrutement", "Rédiger l'annonce", "diamant", 2, false],
+    ["recrutement", "Organiser la réunion d'information", "format-diamant", 9, false],
+    ["recrutement", "Mettre à jour la plaquette", "topaze", -2, false],
+  ];
+  for (const [i, [project, title, user, days, done]] of projectTasks.entries()) {
+    const id = `seed_todo_${project}_${String(i)}`;
+    todos.push({
+      id,
+      ownerId: userId(project === "forum" ? "topaze" : "diamant"),
+      projectId: `seed_tp_${project}`,
+      title,
+      dueDate: due(days),
+      completedAt: done ? addDays(today, days ?? -1) : null,
+      completedById: done ? userId(user) : null,
+    });
+    assign(id, user, project === "forum" ? "topaze" : "diamant");
+  }
+
+  await save<Prisma.TodoProjectUncheckedCreateInput>(tx.todoProject, projects);
+  await save<Prisma.TodoProjectMemberUncheckedCreateInput>(tx.todoProjectMember, members);
+  await save<Prisma.TodoUncheckedCreateInput>(tx.todo, todos);
+  await save<Prisma.TodoAssigneeUncheckedCreateInput>(tx.todoAssignee, assignees);
+  await saveMissing<Prisma.TodoCommentUncheckedCreateInput>(tx.todoComment, [
+    {
+      id: "seed_tc_shared_1",
+      todoId: "seed_todo_shared",
+      authorId: userId("action"),
+      body: "Je peux passer jeudi soir au local (fictif).",
+    },
+    {
+      id: "seed_tc_forum_1",
+      todoId: "seed_todo_forum_2",
+      authorId: userId("topaze"),
+      body: "Pensez au mannequin de démonstration (fictif).",
+    },
+  ]);
+}

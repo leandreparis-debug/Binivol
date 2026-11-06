@@ -1,4 +1,5 @@
 import type { AutomatedMessageKind, AutomatedMessageStatus } from "@/generated/prisma/enums";
+import { runTodoDueReminders } from "./todos";
 import { toParisDay } from "@/lib/dates";
 import { getEnv } from "@/lib/env";
 import { alertsFor } from "../alerts/load";
@@ -208,6 +209,8 @@ export interface DailyResult {
   greetings?: number;
   purgeEligible?: number;
   purged?: number;
+  /** « À faire »: tasks due today notified to their assignees. */
+  todoReminders?: number;
 }
 
 /**
@@ -241,8 +244,10 @@ export async function runDailyTask(
     const digests = await runDigest(db, day);
     const greetings = await runGreetings(db, day);
     const purge = await runPurge(db, storage(), day);
+    const todoReminders = await runTodoDueReminders(db, day);
     const summary = {
       notifications,
+      todoReminders,
       dossierReminders,
       digests,
       greetings,

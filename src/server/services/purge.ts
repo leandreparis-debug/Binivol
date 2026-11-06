@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { detachTodosFromPerson } from "./todos";
 import { toParisDay } from "@/lib/dates";
 import { automationSettings } from "../automationSettings";
 import type { Db, DbOrTx, Tx } from "../db";
@@ -198,6 +199,8 @@ export async function purgePeople(
           UPDATE access_logs SET person_id = ${alias}, context = NULL
           WHERE person_id = ${personId}`;
         await tx.automatedMessage.deleteMany({ where: { personId } });
+        // « À faire »: the tasks stay, detached from the person (step 16).
+        await detachTodosFromPerson(tx, personId);
         // Everything else follows by cascade (schema: onDelete Cascade).
         await tx.person.delete({ where: { id: personId } });
         await tx.auditLog.create({

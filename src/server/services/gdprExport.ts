@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
+import { todosForGdprExport } from "./todos";
 import { formatDate, formatDateTime, toParisDay } from "@/lib/dates";
 import {
   CANDIDACY_STAGE_LABELS,
@@ -113,6 +114,7 @@ export async function gdprExport(
   });
   const sensitive = await readPersonSensitive(db, actor, personId, "export RGPD");
   const dossiers = await dossiersForGdprExport(db, actor, personId);
+  const todos = await todosForGdprExport(db, personId);
   const documents = await listPersonDocuments(db, actor, personId, facts);
 
   const files: ZipEntry[] = [];
@@ -233,6 +235,7 @@ export async function gdprExport(
         fin: iso(m.endDate),
       })),
     ],
+    taches_liees: todos,
     dossiers_en_ligne: dossiers.map((d) => ({
       statut: d.status,
       envoye_le: d.submittedAt?.toISOString() ?? null,

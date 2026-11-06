@@ -1,5 +1,6 @@
 import type { Profile } from "@/generated/prisma/enums";
 import { withAudit, type Actor as AuditActor } from "../audit";
+import { releaseTodosOfUser } from "./todos";
 import type { DbOrTx, Tx } from "../db";
 import { DomainError } from "../errors";
 import { authorize } from "../policy/can";
@@ -188,6 +189,8 @@ export async function setActive(
       }
       // Technical rows: deleting them signs the account out everywhere, now.
       await tx.session.deleteMany({ where: { userId: input.userId } });
+      // « À faire »: her assignments go, her projects keep an OWNER (step 16).
+      await releaseTodosOfUser(tx, audit, input.userId);
     }
     await tx.user.update({
       where: { id: input.userId },
