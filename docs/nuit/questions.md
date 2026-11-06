@@ -80,3 +80,14 @@ Chaque point : la question, le choix fait, comment le changer.
     la matrice des droits (`matrix.ts`), puis `pnpm docs:permissions`.
 24. **« Équipiers disponibles »** (ACTION) : bénévoles **actifs** du périmètre (ni en pause, ni
     suspendus).
+
+## Étape 14 — RGPD et administration
+
+25. **Purge en mode manuel** par défaut (`PURGE_MODE=MANUAL`). **Pour l'automatiser** :
+    `/admin/parametres`, « Mode de purge ».
+26. **Effacement anticipé** : TOPAZE seul, motif obligatoire gardé dans la trace. Ce qui doit
+    rester pour obligation légale est à faire préciser par le DPO (`docs/rgpd.md`).
+27. **Registre et texte d'information** (`docs/rgpd.md`, `RGPD_NOTICE`) : brouillons à faire
+    valider par le DPO ; la page `/confidentialite` affiche le texte tel qu'il est.
+28. **Clé des sauvegardes** (`BACKUP_ENCRYPTION_KEY`) : à créer et garder hors du serveur ;
+    sans elle, une sauvegarde est illisible.

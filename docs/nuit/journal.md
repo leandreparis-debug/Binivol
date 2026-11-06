@@ -30,7 +30,7 @@
 | 11  | Points de suivi, parrainage, B3, pauses et départs | terminée                  |
 | 12  | Alertes, rappels et e-mails automatiques           | terminée                  |
 | 13  | Tableaux de bord, matrice et exports               | terminée                  |
-| 14  | RGPD et administration                             | à faire                   |
+| 14  | RGPD et administration                             | terminée                  |
 | 15  | Recette, audit et guides (sans VPS)                | à faire                   |
 
 ## Étape 8 — terminée (version de `main`)
@@ -200,3 +200,33 @@ faits main) et ADR-060 (exports journalisés, CSV neutralisé), `docs/permission
 - La durée moyenne par étape du seed est souvent 0 j (les événements fictifs datent de la
   création) : le calcul est testé à part.
 - Accueil : les chiffres codés en dur de l'étape 1 sont remplacés par les blocs réels.
+
+## Étape 14 — terminée
+
+**Commits** : `f987b1a` (purge), `7862d68` (page de purge, export RGPD), `0c61f74` (journaux),
+`6585495` (paramètres, confidentialité, sauvegardes, menu), puis documentation, captures.
+
+**Migration** : `20261111090000_storage_orphans` (fichiers dont la suppression a échoué
+pendant une purge, retentés ensuite).
+
+**Résultats** : `pnpm verify` 870 tests unitaires ; `pnpm test:db` 293 ; `pnpm test:e2e` 107
+verts, 39 ignorés (par projet). `pnpm db:fresh` passe. `db:backup` (3 copies, rotation à 2),
+`db:restore` sur la base locale et refus d'un hôte distant vérifiés à la main.
+
+**Captures** : `purge-1440.png`, `journaux-1440.png`, `parametres-1440.png`,
+`confidentialite-1440.png`.
+
+**Documentation** : `docs/rgpd.md` (registre en brouillon à faire valider par le DPO, droits,
+purge, journaux), `docs/sauvegarde.md`, ADR-061 à ADR-063, `docs/permissions.md` régénéré
+(`person.purge`, `person.gdprExport`), `.env.example` (`BACKUP_ENCRYPTION_KEY`, `BACKUP_DIR`,
+`BACKUP_KEEP`, sans valeur).
+
+**Écarts, justifiés** :
+
+- Le cahier cite `BACKUP_KEEP` (8) : c'est une variable d'environnement du script ; le
+  paramètre `BACKUPS_TO_KEEP` (12) de l'étape 2, jamais utilisé, est laissé tel quel.
+- La purge supprime aussi les images de signature (stockées), oubliées par le cahier.
+- La page de confidentialité affiche `RGPD_NOTICE` (un seul texte, déjà marqué « BROUILLON ») ;
+  l'adresse de contact est le nouveau paramètre `UL_CONTACT_EMAIL` (vide par défaut).
+- Un test e2e d'accessibilité (page 403 sur mobile) a échoué une fois (`html-has-lang`) puis
+  passé 3 fois de suite seul et dans la suite complète : instabilité notée, test non modifié.

@@ -843,3 +843,38 @@ ou `@`.
 
 **Conséquences.** Un numéro de téléphone `+33…` apparaît `'+33…` dans Excel (affichage
 inchangé) ; c'est le prix de la sûreté.
+
+## ADR-061 — Purge validée à la main par défaut
+
+**Contexte.** La purge RGPD est la seule suppression physique de l'outil, irréversible.
+
+**Décision.** `PURGE_MODE=MANUAL` par défaut : la tâche quotidienne prévient TOPAZE, qui
+valide sur `/admin/purge` en tapant « PURGER ». Chaque fiche est revérifiée au moment de la
+purge (jamais une fiche non éligible, sauf effacement anticipé motivé par TOPAZE). Le mode
+`AUTOMATIC` existe pour plus tard. Les fichiers sont supprimés après la transaction ; un échec
+est gardé et retenté, il ne bloque pas la purge.
+
+**Conséquences.** Une fiche éligible peut rester quelques jours de plus en base, le temps que
+TOPAZE valide : c'est le prix d'une suppression sans surprise.
+
+## ADR-062 — Journaux anonymisés, pas supprimés
+
+**Contexte.** Les journaux sont en ajout seul et servent de preuve ; ils nomment la personne
+purgée (identifiants, valeurs).
+
+**Décision.** À la purge, dans la même transaction (`binivol.allow_purge`), les lignes qui la
+concernent reçoivent un **pseudonyme aléatoire** (non dérivé de l'identifiant) et perdent
+leurs valeurs ; une trace « 1 fiche purgée, par X, règle Y » est ajoutée. Les autres lignes ne
+changent pas.
+
+**Conséquences.** Le journal reste cohérent (qui a fait quoi, quand) sans plus permettre de
+retrouver la personne.
+
+## ADR-063 — Un ZIP écrit à la main pour l'export RGPD
+
+**Contexte.** L'export d'une personne est une archive de quelques fichiers.
+
+**Décision.** `src/server/zip.ts` écrit le format ZIP (deflate, noms UTF-8) avec `node:zlib`,
+sans dépendance ; le résumé PDF est fait avec `pdf-lib`, déjà utilisé.
+
+**Conséquences.** Pas de ZIP64 (archives de moins de 4 Go, largement suffisant).
