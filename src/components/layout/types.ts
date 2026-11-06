@@ -14,6 +14,9 @@ export interface ShellUser {
   canManageSettings: boolean;
   /** TOPAZE: /admin/exports (step 13). */
   canExport: boolean;
+  /** TOPAZE: /admin/journaux and /admin/purge (step 14). */
+  canReadLogs: boolean;
+  canPurge: boolean;
 }
 
 export interface ShellProps {

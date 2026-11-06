@@ -53,3 +53,6 @@ next-env.d.ts
 
 # Documents of the local StorageService driver (personal data, never versioned)
 /storage/
+
+# Encrypted database backups (pnpm db:backup), never versioned
+/backups

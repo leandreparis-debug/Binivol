@@ -35,6 +35,8 @@
     "db:seed:base": "tsx prisma/seed.ts base",
     "db:seed:demo": "tsx prisma/seed.ts demo",
     "db:fresh": "tsx scripts/db-fresh.ts",
+    "db:backup": "tsx scripts/db-backup.ts",
+    "db:restore": "tsx scripts/db-restore.ts",
     "import:classeur": "tsx scripts/import-classeur.ts",
     "fixtures:classeur": "tsx scripts/make-fixture-classeur.ts"
   },

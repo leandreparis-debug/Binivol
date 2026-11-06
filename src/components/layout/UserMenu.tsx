@@ -11,6 +11,9 @@ import {
   Mail,
   SlidersHorizontal,
   Download,
+  Building2,
+  ScrollText,
+  Eraser,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
@@ -100,6 +103,30 @@ export function UserMenu({ user }: UserMenuProps) {
             <Link href="/admin/reglages">
               <SlidersHorizontal />
               Réglages
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.canManageSettings && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin/parametres">
+              <Building2 />
+              Paramètres de l&apos;UL
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.canReadLogs && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin/journaux">
+              <ScrollText />
+              Journaux
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {user.canPurge && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin/purge">
+              <Eraser />
+              Purge RGPD
             </Link>
           </DropdownMenuItem>
         )}

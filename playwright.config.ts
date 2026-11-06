@@ -32,14 +32,14 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-desktop",
-      testIgnore: /(import|candidates|dossier|signature|formations|suivi|alertes)\.spec\.ts/,
+      testIgnore: /(import|candidates|dossier|signature|formations|suivi|alertes|rgpd)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     {
       // The import adds 24 people and the candidate tests create candidates: they run
       // after every other test, so the directory counts checked there stay those of the seed.
       name: "chromium-desktop-late",
-      testMatch: /(import|candidates|dossier|signature|formations|suivi|alertes)\.spec\.ts/,
+      testMatch: /(import|candidates|dossier|signature|formations|suivi|alertes|rgpd)\.spec\.ts/,
       dependencies: ["chromium-desktop", "chromium-mobile"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
@@ -57,7 +57,7 @@ export default defineConfig({
     },
     {
       name: "chromium-mobile",
-      testIgnore: /(import|candidates|dossier|signature|formations|suivi|alertes)\.spec\.ts/,
+      testIgnore: /(import|candidates|dossier|signature|formations|suivi|alertes|rgpd)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 844 },
