@@ -5,7 +5,7 @@ import { allowedActions } from "../src/server/policy/describe";
 import { DEMO_ACCOUNTS, isMobileProject, loginAs, mainNav } from "./helpers";
 
 test.describe("Connexion", () => {
-  test("la page de connexion présente Google, le mode démonstration et la mention C3", async ({
+  test("la page de connexion présente l'identifiant, le mot de passe, le mode démonstration et la mention C3", async ({
     page,
   }) => {
     await page.goto("/connexion");
@@ -13,7 +13,10 @@ test.describe("Connexion", () => {
     await expect(
       page.getByText("Espace réservé aux responsables de l'unité locale de Versailles."),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Continuer avec Google" })).toBeVisible();
+    await expect(page.getByLabel(/^Identifiant( \*)?$/)).toBeVisible();
+    await expect(page.getByLabel(/^Mot de passe( \*)?$/)).toHaveAttribute("type", "password");
+    await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
+    await expect(page.getByText(/Google/)).toHaveCount(0);
     await expect(page.getByTestId("demo-banner")).toHaveText("Mode démonstration");
     const demoList = page.getByRole("list", { name: "Comptes de démonstration" });
     for (const account of DEMO_ACCOUNTS) await expect(demoList).toContainText(account.email);
@@ -22,7 +25,7 @@ test.describe("Connexion", () => {
 });
 
 for (const [reason, message] of [
-  ["domain", "Utilisez votre adresse @croix-rouge.fr."],
+  ["bad_credentials", "Identifiant ou mot de passe incorrect."],
   ["unknown", "Ce compte n'a pas encore accès à Binivol. Demandez-le au DLUS."],
   ["inactive", "Ce compte est désactivé. Contactez le DLUS."],
   ["no_profile", "Ce compte est désactivé. Contactez le DLUS."],
@@ -98,10 +101,10 @@ test.describe("Gestion des comptes (TOPAZE)", () => {
     await page.getByLabel("Nom affiché").fill("Compte E2E fictif");
     const newForm = page
       .locator("form")
-      .filter({ has: page.getByRole("button", { name: "Ajouter le compte" }) });
+      .filter({ has: page.getByRole("button", { name: "Inviter" }) });
     await newForm.getByText("ACTION", { exact: true }).click();
-    await page.getByRole("button", { name: "Ajouter le compte" }).click();
-    await expect(page.getByRole("status")).toContainText(`Compte ${email} ajouté.`);
+    await page.getByRole("button", { name: "Inviter" }).click();
+    await expect(newForm.getByRole("status")).toContainText(`Compte ${email} créé.`);
 
     const row = page.locator(`[data-testid="account-row"][data-email="${email}"]`);
     await expect(row).toContainText("Compte E2E fictif");
@@ -119,16 +122,17 @@ test.describe("Gestion des comptes (TOPAZE)", () => {
     await expect(row).toContainText("Actif");
   });
 
-  test("refuse un domaine non autorisé et protège le dernier TOPAZE", async ({ page }) => {
+  test("refuse un identifiant invalide et protège le dernier TOPAZE", async ({ page }) => {
     await loginAs(page, "topaze");
     await page.goto("/admin/comptes");
-    await page.getByLabel("Adresse e-mail").fill("quelquun@gmail.com");
+    await page.getByLabel("Adresse e-mail").fill("quelquun@exemple.org");
     const newForm = page
       .locator("form")
-      .filter({ has: page.getByRole("button", { name: "Ajouter le compte" }) });
+      .filter({ has: page.getByRole("button", { name: "Inviter" }) });
+    await newForm.getByLabel("Identifiant (facultatif)").fill("Pas Valide!");
     await newForm.getByText("ACTION", { exact: true }).click();
-    await page.getByRole("button", { name: "Ajouter le compte" }).click();
-    await expect(newForm.getByRole("alert")).toContainText("L'adresse doit appartenir au domaine");
+    await page.getByRole("button", { name: "Inviter" }).click();
+    await expect(newForm.getByRole("alert")).toContainText("Identifiant invalide");
 
     const self = page.locator('[data-testid="account-row"][data-email="demo.topaze@binivol.test"]');
     await self.getByRole("button", { name: "Désactiver" }).click();

@@ -5,8 +5,6 @@ import type { NextConfig } from "next";
  * the application's own origin; no third-party script, style, font or frame.
  * Scripts keep 'unsafe-inline' (Next.js inline bootstrap) until a per-request
  * nonce is introduced; 'unsafe-eval' only in development (React refresh).
- * The Google sign-in is a form POST followed by redirects: `form-action`
- * allows its origin.
  */
 const csp = [
   "default-src 'self'",
@@ -19,7 +17,7 @@ const csp = [
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self' https://accounts.google.com",
+  "form-action 'self'",
 ].join("; ");
 
 /** Hardening headers applied to every route. */

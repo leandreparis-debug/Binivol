@@ -96,7 +96,7 @@ describe("adapter", () => {
 describe("sign-in journal", () => {
   it("writes LOGIN (and lastLoginAt), LOGIN_DENIED and LOGOUT, never a token", async () => {
     const user = await makeUser("lou@croix-rouge.fr");
-    await recordLogin(db, user.id, "google");
+    await recordLogin(db, user.id, "password");
     await recordLoginDenied(db, { email: "camille@gmail.com", reason: "domain" });
     await recordLoginDenied(db, { email: "inconnu@croix-rouge.fr", reason: "unknown" });
     await recordLogout(db, user.id);

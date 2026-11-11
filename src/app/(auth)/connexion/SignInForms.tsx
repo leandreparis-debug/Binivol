@@ -2,26 +2,68 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
-import { demoSignInAction, googleSignInAction } from "./actions";
+import { Field, Input } from "@/components/ui/Field";
+import { demoSignInAction, passwordSignInAction } from "./actions";
 import type { DemoAccount } from "@/server/auth/demo";
 
-/** « Continuer avec Google », shown disabled when Google is not configured. */
-export function GoogleButton({ enabled }: { enabled: boolean }) {
+/** Identifier + password form (ADR-070). The password field is emptied after a refusal. */
+export function PasswordSignInForm() {
   const [pending, startTransition] = useTransition();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
   return (
-    <Button
-      size="lg"
-      className="w-full"
-      disabled={!enabled}
-      loading={pending}
-      onClick={() => {
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setError(null);
         startTransition(async () => {
-          await googleSignInAction({});
+          const result = await passwordSignInAction({ username, password });
+          // On success the action redirects; a result means a refusal.
+          if (!result.ok) {
+            setError(result.error);
+            setPassword("");
+          }
         });
       }}
     >
-      Continuer avec Google
-    </Button>
+      <Field label="Identifiant" required>
+        <Input
+          name="username"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+          }}
+        />
+      </Field>
+      <Field label="Mot de passe" required>
+        <Input
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+          }}
+        />
+      </Field>
+      {error && (
+        <p
+          role="alert"
+          data-testid="signin-error"
+          className="rounded-inner bg-danger-soft px-4 py-3 text-body font-medium text-danger-ink"
+        >
+          {error}
+        </p>
+      )}
+      <Button type="submit" size="lg" className="w-full" loading={pending}>
+        Se connecter
+      </Button>
+    </form>
   );
 }
 

@@ -20,8 +20,12 @@ export interface RateRule {
 export const RATE_RULES = {
   /** Opening a dossier link (token guessing). */
   dossierOpen: { limit: 20, windowSeconds: 15 * 60 },
-  /** Sign-in attempts (Google redirect, demo accounts). */
+  /** Sign-in attempts per client (password, demo accounts). */
   signIn: { limit: 30, windowSeconds: 15 * 60 },
+  /** Failed password sign-ins per identifier, whatever the client (ADR-070). */
+  signInFailure: { limit: 5, windowSeconds: 15 * 60 },
+  /** Opening or using an invitation / new-password link (token guessing). */
+  accessLink: { limit: 20, windowSeconds: 15 * 60 },
   /** Saving the dossier, attachments, submission. */
   dossierWrite: { limit: 300, windowSeconds: 15 * 60 },
   /** Address suggestions, per dossier link (step 16). */
@@ -49,6 +53,26 @@ export async function hitRateLimit(
       window_start = CASE WHEN rate_limits.window_start < ${windowStart} THEN ${now} ELSE rate_limits.window_start END
     RETURNING count`;
   return (rows[0]?.count ?? 1) <= rule.limit;
+}
+
+/** True when `key` has already reached the limit of the current window (counts nothing). */
+export async function isRateLimited(
+  db: DbOrTx,
+  key: string,
+  rule: RateRule,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const windowStart = new Date(now.getTime() - rule.windowSeconds * 1000);
+  const row = await db.rateLimit.findUnique({
+    where: { key },
+    select: { count: true, windowStart: true },
+  });
+  return row !== null && row.windowStart >= windowStart && row.count >= rule.limit;
+}
+
+/** Key of a bucket for a value other than the client (an identifier), hashed with the secret. */
+export function valueRateKey(bucket: RateBucket, value: string): string {
+  return rateKey(bucket, value, getEnv().AUTH_SECRET ?? "");
 }
 
 async function clientId(): Promise<string> {

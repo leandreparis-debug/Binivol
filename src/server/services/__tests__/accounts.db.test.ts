@@ -11,7 +11,6 @@ import {
 import { getTestDb, resetDatabase, resolveTestDatabaseUrl } from "@/test/db/testDatabase";
 
 const db = getTestDb();
-const rules = { allowedDomains: ["croix-rouge.fr"] };
 const cli = { userId: null, label: "CLI" };
 
 beforeEach(async () => {
@@ -19,17 +18,34 @@ beforeEach(async () => {
 });
 
 async function topaze(email = "dlus@croix-rouge.fr") {
-  return createAccount(db, cli, { email, name: "DLUS fictif", profiles: ["TOPAZE"] }, rules);
+  return createAccount(db, cli, { email, name: "DLUS fictif", profiles: ["TOPAZE"] });
 }
 
 describe("createAccount", () => {
-  it("creates an account of the domain, in lower case, with its profiles and an audit entry", async () => {
-    const account = await createAccount(
-      db,
-      cli,
-      { email: " Camille.Demo@Croix-Rouge.fr ", name: "Camille", profiles: ["DIAMANT", "FORMAT"] },
-      rules,
-    );
+  it("accepts any domain (ADR-070) and an identifier fixed in lower case", async () => {
+    const account = await createAccount(db, cli, {
+      email: "camille@exemple.org",
+      name: "Camille",
+      profiles: ["ACTION"],
+      username: " Camille.D ",
+    });
+    expect(account).toMatchObject({ username: "camille.d", hasPassword: false });
+    await expect(
+      createAccount(db, cli, {
+        email: "autre@exemple.org",
+        name: "",
+        profiles: ["ACTION"],
+        username: "camille.d",
+      }),
+    ).rejects.toMatchObject({ code: "USERNAME_TAKEN" });
+  });
+
+  it("creates an account in lower case, with its profiles and an audit entry", async () => {
+    const account = await createAccount(db, cli, {
+      email: " Camille.Demo@Croix-Rouge.fr ",
+      name: "Camille",
+      profiles: ["DIAMANT", "FORMAT"],
+    });
     expect(account).toMatchObject({
       email: "camille.demo@croix-rouge.fr",
       active: true,
@@ -40,11 +56,17 @@ describe("createAccount", () => {
   });
 
   it.each([
-    ["a foreign domain", "camille@gmail.com", ["ACTION"], "EMAIL_DOMAIN"],
+    ["a malformed address", "camille@", ["ACTION"], "INVALID_EMAIL"],
+    ["a malformed identifier", "camille@exemple.org", ["ACTION"], "INVALID_USERNAME"],
     ["no profile", "camille@croix-rouge.fr", [], "NO_PROFILE"],
   ] as const)("refuses %s", async (_label, email, profiles, code) => {
     await expect(
-      createAccount(db, cli, { email, name: "", profiles: [...profiles] }, rules),
+      createAccount(db, cli, {
+        email,
+        name: "",
+        profiles: [...profiles],
+        username: code === "INVALID_USERNAME" ? "É!" : null,
+      }),
     ).rejects.toMatchObject({ code });
   });
 
@@ -115,12 +137,11 @@ describe("TOPAZE guards", () => {
 describe("audit of changes", () => {
   it("records profiles and activity before and after", async () => {
     await topaze();
-    const account = await createAccount(
-      db,
-      cli,
-      { email: "noa@croix-rouge.fr", name: "Noa", profiles: ["ACTION"] },
-      rules,
-    );
+    const account = await createAccount(db, cli, {
+      email: "noa@croix-rouge.fr",
+      name: "Noa",
+      profiles: ["ACTION"],
+    });
     await setProfiles(db, cli, { userId: account.id, profiles: ["ACTION", "LASER"] });
     await setActive(db, cli, { userId: account.id, active: false });
     const updates = await db.auditLog.findMany({
@@ -137,20 +158,16 @@ describe("audit of changes", () => {
 describe("grantAccount and revokeAccount (pnpm admin:*)", () => {
   it("creates, then updates and reactivates, then deactivates", async () => {
     await topaze();
-    const first = await grantAccount(
-      db,
-      cli,
-      { email: "sacha@croix-rouge.fr", profiles: ["LASER"] },
-      rules,
-    );
+    const first = await grantAccount(db, cli, {
+      email: "sacha@croix-rouge.fr",
+      profiles: ["LASER"],
+    });
     expect(first).toMatchObject({ created: true, account: { profiles: ["LASER"], active: true } });
     await revokeAccount(db, cli, "SACHA@croix-rouge.fr");
-    const again = await grantAccount(
-      db,
-      cli,
-      { email: "sacha@croix-rouge.fr", profiles: ["ACTION", "LASER"] },
-      rules,
-    );
+    const again = await grantAccount(db, cli, {
+      email: "sacha@croix-rouge.fr",
+      profiles: ["ACTION", "LASER"],
+    });
     expect(again).toMatchObject({
       created: false,
       account: { profiles: ["ACTION", "LASER"], active: true },
@@ -173,7 +190,7 @@ describe("grantAccount and revokeAccount (pnpm admin:*)", () => {
       ...process.env,
       DATABASE_URL: url,
       DIRECT_URL: url,
-      AUTH_ALLOWED_DOMAIN: "croix-rouge.fr",
+      APP_URL: "https://binivol.exemple.org",
     };
     const out = execFileSync(
       "pnpm",
@@ -191,6 +208,13 @@ describe("grantAccount and revokeAccount (pnpm admin:*)", () => {
       },
     );
     expect(out).toMatch(/Compte créé : premier\.dlus@croix-rouge\.fr \(TOPAZE\)/);
+    // The CLI prints an invitation link (token in the fragment), stored hashed only.
+    const token = /https:\/\/binivol\.exemple\.org\/acces#([A-Za-z0-9_-]{43})/.exec(out)?.[1];
+    expect(token).toBeDefined();
+    const links = await db.accountToken.findMany();
+    expect(links).toHaveLength(1);
+    expect(links[0]?.purpose).toBe("INVITE");
+    expect(JSON.stringify(links)).not.toContain(token ?? "none");
     const created = await db.user.findUniqueOrThrow({
       where: { email: "premier.dlus@croix-rouge.fr" },
     });
@@ -201,12 +225,12 @@ describe("grantAccount and revokeAccount (pnpm admin:*)", () => {
       }),
     ).toBe(1);
     expect(() =>
-      execFileSync("pnpm", ["--silent", "admin:grant", "x@gmail.com", "ACTION"], {
+      execFileSync("pnpm", ["--silent", "admin:grant", "x@exemple.org", "INCONNU"], {
         env,
         encoding: "utf8",
         stdio: "pipe",
       }),
-    ).toThrow(/@croix-rouge\.fr/);
+    ).toThrow(/Profil inconnu/);
     expect(() =>
       execFileSync("pnpm", ["--silent", "admin:revoke", "premier.dlus@croix-rouge.fr"], {
         env,

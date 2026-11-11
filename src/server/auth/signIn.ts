@@ -1,14 +1,15 @@
 /**
- * Sign-in rules, as a pure function so they can be tested without network.
- * Google's `hd` parameter is only a hint: every check is done here.
+ * Sign-in rules, as pure functions so they can be tested without a database.
+ * Used by the password sign-in (`passwordSignIn.ts`) and the demo sign-in.
  */
 
-export type SignInDenial = "domain" | "unknown" | "inactive" | "no_profile";
+export type SignInDenial =
+  "domain" | "unknown" | "inactive" | "no_profile" | "bad_credentials" | "rate_limited";
 
 export interface SignInIdentity {
-  /** Address returned by the identity provider. */
+  /** Address of the account (demo sign-in). */
   email: string | null | undefined;
-  /** `email_verified` claim of the provider (Google). */
+  /** Whether the address is trusted (always true for the demo seed accounts). */
   emailVerified: boolean;
 }
 
@@ -49,54 +50,33 @@ export function evaluateSignIn(
   if (!identity.emailVerified || email === null) return { ok: false, email, reason: "domain" };
   if (!isEmailInDomain(email, allowedDomain)) return { ok: false, email, reason: "domain" };
   if (!user) return { ok: false, email, reason: "unknown" };
-  if (!user.active) return { ok: false, email, reason: "inactive", userId: user.id };
-  if (user.profileCount === 0) return { ok: false, email, reason: "no_profile", userId: user.id };
+  const denial = accountDenial(user);
+  if (denial) return { ok: false, email, reason: denial, userId: user.id };
   return { ok: true, email, userId: user.id };
+}
+
+/** Active account with at least one profile: the checks shared by every sign-in. */
+export function accountDenial(user: KnownUser): "inactive" | "no_profile" | null {
+  if (!user.active) return "inactive";
+  if (user.profileCount === 0) return "no_profile";
+  return null;
 }
 
 /** French message of each refusal, shown on /connexion. */
 export const SIGN_IN_DENIAL_MESSAGES: Record<SignInDenial, string> = {
-  domain: "Utilisez votre adresse @croix-rouge.fr.",
+  domain: "Ce compte ne peut pas se connecter ici.",
   unknown: "Ce compte n'a pas encore accès à Binivol. Demandez-le au DLUS.",
   inactive: "Ce compte est désactivé. Contactez le DLUS.",
   no_profile: "Ce compte est désactivé. Contactez le DLUS.",
+  bad_credentials: "Identifiant ou mot de passe incorrect.",
+  rate_limited: "Trop de tentatives en peu de temps. Réessayez dans quelques minutes.",
 };
 
 export const GENERIC_SIGN_IN_ERROR = "La connexion a échoué. Réessayez ou contactez le DLUS.";
 
 /** Message for the `error` query parameter of /connexion (ours or Auth.js's). */
-export function signInErrorMessage(
-  error: string | null | undefined,
-  allowedDomain = "croix-rouge.fr",
-): string | null {
+export function signInErrorMessage(error: string | null | undefined): string | null {
   if (!error) return null;
-  if (error === "domain") return `Utilisez votre adresse @${allowedDomain}.`;
   if (error in SIGN_IN_DENIAL_MESSAGES) return SIGN_IN_DENIAL_MESSAGES[error as SignInDenial];
   return GENERIC_SIGN_IN_ERROR;
-}
-
-export interface SignInDeps {
-  findUser(email: string): Promise<KnownUser | null>;
-  recordDenied(decision: Extract<SignInDecision, { ok: false }>): Promise<void>;
-}
-
-/**
- * The `signIn` callback logic: evaluates the identity, journals a refusal
- * (address and reason, never a token) and returns `true` or the URL of the
- * sign-in page with the reason.
- */
-export async function handleSignIn(
-  identity: SignInIdentity,
-  allowedDomain: string,
-  deps: SignInDeps,
-): Promise<true | string> {
-  const email = normalizeEmail(identity.email);
-  const user =
-    email && identity.emailVerified && isEmailInDomain(email, allowedDomain)
-      ? await deps.findUser(email)
-      : null;
-  const decision = evaluateSignIn(identity, user, allowedDomain);
-  if (decision.ok) return true;
-  await deps.recordDenied(decision);
-  return `/connexion?error=${decision.reason}`;
 }

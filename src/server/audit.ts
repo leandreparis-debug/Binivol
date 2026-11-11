@@ -30,6 +30,9 @@ export const SENSITIVE_FIELDS: Record<string, "*" | readonly string[]> = {
   EmergencyContact: "*",
   Document: ["fileName", "storageKey", "sha256"],
   DossierLink: ["tokenHash"],
+  // ADR-070: neither the password hash nor the hash of an access link token.
+  User: ["passwordHash"],
+  AccountToken: ["tokenHash"],
   // « À faire » (step 16): the texts never reach the audit log, only ids, fields and dates.
   Todo: ["title", "note"],
   TodoComment: ["body"],

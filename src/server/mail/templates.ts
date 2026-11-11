@@ -86,3 +86,47 @@ export function finalDocumentsMail(input: {
     .join("\n");
   return { subject: `${input.ulName} : ton dossier de bénévole est complet`, text, html };
 }
+
+/** Invitation or new-password link of a responsible account (ADR-070). */
+export function accessLinkMail(input: {
+  name: string;
+  url: string;
+  ulName: string;
+  purpose: "INVITE" | "RESET";
+  expiresAt: Date;
+}): { subject: string; text: string; html: string } {
+  const until = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(input.expiresAt);
+  const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${String(c.charCodeAt(0))};`);
+  const invite = input.purpose === "INVITE";
+  const subject = invite
+    ? `${input.ulName} : votre accès à Binivol`
+    : `${input.ulName} : nouveau mot de passe Binivol`;
+  const intro = invite
+    ? "Un accès à Binivol vous a été ouvert. Pour choisir votre identifiant et votre mot de passe, ouvrez ce lien personnel :"
+    : "Pour choisir un nouveau mot de passe Binivol, ouvrez ce lien personnel :";
+  const text = [
+    `Bonjour ${input.name},`,
+    "",
+    intro,
+    input.url,
+    "",
+    `Le lien ne sert qu'une fois et reste valable jusqu'au ${until}.`,
+    "Ne transférez pas ce message. Si vous n'attendiez pas ce lien, ignorez-le et prévenez le DLUS.",
+    "",
+    input.ulName,
+    "Croix-Rouge française",
+  ].join("\n");
+  const html = `<p>Bonjour ${escape(input.name)},</p>
+<p>${escape(intro)}</p>
+<p><a href="${escape(input.url)}">${invite ? "Activer mon accès" : "Choisir un nouveau mot de passe"}</a></p>
+<p>Le lien ne sert qu'une fois et reste valable jusqu'au ${escape(until)}.<br>Ne transférez pas ce message. Si vous n'attendiez pas ce lien, ignorez-le et prévenez le DLUS.</p>
+<p>${escape(input.ulName)}<br>Croix-Rouge française</p>`;
+  return { subject, text, html };
+}

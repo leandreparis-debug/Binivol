@@ -16,9 +16,9 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except: sign-in page, Auth.js routes, health probe, the future
-  // candidate link (/dossier/*), Next internals and static files.
+  // Everything except: sign-in page, access links (/acces), Auth.js routes, health
+  // probe, the candidate link (/dossier/*), Next internals and static files.
   matcher: [
-    "/((?!connexion|confidentialite|api/auth|api/health|api/taches|dossier|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
+    "/((?!connexion|acces|confidentialite|api/auth|api/health|api/taches|dossier|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
   ],
 };

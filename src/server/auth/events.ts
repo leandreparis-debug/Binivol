@@ -11,7 +11,7 @@ import type { SignInDenial } from "./signIn";
 export async function recordLogin(
   db: DbOrTx,
   userId: string,
-  method: "google" | "demo",
+  method: "password" | "demo",
 ): Promise<void> {
   await withAudit(db, { userId, label: "Connexion" }, async (tx, audit) => {
     await tx.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
@@ -19,17 +19,28 @@ export async function recordLogin(
   });
 }
 
-/** Refused sign-in: writes LOGIN_DENIED with the address and the reason. */
+/**
+ * Refused sign-in: writes LOGIN_DENIED with the identifier typed (or the demo
+ * address) and the reason. Never the password.
+ */
 export async function recordLoginDenied(
   db: DbOrTx,
-  denial: { email: string | null; reason: SignInDenial; userId?: string },
+  denial: {
+    email?: string | null;
+    username?: string | null;
+    reason: SignInDenial;
+    userId?: string;
+  },
 ): Promise<void> {
   await withAudit(db, { userId: null, label: "Connexion" }, (_tx, audit) => {
     audit.log({
       action: "LOGIN_DENIED",
       entity: "User",
       entityId: denial.userId ?? null,
-      newValue: { email: denial.email, reason: denial.reason },
+      newValue:
+        denial.username !== undefined
+          ? { username: denial.username, reason: denial.reason }
+          : { email: denial.email ?? null, reason: denial.reason },
     });
     return Promise.resolve();
   });

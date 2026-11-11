@@ -34,8 +34,10 @@ describe("architecture: server actions", () => {
     // Adding a public action must be a deliberate change of this list.
     expect(publicActions).toEqual([
       "src/app/(app)/actions.ts#signOutAction",
+      "src/app/(auth)/acces/actions.ts#completeAccessLinkAction",
+      "src/app/(auth)/acces/actions.ts#inspectAccessLinkAction",
       "src/app/(auth)/connexion/actions.ts#demoSignInAction",
-      "src/app/(auth)/connexion/actions.ts#googleSignInAction",
+      "src/app/(auth)/connexion/actions.ts#passwordSignInAction",
       "src/app/(public)/dossier/actions.ts#addDossierAttachmentAction",
       "src/app/(public)/dossier/actions.ts#openDossierLinkAction",
       "src/app/(public)/dossier/actions.ts#removeDossierAttachmentAction",
