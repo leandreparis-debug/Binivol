@@ -6,7 +6,7 @@ Tu accueilles les candidats et suis les nouveaux bénévoles (moins de 12 mois) 
 
 ## Se connecter
 
-Bouton « Se connecter avec Google », compte **@croix-rouge.fr**.
+Ton identifiant et ton mot de passe, choisis en ouvrant le lien d'invitation envoyé par le DLUS. Mot de passe oublié : demande-lui un nouveau lien.
 
 ## Tâches courantes
 

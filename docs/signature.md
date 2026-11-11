@@ -23,7 +23,7 @@ les aplatit, les range et les envoie. **Aucun service de signature externe** n'e
    Dans l'onglet Intégration, le bloc « Dossier » affiche « À contresigner ».
 5. **Contresignature** (`/benevoles/[ref]/dossier/contresigner`, `dossier.manage`) : aperçu de
    la charte, qualité (par défaut le libellé du profil du responsable, modifiable), tracé ou nom
-   saisi. La session Google du responsable tient lieu de vérification : pas de code. Puis, dans
+   saisi. La session du responsable tient lieu de vérification : pas de code. Puis, dans
    l'ordre :
    1. génération des 3 PDF finaux et de la preuve ;
    2. rangement dans le stockage (copie UL) ;
@@ -48,7 +48,7 @@ personne », au nom du responsable connecté.
 | ----------- | ---------------------- | -------------------------------------------------------------------- |
 | `OTP_EMAIL` | bénévole, représentant | code à 6 chiffres reçu sur son e-mail, saisi dans les 10 minutes     |
 | `IN_PERSON` | bénévole, représentant | sur place : le responsable connecté atteste avoir vérifié l'identité |
-| `SESSION`   | représentant de la CRF | sa session (connexion Google, compte créé par TOPAZE)                |
+| `SESSION`   | représentant de la CRF | sa session (compte invité par TOPAZE)                                |
 
 **Le code** (`src/server/signature/code.ts`) :
 

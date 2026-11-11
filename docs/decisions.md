@@ -1030,3 +1030,58 @@ des personnes comptées.
 
 **Conséquences.** Changer une définition change à la fois le chiffre et la liste. Les trois
 initiateurs de démonstration entrent dans le périmètre FORMAT GP.
+
+## ADR-070 — Connexion par identifiant et mot de passe, comptes ouverts par lien d'invitation
+
+**Contexte.** La connexion Google @croix-rouge.fr (étape 3) n'a jamais été mise en service : aucun
+client OAuth n'existe, et le responsable du projet décide (11/11/2026) qu'il préfère un
+identifiant et un mot de passe par personne, le compte étant ouvert par une invitation. Le
+serveur de test (VPS) envoie ses e-mails en `MAIL_DRIVER=log` : le lien doit pouvoir être copié.
+Les fournisseurs « identifiants » d'Auth.js ne fonctionnent pas avec les sessions en base.
+
+**Décision.**
+
+- **Auth.js reste, sans aucun fournisseur**, pour lire, renouveler et fermer les sessions en
+  base (12 h, cookie `HttpOnly`) et pour la déconnexion. La connexion par mot de passe crée la
+  ligne `sessions` et le cookie elle-même (`src/server/auth/session.ts`), exactement comme la
+  connexion démo le faisait déjà : même nom, même durée, mêmes contrôles.
+- **Google est supprimé** (fournisseur, variables `AUTH_GOOGLE_*` et `AUTH_ALLOWED_DOMAIN`,
+  restriction de domaine des comptes, origine Google de la CSP). Garder une option jamais
+  testée ni configurée ajoutait du code et une surface d'attaque. La table `accounts` reste
+  (l'adaptateur Auth.js l'attend), vide. Pour rétablir un fournisseur OAuth, il suffit de le
+  remettre dans `providers` avec un callback `signIn` qui appelle `accountDenial()`.
+- **Hachage argon2id** (`@node-rs/argon2`, binaires précompilés, musl compris : rien à compiler
+  dans l'image Alpine), paramètres minimaux OWASP (19 Mio, 2 passes, 1 voie), chaîne PHC qui
+  porte ses paramètres. Une contrainte `CHECK` n'accepte que `$argon2id$…`. Règle de mot de
+  passe NIST : 12 à 128 caractères, sans règle de composition, sans l'identifiant.
+- **Identifiant** distinct de l'e-mail (`users.username`, unique, minuscules, `CHECK` du
+  format) : fixé par TOPAZE dans l'invitation ou choisi par la personne. L'e-mail reste
+  obligatoire (contact, envoi du lien), de n'importe quel domaine.
+- **Liens d'accès** (`account_tokens`) : 32 octets aléatoires, seule l'empreinte SHA-256 est
+  stockée ; invitation 7 jours, nouveau mot de passe 24 h ; usage unique par mise à jour
+  conditionnelle (`used_at IS NULL AND revoked_at IS NULL AND expires_at > now()`) dans la même
+  transaction que l'écriture du mot de passe ; un nouveau lien révoque les précédents ; un mot
+  de passe refusé ou un identifiant pris ne consomme pas le lien ; un nouveau mot de passe
+  ferme toutes les sessions du compte. Le jeton est dans le **fragment** (`/acces#…`), comme le
+  dossier (ADR-043) : il n'atteint aucun journal d'accès. Le lien est affiché une fois à TOPAZE
+  pour être copié, et envoyé par `MailService` seulement si `MAIL_DRIVER=smtp`.
+- **Réinitialisation** : uniquement par TOPAZE (« Lien de nouveau mot de passe », ou
+  `pnpm admin:grant` pour un compte existant). Pas de « mot de passe oublié » en libre-service :
+  il exigerait un e-mail fiable et ouvrirait l'énumération des comptes.
+- **Limitation des tentatives** (table `rate_limits` existante) : 30 essais par client et par
+  quart d'heure, et **5 échecs par identifiant** et par quart d'heure quel que soit le client
+  (clé = SHA-256 de l'identifiant et du secret). Un identifiant inconnu, un compte sans mot de
+  passe et un mauvais mot de passe reçoivent la même réponse, dans le même temps (vérification
+  argon2 factice). Les liens : 20 ouvertures ou essais par client et par quart d'heure.
+- **Journal** : `LOGIN` (méthode `password` ou `demo`), `LOGIN_DENIED` (identifiant saisi et
+  motif : `bad_credentials`, `rate_limited`, `inactive`, `no_profile`), création d'un lien
+  (`AccountToken`, empreinte masquée), mot de passe défini ou changé, lien utilisé. Jamais de
+  jeton, d'empreinte ni de mot de passe (`SENSITIVE_FIELDS`).
+- **Premier TOPAZE** : `pnpm admin:grant <email> TOPAZE --name "…" [--username …]` crée le
+  compte et affiche le lien d'invitation, construit sur `APP_URL` (ou `AUTH_URL`).
+
+**Conséquences.** Plus aucune dépendance à Google ni à un domaine d'adresse. `APP_URL` (ou
+`AUTH_URL`) devient nécessaire pour les liens produits en ligne de commande. Le blocage par
+identifiant permet à un tiers qui connaît un identifiant de bloquer son titulaire pendant un
+quart d'heure : accepté pour une poignée de comptes, TOPAZE peut toujours émettre un lien. La
+connexion démo (`@binivol.test`, ADR-035) est inchangée.

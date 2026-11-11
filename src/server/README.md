@@ -20,9 +20,14 @@ appellent cette couche ; ils n'importent jamais `@/generated/prisma/client` dire
 
 | Fichier                         | Rôle                                                                             |
 | ------------------------------- | -------------------------------------------------------------------------------- |
-| `auth/config.ts`                | Auth.js : Google, sessions en base, callback `signIn`, événements LOGIN / LOGOUT |
+| `auth/config.ts`                | Auth.js sans fournisseur : lit, renouvelle et ferme les sessions en base, LOGOUT |
+| `auth/session.ts`               | crée la session en base et le cookie (mot de passe, démo), écrit LOGIN           |
+| `auth/password.ts`              | argon2id, règle de mot de passe, vérification factice (ADR-070)                  |
+| `auth/passwordSignIn.ts`        | connexion identifiant + mot de passe, limitation par identifiant, LOGIN_DENIED   |
+| `auth/credentials.ts`           | identifiants, jetons des liens d'accès (SHA-256), URL `/acces#…`                 |
+| `services/accountAccess.ts`     | invitation, lien de nouveau mot de passe, usage unique du lien                   |
 | `auth/adapter.ts`               | adaptateur minimal : ne crée jamais de compte, ne garde aucun jeton              |
-| `auth/signIn.ts`                | règles de connexion, pures (`evaluateSignIn`, `handleSignIn`)                    |
+| `auth/signIn.ts`                | règles de connexion, pures (`evaluateSignIn`, `accountDenial`), messages         |
 | `auth/actor.ts`, `loadActor.ts` | `getActor()`, `requireActor()` : profils relus en base à chaque requête          |
 | `auth/demo.ts`                  | connexion de démonstration (`@binivol.test`), jamais sur Vercel                  |
 | `auth/page.ts`                  | `requirePageAccess()`, `authorizePage()` : 403 par `forbidden()`                 |

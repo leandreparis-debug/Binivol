@@ -96,12 +96,15 @@ anglais**. Routes en kebab-case français (`/benevoles`, `/candidats`, `/formati
 
 ## Connexion et droits
 
-- Seuls les responsables se connectent (Google @croix-rouge.fr, comptes créés par TOPAZE).
+- Seuls les responsables se connectent : identifiant + mot de passe (argon2id), compte ouvert par
+  un lien d'invitation de TOPAZE (`docs/auth.md`, ADR-070). Les liens d'accès ne sont stockés
+  que par leur empreinte SHA-256, à usage unique ; jamais de mot de passe ni de jeton dans un log.
   Les droits sont décrits dans `docs/permissions.md`, généré par `pnpm docs:permissions`.
 - **Toutes les règles d'accès sont dans la politique** (`src/server/policy/`) : `can()` est
   pure, la matrice est dans `matrix.ts`. Jamais de test de profil ailleurs dans le code.
 - **Toute action serveur passe par `defineAction`** (`src/server/actions/defineAction.ts`),
-  ou par `definePublicAction` pour les seules actions sans session (connexion, déconnexion).
+  ou par `definePublicAction` pour les seules actions sans session (connexion, liens d'accès,
+  déconnexion, dossier en ligne).
   Un test d'architecture le vérifie.
 - **Les données sensibles ne se lisent que par `src/server/sensitive.ts`**, qui journalise
   chaque consultation dans `access_logs`, **et le dossier en ligne que par
