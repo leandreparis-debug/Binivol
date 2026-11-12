@@ -110,6 +110,9 @@ test.describe("Formations (bureau)", () => {
     const key = await empty.getAttribute("data-cell");
     expect(key).toMatch(/^P-\d+:[A-Z_]+$/);
     const cell = matrix.locator(`[data-cell="${key ?? ""}"]`);
+    // While the dialog is open, the page behind it is hidden from assistive
+    // technologies (aria-hidden): read the cell's label text instead.
+    const cellLabel = cell.locator(".sr-only");
     await cell.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Aucune ligne pour cette formation.")).toBeVisible();
@@ -127,14 +130,14 @@ test.describe("Formations (bureau)", () => {
     await expect(line).toHaveCount(1);
     await expect(line).toContainText("Validé");
     await expect(line).toContainText("Versailles");
-    await expect(cell).toHaveAccessibleName(/: valide/);
+    await expect(cellLabel).toHaveText(/: valide/);
 
     // Change: the result.
     await line.getByRole("button", { name: /^Modifier la ligne/ }).click();
     await line.getByLabel("Résultat").selectOption("FAILED");
     await line.getByRole("button", { name: "Enregistrer la modification" }).click();
     await expect(line).toContainText("Non validé");
-    await expect(cell).toHaveAccessibleName(/: aucune/);
+    await expect(cellLabel).toHaveText(/: aucune/);
 
     // Remove: cancelled with a reason (kept in the history).
     await line.getByRole("button", { name: /^Supprimer la ligne/ }).click();
@@ -146,6 +149,7 @@ test.describe("Formations (bureau)", () => {
     await expect(dialog.getByText("Aucune ligne pour cette formation.")).toBeVisible();
     await dialog.getByRole("button", { name: "Fermer" }).last().click();
     await expect(dialog).toBeHidden();
+    await expect(cell).toHaveAccessibleName(/: aucune — /);
   });
 
   test("ACTION voit la matrice en lecture seule", async ({ page }) => {
