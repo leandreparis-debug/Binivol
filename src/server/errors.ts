@@ -20,7 +20,12 @@ export type DomainErrorCode =
   | "LAST_TOPAZE"
   | "SELF_TOPAZE_REMOVAL"
   | "SELF_DEACTIVATION"
-  | "EMAIL_DOMAIN"
+  | "INVALID_EMAIL"
+  | "INVALID_USERNAME"
+  | "USERNAME_TAKEN"
+  | "ACCOUNT_INACTIVE"
+  | "INVALID_LINK"
+  | "WEAK_PASSWORD"
   | "NO_PROFILE"
   | "ACCOUNT_NOT_FOUND"
   | "DEMO_LOGIN_DISABLED"
@@ -108,12 +113,17 @@ export const CONSTRAINT_RULES: Record<string, Rule> = {
     code: "EMAIL_TAKEN",
     message: "Un compte existe déjà avec cette adresse e-mail.",
   },
+  users_username_key: {
+    code: "USERNAME_TAKEN",
+    message: "Cet identifiant est déjà utilisé. Choisissez-en un autre.",
+  },
 };
 
 /** Unique fields reported by Prisma (model + fields) → constraint name. */
 const UNIQUE_FIELDS: Record<string, string> = {
   "Person:nivol": "persons_nivol_key",
   "User:email": "users_email_key",
+  "User:username": "users_username_key",
   "Candidacy:person_id": "candidacies_one_open",
   "Candidacy:personId": "candidacies_one_open",
   "TrainingWish:person_id,reference_id": "training_wishes_one_open",

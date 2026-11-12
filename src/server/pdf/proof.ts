@@ -44,7 +44,7 @@ const ROLE: Record<SignerRole, string> = {
 const METHOD: Record<SignatureMethod, string> = {
   OTP_EMAIL: "Code à 6 chiffres reçu par e-mail",
   IN_PERSON: "Identité vérifiée en présence d'un responsable",
-  SESSION: "Session du responsable (connexion Google)",
+  SESSION: "Session du responsable (compte Binivol)",
 };
 
 const parisDateTime = (d: Date) =>

@@ -41,21 +41,22 @@ pnpm dev
 
 ## Connexion
 
-Seuls les responsables se connectent, avec leur compte Google @croix-rouge.fr ; le guide
-complet (client Google, variables, Vercel) est dans `docs/auth.md`, les droits dans
+Seuls les responsables se connectent, avec un identifiant et un mot de passe personnels, après
+une invitation par lien (ADR-070) ; le guide complet est dans `docs/auth.md`, les droits dans
 `docs/permissions.md`.
 
-- **En local, sans Google** : mets `AUTH_DEMO_LOGIN=true` et un `AUTH_SECRET` dans `.env`. La
+- **En local, comptes de démonstration** : mets `AUTH_DEMO_LOGIN=true` et un `AUTH_SECRET` dans `.env`. La
   page `/connexion` liste les 7 comptes fictifs `@binivol.test` du seed (un par profil, plus
   un compte FORMAT + DIAMANT). Interdit sur Vercel : le serveur refuse de démarrer.
-- **Premier compte TOPAZE** (avant la première connexion Google) :
+- **Premier compte TOPAZE** : la commande crée le compte et affiche un lien d'invitation à
+  usage unique (`APP_URL` ou `AUTH_URL` requise), où la personne choisit son mot de passe :
 
   ```bash
-  pnpm admin:grant prenom.nom@croix-rouge.fr TOPAZE --name "Prénom Nom"
+  pnpm admin:grant prenom.nom@exemple.org TOPAZE --name "Prénom Nom"
   ```
 
-  `pnpm admin:revoke <email>` désactive un compte. Ensuite, TOPAZE gère les comptes dans
-  l'app (`/admin/comptes`).
+  `pnpm admin:revoke <email>` désactive un compte. Ensuite, TOPAZE invite les autres
+  responsables et leur émet de nouveaux liens dans l'app (`/admin/comptes`).
 
 ## Commandes
 

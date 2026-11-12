@@ -20,7 +20,12 @@ test.describe("Accessibilité (axe)", () => {
   test("aucune violation serious ou critical sur /connexion et la page neutre du dossier (sans session)", async ({
     page,
   }) => {
-    for (const path of ["/connexion", "/connexion?error=unknown", "/dossier/lien-invalide"]) {
+    for (const path of [
+      "/connexion",
+      "/connexion?error=unknown",
+      "/acces",
+      "/dossier/lien-invalide",
+    ]) {
       await page.goto(path);
       await expectNoSeriousViolation(page);
     }

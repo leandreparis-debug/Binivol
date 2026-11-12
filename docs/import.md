@@ -23,7 +23,7 @@ taille, son empreinte et le rapport.
 3. **Le premier compte TOPAZE** (voir `docs/auth.md`) :
 
    ```bash
-   pnpm admin:grant prenom.nom@croix-rouge.fr TOPAZE --name "Prénom Nom"
+   pnpm admin:grant prenom.nom@exemple.org TOPAZE --name "Prénom Nom"
    ```
 
 4. Optionnel mais conseillé : les comptes des éditeurs de l'ancien classeur, créés depuis

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDemoLoginEnabled, isGoogleConfigured, isHostedDemo, parseEnv } from "@/lib/env";
+import { isDemoLoginEnabled, isHostedDemo, parseEnv } from "@/lib/env";
 
 describe("parseEnv: storage", () => {
   it("defaults to the local driver in ./storage", () => {
@@ -83,10 +83,8 @@ describe("parseEnv", () => {
 
   it("defaults the authentication settings", () => {
     const env = parseEnv({});
-    expect(env.AUTH_ALLOWED_DOMAIN).toBe("croix-rouge.fr");
     expect(env.AUTH_DEMO_LOGIN).toBe(false);
     expect(isDemoLoginEnabled(env)).toBe(false);
-    expect(isGoogleConfigured(env)).toBe(false);
   });
 
   it("enables the demo sign-in outside Vercel", () => {
@@ -106,21 +104,14 @@ describe("parseEnv", () => {
     },
   );
 
-  it("requires the Google id and secret together, and a long enough secret", () => {
-    expect(() => parseEnv({ AUTH_GOOGLE_ID: "id" })).toThrow(/AUTH_GOOGLE_SECRET/);
-    expect(isGoogleConfigured(parseEnv({ AUTH_GOOGLE_ID: "id", AUTH_GOOGLE_SECRET: "s" }))).toBe(
-      true,
-    );
+  it("requires a long enough AUTH_SECRET", () => {
     expect(() => parseEnv({ AUTH_SECRET: "court" })).toThrow(/AUTH_SECRET/);
   });
 
-  it("normalises the allowed domain and rejects a malformed one", () => {
-    expect(parseEnv({ AUTH_ALLOWED_DOMAIN: "Croix-Rouge.FR" }).AUTH_ALLOWED_DOMAIN).toBe(
-      "croix-rouge.fr",
-    );
-    expect(() => parseEnv({ AUTH_ALLOWED_DOMAIN: "@croix-rouge.fr" })).toThrow(
-      /AUTH_ALLOWED_DOMAIN/,
-    );
+  it("ignores the former Google variables left on a server (ADR-070)", () => {
+    expect(() =>
+      parseEnv({ AUTH_GOOGLE_ID: "id", AUTH_ALLOWED_DOMAIN: "@not-a-domain" }),
+    ).not.toThrow();
   });
 
   it("rejects an unexpected ENABLE_DESIGN_PAGE value", () => {

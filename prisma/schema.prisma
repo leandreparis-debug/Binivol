@@ -244,16 +244,22 @@ enum AccessScope {
 
 /// A responsible person who signs in (step 3). Volunteers have no account.
 model User {
-  id          String    @id @default(cuid(2))
+  id                String    @id @default(cuid(2))
   /// Always stored lower-case (CHECK users_email_lowercase).
-  email       String    @unique
-  name        String
-  active      Boolean   @default(true)
-  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(3)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById String?   @map("created_by_id")
-  updatedById String?   @map("updated_by_id")
+  email             String    @unique
+  name              String
+  active            Boolean   @default(true)
+  /// Sign-in identifier, lower-case (CHECK users_username_format). Null until
+  /// the invitation link is used, unless TOPAZE fixed it in the invitation.
+  username          String?   @unique
+  /// argon2id hash (PHC string). Never selected outside src/server/auth/password*.
+  passwordHash      String?   @map("password_hash")
+  passwordChangedAt DateTime? @map("password_changed_at") @db.Timestamptz(3)
+  lastLoginAt       DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById       String?   @map("created_by_id")
+  updatedById       String?   @map("updated_by_id")
 
   profiles           UserProfile[]
   accounts           Account[]
@@ -269,8 +275,38 @@ model User {
   todoComments       TodoComment[]
   ownedTodoProjects  TodoProject[]
   todoMemberships    TodoProjectMember[] @relation("TodoProjectMemberUser")
+  accessTokens       AccountToken[]      @relation("AccountTokenUser")
+  issuedAccessTokens AccountToken[]      @relation("AccountTokenCreator")
 
   @@map("users")
+}
+
+enum AccountTokenPurpose {
+  /// First access: choose the identifier (unless fixed) and the password.
+  INVITE
+  /// New password chosen through a link issued by TOPAZE.
+  RESET
+}
+
+/// Single-use, time-limited link to set a password (ADR-070). Only the SHA-256
+/// of the token is stored; rows are never deleted (used, revoked or expired).
+model AccountToken {
+  id          String              @id @default(cuid(2))
+  userId      String              @map("user_id")
+  purpose     AccountTokenPurpose
+  tokenHash   String              @unique @map("token_hash")
+  expiresAt   DateTime            @map("expires_at") @db.Timestamptz(3)
+  usedAt      DateTime?           @map("used_at") @db.Timestamptz(3)
+  revokedAt   DateTime?           @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Null when issued from the command line (`pnpm admin:grant`).
+  createdById String?             @map("created_by_id")
+
+  user      User  @relation("AccountTokenUser", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy User? @relation("AccountTokenCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("account_tokens")
 }
 
 model UserProfile {
@@ -285,8 +321,8 @@ model UserProfile {
   @@map("user_profiles")
 }
 
-/// External identity linked to a user (Google). Only the identifiers are kept:
-/// OAuth tokens are never stored (see src/server/auth/adapter.ts).
+/// External identity linked to a user. Unused since ADR-070 (no OAuth provider);
+/// kept because the Auth.js adapter expects it. OAuth tokens are never stored.
 model Account {
   id                String   @id @default(cuid(2))
   userId            String   @map("user_id")

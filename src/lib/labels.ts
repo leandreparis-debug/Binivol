@@ -10,6 +10,7 @@ import type {
   JobRunStatus,
   AbandonReason,
   AccessScope,
+  AccountTokenPurpose,
   Aptitude,
   AuditAction,
   B3Status,
@@ -219,6 +220,11 @@ export const NOTIFICATION_CHANNEL_LABELS: Record<NotificationChannel, string> = 
   EMAIL_DIGEST: "Récapitulatif par e-mail",
 };
 
+export const ACCOUNT_TOKEN_PURPOSE_LABELS: Record<AccountTokenPurpose, string> = {
+  INVITE: "Invitation",
+  RESET: "Nouveau mot de passe",
+};
+
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   CREATE: "Création",
   UPDATE: "Modification",
@@ -302,6 +308,7 @@ export const ENUM_LABELS = {
   ReminderTrigger: REMINDER_TRIGGER_LABELS,
   NotificationChannel: NOTIFICATION_CHANNEL_LABELS,
   AuditAction: AUDIT_ACTION_LABELS,
+  AccountTokenPurpose: ACCOUNT_TOKEN_PURPOSE_LABELS,
   AccessScope: ACCESS_SCOPE_LABELS,
   ImportStatus: IMPORT_STATUS_LABELS,
   JobRunStatus: JOB_RUN_STATUS_LABELS,

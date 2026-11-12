@@ -38,18 +38,8 @@ export const envObject = z.object({
   AUTH_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
   /** Key of the HMAC of the signature codes (step 8). Optional: derived from AUTH_SECRET. */
   OTP_SECRET: z.string().min(32, "doit compter au moins 32 caractères").optional(),
-  /** Public URL of the app for Auth.js callbacks; deduced from the request when absent. */
+  /** Public URL of the app for Auth.js; deduced from the request when absent. */
   AUTH_URL: z.url().optional(),
-  /** Google OAuth client (Google Cloud console). Google sign-in is off when absent. */
-  AUTH_GOOGLE_ID: z.string().trim().min(1).optional(),
-  AUTH_GOOGLE_SECRET: z.string().trim().min(1).optional(),
-  /** Only addresses of this domain may sign in with Google. */
-  AUTH_ALLOWED_DOMAIN: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, "doit être un nom de domaine (ex. croix-rouge.fr)")
-    .default("croix-rouge.fr"),
   /** Demo sign-in with the `@binivol.test` seed accounts. Never on Vercel, unless the next flag. */
   AUTH_DEMO_LOGIN: booleanFlag,
   /**
@@ -154,13 +144,6 @@ export const envSchema = envObject.superRefine((env, ctx) => {
       }
     }
   }
-  if ((env.AUTH_GOOGLE_ID === undefined) !== (env.AUTH_GOOGLE_SECRET === undefined)) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["AUTH_GOOGLE_SECRET"],
-      message: "AUTH_GOOGLE_ID et AUTH_GOOGLE_SECRET vont ensemble",
-    });
-  }
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -176,11 +159,6 @@ export function isDemoLoginEnabled(env: Env = getEnv()): boolean {
  */
 export function isHostedDemo(env: Env = getEnv()): boolean {
   return env.AUTH_DEMO_LOGIN && env.VERCEL_ENV !== undefined && env.AUTH_DEMO_ON_VERCEL;
-}
-
-/** True when the Google provider is configured. */
-export function isGoogleConfigured(env: Env = getEnv()): boolean {
-  return env.AUTH_GOOGLE_ID !== undefined && env.AUTH_GOOGLE_SECRET !== undefined;
 }
 
 /**

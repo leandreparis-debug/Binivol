@@ -1,8 +1,8 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
+  accountDenial,
   evaluateSignIn,
-  handleSignIn,
   isEmailInDomain,
   signInErrorMessage,
   type KnownUser,
@@ -81,51 +81,19 @@ describe("evaluateSignIn", () => {
   });
 });
 
-describe("handleSignIn (signIn callback)", () => {
-  it("journals the refusal and redirects with the reason, without looking up foreign addresses", async () => {
-    const deps = { findUser: vi.fn(), recordDenied: vi.fn().mockResolvedValue(undefined) };
-    const result = await handleSignIn(
-      { email: "camille@gmail.com", emailVerified: true },
-      DOMAIN,
-      deps,
-    );
-    expect(result).toBe("/connexion?error=domain");
-    expect(deps.findUser).not.toHaveBeenCalled();
-    expect(deps.recordDenied).toHaveBeenCalledWith({
-      ok: false,
-      email: "camille@gmail.com",
-      reason: "domain",
-    });
-  });
-
-  it.each([
-    [null, "unknown"],
-    [{ id: "u2", active: false, profileCount: 2 }, "inactive"],
-    [{ id: "u3", active: true, profileCount: 0 }, "no_profile"],
-  ] as const)("refuses the account %j with %s", async (user, reason) => {
-    const deps = {
-      findUser: vi.fn().mockResolvedValue(user),
-      recordDenied: vi.fn().mockResolvedValue(undefined),
-    };
-    await expect(
-      handleSignIn({ email: "X@croix-rouge.fr", emailVerified: true }, DOMAIN, deps),
-    ).resolves.toBe(`/connexion?error=${reason}`);
-    expect(deps.findUser).toHaveBeenCalledWith("x@croix-rouge.fr");
-    expect(deps.recordDenied).toHaveBeenCalledWith(expect.objectContaining({ reason }));
-  });
-
-  it("returns true and journals nothing on success", async () => {
-    const deps = { findUser: vi.fn().mockResolvedValue(active), recordDenied: vi.fn() };
-    await expect(
-      handleSignIn({ email: "a@croix-rouge.fr", emailVerified: true }, DOMAIN, deps),
-    ).resolves.toBe(true);
-    expect(deps.recordDenied).not.toHaveBeenCalled();
+describe("accountDenial (every sign-in)", () => {
+  it("accepts an active account with a profile and refuses the others", () => {
+    expect(accountDenial(active)).toBeNull();
+    expect(accountDenial({ ...active, active: false })).toBe("inactive");
+    expect(accountDenial({ ...active, profileCount: 0 })).toBe("no_profile");
   });
 });
 
 describe("signInErrorMessage", () => {
   it("gives the French message of each reason", () => {
-    expect(signInErrorMessage("domain")).toBe("Utilisez votre adresse @croix-rouge.fr.");
+    expect(signInErrorMessage("domain")).toBe("Ce compte ne peut pas se connecter ici.");
+    expect(signInErrorMessage("bad_credentials")).toBe("Identifiant ou mot de passe incorrect.");
+    expect(signInErrorMessage("rate_limited")).toMatch(/Trop de tentatives/);
     expect(signInErrorMessage("unknown")).toBe(
       "Ce compte n'a pas encore accès à Binivol. Demandez-le au DLUS.",
     );

@@ -9,7 +9,8 @@ lecture métier. PostgreSQL standard (15 et 16), accès uniquement par Prisma 7 
 ```mermaid
 erDiagram
   User ||--o{ UserProfile : "a les profils"
-  User ||--o{ Account : "identité Google"
+  User ||--o{ Account : "identité externe (inutilisée)"
+  User ||--o{ AccountToken : "liens d'accès"
   User ||--o{ Session : "sessions en base"
   User ||--o{ Candidacy : "suit (owner)"
   User ||--o{ CandidacyEvent : "auteur"
@@ -206,12 +207,13 @@ Sensibilité : **N** normale, **S** sensible (accès filtré à l'étape 3, jour
 
 ### Comptes
 
-| Table           | Rôle                                             | Champs clés                                                      | Sens. |
-| --------------- | ------------------------------------------------ | ---------------------------------------------------------------- | ----- |
-| `users`         | Responsable qui se connecte                      | `email` unique en minuscules, `active`, `last_login_at`          | N     |
-| `user_profiles` | Profils cumulables d'un responsable              | `(user_id, profile)` unique                                      | N     |
-| `accounts`      | Identité Google liée à un compte (Auth.js)       | `(provider, provider_account_id)` unique ; **aucun jeton OAuth** | N     |
-| `sessions`      | Sessions en base (Auth.js, stratégie `database`) | `session_token` unique (cookie HttpOnly), `expires`              | N     |
+| Table            | Rôle                                                    | Champs clés                                                                                                               | Sens. |
+| ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `users`          | Responsable qui se connecte                             | `email` et `username` uniques en minuscules, `password_hash` (argon2id), `password_changed_at`, `active`, `last_login_at` | N     |
+| `user_profiles`  | Profils cumulables d'un responsable                     | `(user_id, profile)` unique                                                                                               | N     |
+| `accounts`       | Identité externe (Auth.js), inutilisée (ADR-070)        | `(provider, provider_account_id)` unique ; **aucun jeton OAuth**                                                          | N     |
+| `account_tokens` | Liens d'invitation et de nouveau mot de passe (ADR-070) | `token_hash` (SHA-256) unique, `purpose`, `expires_at`, `used_at`, `revoked_at`                                           | N     |
+| `sessions`       | Sessions en base (Auth.js, stratégie `database`)        | `session_token` unique (cookie HttpOnly), `expires`                                                                       | N     |
 
 Les bénévoles n'ont pas de compte. `accounts` et `sessions` sont des données techniques :
 une session est supprimée à la déconnexion et à la désactivation du compte. Un compte n'est

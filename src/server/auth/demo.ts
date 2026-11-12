@@ -1,18 +1,15 @@
-import { randomBytes } from "node:crypto";
-import { cookies } from "next/headers";
 import { isDemoLoginEnabled } from "@/lib/env";
 import type { DbOrTx } from "../db";
 import { DomainError } from "../errors";
-import { SESSION_MAX_AGE_SECONDS, sessionCookie } from "./cookies";
-import { recordLogin, recordLoginDenied } from "./events";
+import { recordLoginDenied } from "./events";
+import { createUserSession } from "./session";
 import { evaluateSignIn } from "./signIn";
 
 /**
  * Demo sign-in (development and e2e tests only).
  *
- * Auth.js credentials providers cannot use database sessions, so the demo
- * sign-in creates the session row and cookie itself, with exactly the same
- * name, lifetime and checks as a Google session. It exists only when
+ * Creates the session like the password sign-in (`session.ts`), with the same
+ * checks (active account, at least one profile). It exists only when
  * AUTH_DEMO_LOGIN=true and VERCEL_ENV is not set, or AUTH_DEMO_ON_VERCEL=true (ADR-035) (the server refuses to start
  * otherwise), and only for `@binivol.test` addresses.
  */
@@ -36,18 +33,8 @@ export async function createDemoSession(db: DbOrTx, email: string, now = new Dat
     await recordLoginDenied(db, decision);
     throw new DomainError("SIGN_IN_DENIED", decision.reason);
   }
-  const sessionToken = randomBytes(32).toString("base64url");
-  const expires = new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000);
-  await db.session.create({ data: { sessionToken, userId: decision.userId, expires } });
-  await recordLogin(db, decision.userId, "demo");
-  return { sessionToken, expires, userId: decision.userId };
-}
-
-/** Sets the session cookie (to be called from a Server Action or Route Handler). */
-export async function setSessionCookie(sessionToken: string, expires: Date): Promise<void> {
-  const cookie = sessionCookie();
-  const store = await cookies();
-  store.set(cookie.name, sessionToken, { ...cookie.options, expires });
+  const session = await createUserSession(db, decision.userId, "demo", now);
+  return { ...session, userId: decision.userId };
 }
 
 export interface DemoAccount {

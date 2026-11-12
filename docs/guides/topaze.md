@@ -7,8 +7,10 @@ les fiches à purger.
 
 ## Se connecter
 
-1. Ouvre Binivol et clique « Se connecter avec Google ».
-2. Utilise ton compte **@croix-rouge.fr**. Seuls les comptes créés par TOPAZE entrent.
+1. Ouvre Binivol et saisis ton identifiant et ton mot de passe.
+2. Seuls les comptes invités par TOPAZE entrent. Pour ajouter un responsable : menu du compte →
+   **Gérer les comptes** → **Inviter**, puis transmets-lui le lien affiché (usage unique, 7 jours).
+   Mot de passe oublié : **Lien de nouveau mot de passe** sur sa ligne (24 h).
 
 ## Ton accueil : le tableau de bord DLUS
 

@@ -6,7 +6,7 @@ Tu suis les bénévoles PSC et PSE de ton périmètre.
 
 ## Se connecter
 
-Bouton « Se connecter avec Google », compte **@croix-rouge.fr**.
+Ton identifiant et ton mot de passe, choisis en ouvrant le lien d'invitation envoyé par le DLUS. Mot de passe oublié : demande-lui un nouveau lien.
 
 ## Tâches courantes
 

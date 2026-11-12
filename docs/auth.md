@@ -1,53 +1,83 @@
 # Connexion et comptes
 
-Seuls les responsables de l'unité locale se connectent, avec leur compte Google
-**@croix-rouge.fr**. Les bénévoles et les candidats n'ont jamais de compte. Un responsable ne
-peut se connecter que si TOPAZE l'a ajouté, que son compte est actif et qu'il a au moins un
-profil. Les règles d'accès sont décrites dans `docs/permissions.md`.
+Seuls les responsables de l'unité locale se connectent, avec un **identifiant et un mot de
+passe personnels**. Les bénévoles et les candidats n'ont jamais de compte. Un compte est ouvert
+par TOPAZE, qui envoie à la personne un **lien d'invitation** ; elle y choisit son mot de passe.
+Un responsable ne peut se connecter que si son compte est actif et a au moins un profil. Les
+règles d'accès sont décrites dans `docs/permissions.md`. Décision : ADR-070.
 
 ## Fonctionnement
 
-- **Auth.js** (`next-auth` 5.0.0-beta.32, épinglée), fournisseur Google uniquement.
+- **Auth.js** (`next-auth` 5.0.0-beta.32, épinglée) **sans fournisseur** : il lit, renouvelle et
+  ferme les sessions. Les fournisseurs « identifiants » d'Auth.js ne fonctionnent pas avec les
+  sessions en base : la connexion crée donc la session et le cookie elle-même
+  (`src/server/auth/session.ts`), avec le nom, la durée et les options d'Auth.js.
 - **Sessions en base** (table `sessions`) : 12 h, renouvelées après chaque heure d'activité.
-  Désactiver un compte supprime ses sessions : la coupure est immédiate.
+  Désactiver un compte ou changer son mot de passe supprime ses sessions : la coupure est
+  immédiate.
 - Cookie de session `HttpOnly`, `SameSite=Lax`, `Secure` et préfixé `__Secure-` en HTTPS.
-- La session ne contient que l'identifiant, le nom et l'e-mail. **Les profils sont relus en
-  base à chaque requête** : un profil retiré ou un compte désactivé prend effet tout de suite.
-- À chaque connexion Google, Binivol vérifie lui-même, dans l'ordre : adresse vérifiée par
-  Google, domaine `AUTH_ALLOWED_DOMAIN`, compte existant, compte actif avec au moins un profil.
-  Le paramètre `hd` envoyé à Google n'est qu'une indication. Un compte inconnu est refusé,
-  **jamais créé**.
-- Journal d'audit : `LOGIN`, `LOGIN_DENIED` (adresse et motif, jamais de jeton) et `LOGOUT`.
-- Aucun jeton Google n'est conservé : la table `accounts` ne garde que l'identifiant Google.
+- La session ne contient que l'identifiant interne, le nom et l'e-mail. **Les profils sont
+  relus en base à chaque requête** : un profil retiré ou un compte désactivé prend effet tout de
+  suite.
+- **Mots de passe** : hachés en **argon2id** (`@node-rs/argon2`, 19 Mio, 2 passes), jamais
+  stockés ni journalisés en clair. 12 à 128 caractères, sans règle de composition, sans
+  l'identifiant. Une phrase de plusieurs mots est idéale.
+- **Identifiant** : 3 à 40 caractères, minuscules sans accent, chiffres, `.`, `-`, `_`. Fixé par
+  TOPAZE à l'invitation ou choisi par la personne. La saisie à la connexion ignore la casse.
+- **Connexion** (`/connexion`, `src/server/auth/passwordSignIn.ts`) : un identifiant inconnu,
+  un compte sans mot de passe et un mauvais mot de passe reçoivent le même message
+  (« Identifiant ou mot de passe incorrect. »), dans le même temps. Un compte désactivé ou sans
+  profil est refusé, et dit, seulement une fois le mot de passe juste.
+- **Limitation** (`rate_limits`) : 30 tentatives par client et par quart d'heure ; **5 échecs par
+  identifiant** et par quart d'heure, quel que soit le client (l'identifiant est alors bloqué
+  jusqu'à la fin de la fenêtre, même avec le bon mot de passe). Les clés sont des empreintes :
+  ni adresse IP ni identifiant en clair dans la table.
+- **Journal d'audit** : `LOGIN` (méthode `password` ou `demo`), `LOGIN_DENIED` (identifiant
+  saisi et motif : `bad_credentials`, `rate_limited`, `inactive`, `no_profile`), `LOGOUT`,
+  création d'un lien, mot de passe défini ou changé, lien utilisé. Jamais de mot de passe, de
+  jeton ni d'empreinte.
 
-## 1. Créer le client OAuth Google
+## 1. Liens d'invitation et de nouveau mot de passe
 
-1. Dans la [console Google Cloud](https://console.cloud.google.com/), créer (ou choisir) un
-   projet rattaché à l'organisation Croix-Rouge si possible.
-2. **Écran de consentement OAuth** : type **Interne** si le projet appartient à
-   l'organisation Google Workspace de la Croix-Rouge (seuls ses comptes peuvent alors se
-   connecter). Sinon, type Externe en mode test, avec la liste des responsables comme
-   testeurs. Portées : `openid`, `email`, `profile` uniquement.
-3. **Identifiants → Créer des identifiants → ID client OAuth → Application Web**.
-4. **URI de redirection autorisés** :
-   - local : `http://localhost:3000/api/auth/callback/google` ;
-   - Vercel : `https://<domaine-de-production>/api/auth/callback/google` ;
-   - VPS : `https://<domaine>/api/auth/callback/google`.
-5. Copier l'ID client et le secret dans `AUTH_GOOGLE_ID` et `AUTH_GOOGLE_SECRET`.
+Un lien d'accès (`/acces#<jeton>`) permet de choisir son mot de passe (et son identifiant s'il
+n'a pas été fixé). Il est :
+
+- **à usage unique** : il ne fonctionne plus une fois le mot de passe enregistré, même si deux
+  personnes l'ouvrent en même temps ;
+- **à durée limitée** : 7 jours pour une invitation, 24 h pour un nouveau mot de passe ;
+- **remplacé** par tout nouveau lien du même compte (l'ancien cesse de fonctionner) ;
+- **inutilisable** pour un compte désactivé ;
+- **jamais stocké** : la base ne garde que son empreinte SHA-256 (`account_tokens`). Le jeton est
+  après le `#` : le navigateur ne l'envoie pas au serveur, la page l'efface de la barre
+  d'adresse et le transmet dans le corps d'une requête POST.
+
+Un mot de passe trop court ou un identifiant déjà pris ne consomme pas le lien. Enregistrer un
+mot de passe ferme toutes les sessions du compte, puis renvoie vers `/connexion`.
+
+**Depuis l'app** (TOPAZE, menu du compte → **Gérer les comptes**, `/admin/comptes`) :
+
+- **Inviter un responsable** : adresse e-mail, nom, identifiant (facultatif) et profils. Le lien
+  d'invitation s'affiche **une seule fois**, avec un bouton **Copier**. Si `MAIL_DRIVER=smtp`, il
+  est aussi envoyé par e-mail ; avec `MAIL_DRIVER=log` (serveur de test), rien ne part :
+  copiez-le et transmettez-le par un canal sûr.
+- **Nouveau lien d'invitation** (compte sans mot de passe) ou **Lien de nouveau mot de passe**
+  (mot de passe oublié) : même mécanisme. L'ancien mot de passe reste valable jusqu'à
+  l'utilisation du lien. Il n'existe pas de « mot de passe oublié » en libre-service : la
+  personne demande un lien au DLUS.
 
 ## 2. Variables d'environnement
 
-| Variable              | Rôle                                                                  | Exemple                       |
-| --------------------- | --------------------------------------------------------------------- | ----------------------------- |
-| `AUTH_SECRET`         | Secret d'Auth.js, 32 caractères minimum (`openssl rand -base64 32`)   | —                             |
-| `AUTH_URL`            | URL publique de l'app, si elle ne peut pas être déduite de la requête | `https://binivol.exemple.org` |
-| `AUTH_GOOGLE_ID`      | ID client OAuth                                                       | `…apps.googleusercontent.com` |
-| `AUTH_GOOGLE_SECRET`  | Secret client OAuth                                                   | —                             |
-| `AUTH_ALLOWED_DOMAIN` | Domaine autorisé (défaut `croix-rouge.fr`)                            | `croix-rouge.fr`              |
-| `AUTH_DEMO_LOGIN`     | Connexion de démonstration (défaut `false`), **jamais sur Vercel**    | `false`                       |
+| Variable          | Rôle                                                                         | Exemple                       |
+| ----------------- | ---------------------------------------------------------------------------- | ----------------------------- |
+| `AUTH_SECRET`     | Secret d'Auth.js et des clés de limitation, 32 caractères minimum            | —                             |
+| `APP_URL`         | URL publique, pour construire les liens (sinon `AUTH_URL`, sinon la requête) | `https://binivol.exemple.org` |
+| `AUTH_URL`        | URL publique de l'app, si elle ne peut pas être déduite de la requête        | `https://binivol.exemple.org` |
+| `MAIL_DRIVER`     | `smtp` pour envoyer les liens par e-mail, `log` pour ne rien envoyer         | `smtp`                        |
+| `AUTH_DEMO_LOGIN` | Connexion de démonstration (défaut `false`), **jamais sur Vercel**           | `false`                       |
 
-Sans `AUTH_GOOGLE_ID`, le bouton Google est affiché désactivé. Toutes ces variables sont
-validées au démarrage (`src/lib/env.ts`) : une valeur invalide empêche le serveur de démarrer.
+`pnpm admin:grant` exige `APP_URL` ou `AUTH_URL` pour construire le lien. Les anciennes
+variables `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` et `AUTH_ALLOWED_DOMAIN` ne sont plus lues : on
+peut les retirer. Toutes ces variables sont validées au démarrage (`src/lib/env.ts`).
 
 ## 3. Premier compte TOPAZE
 
@@ -55,38 +85,34 @@ Personne ne peut se connecter tant qu'aucun compte n'existe. Le premier compte s
 ligne de commande, depuis une machine qui a accès à la base (`DIRECT_URL` ou `DATABASE_URL`) :
 
 ```bash
-pnpm admin:grant prenom.nom@croix-rouge.fr TOPAZE --name "Prénom Nom"
+pnpm admin:grant prenom.nom@exemple.org TOPAZE --name "Prénom Nom" --username prenom.nom
 ```
 
 - La commande crée le compte ou, s'il existe, lui donne **exactement** les profils indiqués et
-  le réactive. Plusieurs profils sont possibles : `pnpm admin:grant x@croix-rouge.fr FORMAT DIAMANT`.
-- `pnpm admin:revoke prenom.nom@croix-rouge.fr` désactive un compte et ferme ses sessions.
-- Chaque changement est journalisé avec le libellé « CLI ».
-- Les adresses hors de `AUTH_ALLOWED_DOMAIN` sont refusées (sauf `@binivol.test` quand la
-  connexion démo est active). Le dernier compte TOPAZE actif ne peut être ni désactivé ni
-  privé de TOPAZE.
+  le réactive. Plusieurs profils sont possibles : `pnpm admin:grant x@exemple.org FORMAT DIAMANT`.
+- Elle affiche un **lien d'accès à usage unique** : une invitation si le compte n'a pas encore de
+  mot de passe, un lien de nouveau mot de passe sinon (récupération d'un TOPAZE qui a perdu le
+  sien). Le lien n'est affiché que dans le terminal et n'est jamais envoyé par e-mail : ne le
+  collez ni dans un ticket ni dans une conversation.
+- `--username` fixe l'identifiant ; sans lui, la personne le choisit en ouvrant le lien.
+- `pnpm admin:revoke prenom.nom@exemple.org` désactive un compte et ferme ses sessions.
+- Chaque changement est journalisé avec le libellé « CLI ». Le dernier compte TOPAZE actif ne
+  peut être ni désactivé ni privé de TOPAZE.
 
-Ensuite, TOPAZE gère les comptes depuis l'app : menu du compte → **Gérer les comptes**
-(`/admin/comptes`).
+Sur le VPS (Docker), l'image finale ne contient ni `tsx` ni Prisma : la commande se lance dans
+le service `migrate` (image `builder`), depuis `/opt/apps/binivol`, en lui passant l'URL publique
+si ce service ne la reçoit pas déjà :
 
-## 4. Déploiements de prévisualisation Vercel
+```bash
+docker compose run --rm -e APP_URL=https://<domaine> migrate pnpm admin:grant prenom.nom@exemple.org TOPAZE --name "Prénom Nom"
+```
 
-Google n'accepte que des URI de redirection fixes, pas les domaines variables des
-prévisualisations (`binivol-git-xxx.vercel.app`). Deux possibilités :
+## 4. Connexion de démonstration
 
-- utiliser un **alias fixe** pour la prévisualisation (par exemple
-  `binivol-preview.vercel.app`, attribué à la branche de test) et le déclarer chez Google ;
-- ou utiliser le **proxy de redirection d'Auth.js** : déclarer chez Google l'URI de
-  production seulement, et définir sur les prévisualisations
-  `AUTH_REDIRECT_PROXY_URL=https://<domaine-de-production>/api/auth`, avec le même
-  `AUTH_SECRET` que la production.
-
-## 5. Connexion de démonstration
-
-Pour le développement et les tests e2e, `AUTH_DEMO_LOGIN=true` affiche sous le bouton Google
-la liste des comptes `@binivol.test` du seed, avec le bandeau « Mode démonstration ». Elle crée
-une vraie session en base, avec les mêmes contrôles qu'une connexion Google (compte actif, au
-moins un profil) et le même journal.
+Pour le développement et les tests e2e, `AUTH_DEMO_LOGIN=true` affiche sous le formulaire la
+liste des comptes `@binivol.test` du seed, avec le bandeau « Mode démonstration ». Elle crée
+une vraie session en base, avec les mêmes contrôles qu'une connexion par mot de passe (compte
+actif, au moins un profil) et le même journal.
 
 **Elle est interdite sur Vercel** : si `AUTH_DEMO_LOGIN=true` alors que `VERCEL_ENV` est défini
 (production, prévisualisation ou développement Vercel), la validation de l'environnement
@@ -94,13 +120,11 @@ moins un profil) et le même journal.
 sur une URL publique, et accéder à des données C3. Elle n'accepte de toute façon que des
 adresses `@binivol.test`, qui n'existent pas en production.
 
-Elle ne passe pas par un fournisseur Auth.js : les fournisseurs « identifiants » d'Auth.js ne
-fonctionnent pas avec les sessions en base. Elle crée donc la session et le cookie elle-même
-(`src/server/auth/demo.ts`), avec le même nom, la même durée et les mêmes options.
+Comme la connexion par mot de passe, elle crée la session par `src/server/auth/session.ts`.
 
 ## Démo hébergée (test uniquement, ADR-035)
 
-Pour un déploiement Vercel **de test** à données fictives, sans Google : `AUTH_DEMO_LOGIN=true`
+Pour un déploiement Vercel **de test** à données fictives : `AUTH_DEMO_LOGIN=true`
 et `AUTH_DEMO_ON_VERCEL=true`. La page `/connexion` propose alors les comptes `@binivol.test`,
 l'import de classeur est refusé, et la base ne doit contenir que le seed de démonstration.
 Jamais sur la base de production.

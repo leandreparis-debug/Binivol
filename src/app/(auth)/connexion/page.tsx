@@ -3,32 +3,31 @@ import { redirect } from "next/navigation";
 import { FlaskConical, Lock } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { Chip } from "@/components/ui/Chip";
-import { getEnv, isDemoLoginEnabled, isGoogleConfigured } from "@/lib/env";
+import { getEnv, isDemoLoginEnabled } from "@/lib/env";
 import { getActor } from "@/server/auth/actor";
 import { listDemoAccounts } from "@/server/auth/demo";
 import { signInErrorMessage } from "@/server/auth/signIn";
 import { getDb } from "@/server/db";
-import { DemoAccounts, GoogleButton } from "./SignInButtons";
+import { DemoAccounts, PasswordSignInForm } from "./SignInForms";
 
 export const metadata: Metadata = { title: "Connexion" };
 export const dynamic = "force-dynamic";
 
-/** Sign-in page: Google (@croix-rouge.fr), plus the demo accounts when enabled. */
+const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+
+/** Sign-in page: identifier + password (ADR-070), plus the demo accounts when enabled. */
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string | string[] }>;
+  searchParams: Promise<{ error?: string | string[]; acces?: string | string[] }>;
 }) {
   if (await getActor()) redirect("/");
   const env = getEnv();
-  const { error } = await searchParams;
-  const message = signInErrorMessage(
-    Array.isArray(error) ? error[0] : error,
-    env.AUTH_ALLOWED_DOMAIN,
-  );
+  const params = await searchParams;
+  const message = signInErrorMessage(first(params.error));
+  const passwordSet = first(params.acces) === "ok";
   const demo = isDemoLoginEnabled(env);
   const demoAccounts = demo ? await listDemoAccounts(getDb()) : [];
-  const google = isGoogleConfigured(env);
 
   return (
     <div className="w-full max-w-md rounded-card bg-surface p-6 sm:p-8">
@@ -50,14 +49,22 @@ export default async function SignInPage({
         </p>
       )}
 
-      <div className="mt-6 flex flex-col gap-2">
-        <GoogleButton enabled={google} />
-        {!google && (
-          <p className="text-center text-small text-muted">
-            La connexion Google n'est pas configurée sur cet environnement.
-          </p>
-        )}
+      {passwordSet && !message && (
+        <p
+          role="status"
+          data-testid="signin-notice"
+          className="mt-6 rounded-inner bg-ok-soft px-4 py-3 text-body font-medium text-ok-ink"
+        >
+          Mot de passe enregistré. Connectez-vous avec votre identifiant.
+        </p>
+      )}
+
+      <div className="mt-6">
+        <PasswordSignInForm />
       </div>
+      <p className="mt-3 text-center text-small text-muted">
+        Mot de passe oublié ? Demandez un nouveau lien au DLUS.
+      </p>
 
       {demo && (
         <section
