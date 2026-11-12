@@ -104,7 +104,7 @@ test.describe("Formations (bureau)", () => {
     page,
   }) => {
     await loginAs(page, "topaze");
-    await page.goto("/formations/matrice?categorie=SECOURS");
+    await page.goto("/formations/matrice?categorie=FORMATION_IS");
     const matrix = page.getByTestId("matrix");
     const empty = matrix.getByRole("button", { name: /^[A-Z_]+ : aucune — / }).first();
     const key = await empty.getAttribute("data-cell");
