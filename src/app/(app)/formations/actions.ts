@@ -5,6 +5,8 @@ import { z } from "zod";
 import {
   cancelSchema,
   groupEntrySchema,
+  matrixCellSchema,
+  recordUpdateSchema,
   referenceSchema,
   resultsSchema,
   scheduleSchema,
@@ -15,6 +17,7 @@ import { toParisDay } from "@/lib/dates";
 import { defineAction } from "@/server/actions/defineAction";
 import { getDb } from "@/server/db";
 import { DomainError } from "@/server/errors";
+import { matrixCellDetail } from "@/server/services/matrix";
 import { sendUrgenceSummary } from "@/server/services/urgence";
 import { loadPersonFacts } from "@/server/policy/facts";
 import {
@@ -25,6 +28,7 @@ import {
   recordTrainingGroup,
   scheduleWish,
   setTrainingResults,
+  trainingRecordPersonFacts,
   updateReferenceItem,
 } from "@/server/services/trainings";
 
@@ -85,6 +89,53 @@ export const recordForPersonAction = defineAction({
     const result = await recordTrainingGroup(getDb(), actor, input);
     if (result.saved) refresh();
     return result;
+  },
+});
+
+/** The person of a training line, as the resource of a line edit (404-like when absent). */
+const recordPerson = async (input: { id: string }) => {
+  const facts = await trainingRecordPersonFacts(getDb(), input.id);
+  if (!facts) throw new DomainError("INVALID_DATA", "Ligne introuvable.");
+  return { person: facts };
+};
+
+/** Lines behind a cell of the matrix, loaded when it is clicked (`training.read` on her). */
+export const matrixCellAction = defineAction({
+  action: "training.read",
+  input: matrixCellSchema,
+  resource: async (input) => {
+    const facts = await loadPersonFacts(getDb(), input.personId, toParisDay());
+    if (!facts) throw new DomainError("INVALID_DATA", "Personne introuvable.");
+    return { person: facts };
+  },
+  handler: ({ input, actor }) => matrixCellDetail(getDb(), actor, input),
+});
+
+/** Result and date of one line, from the matrix (`training.write` on her). */
+export const updateRecordForPersonAction = defineAction({
+  action: "training.write",
+  input: recordUpdateSchema,
+  resource: recordPerson,
+  handler: async ({ input, actor }) => {
+    await setTrainingResults(getDb(), actor, {
+      recordIds: [input.id],
+      result: input.result,
+      date: input.date,
+    });
+    refresh();
+    return null;
+  },
+});
+
+/** Cancels one line, from the matrix (`training.write` on her): reason required, never deleted. */
+export const cancelRecordForPersonAction = defineAction({
+  action: "training.write",
+  input: cancelSchema,
+  resource: recordPerson,
+  handler: async ({ input, actor }) => {
+    await cancelTrainingRecord(getDb(), actor, { recordId: input.id, reason: input.reason });
+    refresh();
+    return null;
   },
 });
 

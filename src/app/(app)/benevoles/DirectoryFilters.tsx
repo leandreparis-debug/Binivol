@@ -154,7 +154,7 @@ export function DirectoryFilters({
           </div>
         </fieldset>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Périmètre" htmlFor="filtre-perimetre">
             <Select
               id="filtre-perimetre"
@@ -171,7 +171,7 @@ export function DirectoryFilters({
               ))}
             </Select>
           </Field>
-          <Field label="Qualification valide" htmlFor="filtre-qualification">
+          <Field label="Avec la qualification" htmlFor="filtre-qualification">
             <Select
               id="filtre-qualification"
               value={params.get("qualification") ?? ""}
@@ -180,6 +180,22 @@ export function DirectoryFilters({
               }}
             >
               <option value="">Toutes</option>
+              {qualifications.map((q) => (
+                <option key={q.code} value={q.code}>
+                  {q.code} — {q.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Sans la qualification" htmlFor="filtre-sans">
+            <Select
+              id="filtre-sans"
+              value={params.get("sans") ?? ""}
+              onChange={(e) => {
+                push({ sans: e.target.value || null });
+              }}
+            >
+              <option value="">—</option>
               {qualifications.map((q) => (
                 <option key={q.code} value={q.code}>
                   {q.code} — {q.label}

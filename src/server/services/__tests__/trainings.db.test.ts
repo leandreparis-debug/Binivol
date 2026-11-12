@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { seedDemo, seedUserEmail } from "../../../../prisma/seed/index";
 import { loadActor } from "@/server/auth/loadActor";
-import { ForbiddenError } from "@/server/policy/can";
+import { can, ForbiddenError } from "@/server/policy/can";
 import { loadPersonFactsMany } from "@/server/policy/facts";
 import type { Actor } from "@/server/policy/types";
 import { deadlineSql } from "@/server/services/directory";
@@ -286,6 +286,46 @@ describe("Trouver", () => {
     expect(forAction.total).toBeLessThanOrEqual(
       (await findTeam(db, who("topaze"), { codes: ["PSE"], q: "" }, day)).total,
     );
+  });
+});
+
+describe("Trouver: without a competence", () => {
+  it("returns the present people lacking it, complement of « with », within training.read", async () => {
+    const present = await db.person.count({
+      where: { status: { in: ["ACTIVE", "PAUSED"] }, archivedAt: null },
+    });
+    const withPse = await findTeam(db, who("topaze"), { codes: ["PSE"], q: "" }, day);
+    const withoutPse = await findTeam(db, who("topaze"), { codes: [], q: "", without: "PSE" }, day);
+    expect(withoutPse.total).toBeGreaterThan(0);
+    expect(withPse.total + withoutPse.total).toBe(present);
+    const withIds = new Set(withPse.people.map((p) => p.id));
+    expect(withoutPse.people.some((p) => withIds.has(p.id))).toBe(false);
+    // Combined: PSC holders without PSE.
+    const psc = await findTeam(db, who("topaze"), { codes: ["PSC"], q: "" }, day);
+    const pscNotPse = await findTeam(
+      db,
+      who("topaze"),
+      { codes: ["PSC"], q: "", without: "PSE" },
+      day,
+    );
+    expect(pscNotPse.people.map((p) => p.id).sort()).toEqual(
+      psc.people
+        .filter((p) => !withIds.has(p.id))
+        .map((p) => p.id)
+        .sort(),
+    );
+    // A profile only finds people whose trainings it may read.
+    for (const key of ["action", "laser", "diamant"]) {
+      const found = await findTeam(db, who(key), { codes: [], q: "", without: "PSE" }, day);
+      const facts = await loadPersonFactsMany(
+        db,
+        found.people.map((p) => p.id),
+        day,
+      );
+      for (const person of facts.values()) {
+        expect(can(who(key), "training.read", { person }).allowed).toBe(true);
+      }
+    }
   });
 });
 
