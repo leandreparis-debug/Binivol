@@ -1085,3 +1085,31 @@ Les fournisseurs « identifiants » d'Auth.js ne fonctionnent pas avec les sessi
 identifiant permet à un tiers qui connaît un identifiant de bloquer son titulaire pendant un
 quart d'heure : accepté pour une poignée de comptes, TOPAZE peut toujours émettre un lien. La
 connexion démo (`@binivol.test`, ADR-035) est inchangée.
+
+## ADR-071 — Matrice éditable, recherche « sans », bandeau en démonstration seulement
+
+**Contexte.** Le responsable du projet demande (12/11/2026) de pouvoir corriger une formation
+depuis la matrice, de chercher les personnes qui n'ont **pas** une qualification, et de retirer
+le bandeau « Données fictives » de l'accueil : le serveur de test n'a que le seed de base.
+
+**Décision.**
+
+- **Matrice** : une case n'est cliquable que si le compte a `training.write` sur la personne
+  (calculé en SQL par `visibleSql`, miroir de `can()`, testé contre lui). Le clic ouvre les
+  lignes de la case ; ajout, modification (résultat, date) et suppression **par annulation
+  motivée** réutilisent les services de l'étape 10 (`recordTrainingGroup`,
+  `setTrainingResults`, `cancelTrainingRecord`), qui réautorisent chaque personne et écrivent
+  sous `withAudit`. Les actions de la matrice sont gardées par `training.write` avec la
+  personne en ressource (et non `trainingSession.manage` comme les écrans de session).
+- **« Sans »** : paramètre `sans=CODE` dans l'annuaire et dans « Trouver », négation exacte
+  du filtre « avec », combinable avec lui. Un filtre sur les formations (avec **ou** sans)
+  restreint en plus la liste à `visibleSql(actor, "training.read")` : sinon « sans PSE »
+  révélerait à ACTION ou DIAMANT l'absence de formation de personnes dont ils ne peuvent pas
+  lire les formations. Cette restriction s'applique aussi au filtre « avec » existant.
+- **Bandeau** : `DemoDataBanner` n'affiche « Données fictives » qu'en mode démonstration
+  (`AUTH_DEMO_LOGIN`). Les autres écrans le conditionnaient déjà ; `/design` (vitrine du design
+  system, exemples fictifs) le garde.
+
+**Conséquences.** Avec un filtre de qualification, ACTION, LASER, FORMAT GP et DIAMANT ne
+voient plus que les personnes de leur périmètre de formation (avant : toute leur visibilité
+d'annuaire). TOPAZE et FORMAT ne sont pas concernés.
