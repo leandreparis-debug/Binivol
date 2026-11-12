@@ -23,6 +23,15 @@ export interface MatrixCell {
   tone: "ok" | "warn" | "danger" | "accent" | "none";
 }
 
+/** Text and background classes of a cell, by tone (table, cards, dialog). */
+export const MATRIX_TONE: Record<MatrixCell["tone"], string> = {
+  ok: "text-ok-ink",
+  warn: "bg-warn-soft text-warn-ink",
+  danger: "bg-danger-soft text-danger-ink",
+  accent: "text-accent-ink",
+  none: "text-muted",
+};
+
 const short = (d: Date) => formatDate(d).slice(0, 5);
 
 export function matrixCell(

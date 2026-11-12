@@ -99,4 +99,60 @@ test.describe("Formations (bureau)", () => {
     await expect(dialog).toBeHidden();
     await expect(page.getByText(/^CI — Chef d'intervention/).first()).toBeVisible();
   });
+
+  test("TOPAZE ajoute, modifie puis supprime une formation depuis une case de la matrice", async ({
+    page,
+  }) => {
+    await loginAs(page, "topaze");
+    await page.goto("/formations/matrice?categorie=SECOURS");
+    const matrix = page.getByTestId("matrix");
+    const empty = matrix.getByRole("button", { name: /^[A-Z_]+ : aucune — / }).first();
+    const key = await empty.getAttribute("data-cell");
+    expect(key).toMatch(/^P-\d+:[A-Z_]+$/);
+    const cell = matrix.locator(`[data-cell="${key ?? ""}"]`);
+    await cell.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Aucune ligne pour cette formation.")).toBeVisible();
+    await expectNoSeriousViolation(page);
+
+    // Add: a pass (warnings accepted if any).
+    await dialog.getByLabel("Lieu").fill("Versailles");
+    await dialog.getByRole("button", { name: "Ajouter", exact: true }).click();
+    const warnings = dialog.getByTestId("warnings");
+    const line = dialog.getByTestId("matrix-line");
+    await expect(line.or(warnings).first()).toBeVisible();
+    if (await warnings.isVisible()) {
+      await warnings.getByRole("button", { name: "Enregistrer quand même" }).click();
+    }
+    await expect(line).toHaveCount(1);
+    await expect(line).toContainText("Validé");
+    await expect(line).toContainText("Versailles");
+    await expect(cell).toHaveAccessibleName(/: valide/);
+
+    // Change: the result.
+    await line.getByRole("button", { name: /^Modifier la ligne/ }).click();
+    await line.getByLabel("Résultat").selectOption("FAILED");
+    await line.getByRole("button", { name: "Enregistrer la modification" }).click();
+    await expect(line).toContainText("Non validé");
+    await expect(cell).toHaveAccessibleName(/: aucune/);
+
+    // Remove: cancelled with a reason (kept in the history).
+    await line.getByRole("button", { name: /^Supprimer la ligne/ }).click();
+    const confirm = line.getByRole("button", { name: "Supprimer la ligne", exact: true });
+    await confirm.click();
+    await expect(line.getByText("Le motif est obligatoire.")).toBeVisible();
+    await line.getByLabel("Motif de la suppression").fill("Saisie de test");
+    await confirm.click();
+    await expect(dialog.getByText("Aucune ligne pour cette formation.")).toBeVisible();
+    await dialog.getByRole("button", { name: "Fermer" }).last().click();
+    await expect(dialog).toBeHidden();
+  });
+
+  test("ACTION voit la matrice en lecture seule", async ({ page }) => {
+    await loginAs(page, "action");
+    await page.goto("/formations/matrice");
+    const matrix = page.getByTestId("matrix");
+    await expect(matrix.locator("td").first()).toHaveAttribute("aria-label", /^[A-Z_]+ : /);
+    await expect(matrix.getByRole("button")).toHaveCount(0);
+  });
 });

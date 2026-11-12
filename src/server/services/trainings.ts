@@ -12,7 +12,12 @@ import type { Db, DbOrTx } from "../db";
 import { DomainError } from "../errors";
 import { notifyUrgence, type UrgenceOutcome } from "./urgence";
 import { authorize, can, canSome } from "../policy/can";
-import { loadFunctionFacts, loadPersonFactsMany, newVolunteerMonths } from "../policy/facts";
+import {
+  loadFunctionFacts,
+  loadPersonFacts,
+  loadPersonFactsMany,
+  newVolunteerMonths,
+} from "../policy/facts";
 import type { Actor, PersonFacts } from "../policy/types";
 import { visibleSql } from "../policy/visibility";
 import {
@@ -615,6 +620,22 @@ export async function setTrainingResults(
     });
   }
   return count;
+}
+
+/**
+ * Facts of the person a training line belongs to (resource of the actions
+ * that edit one line), or null when the line does not exist.
+ */
+export async function trainingRecordPersonFacts(
+  db: DbOrTx,
+  recordId: string,
+  today: Date = toParisDay(),
+): Promise<PersonFacts | null> {
+  const row = await db.trainingRecord.findUnique({
+    where: { id: recordId },
+    select: { personId: true },
+  });
+  return row ? loadPersonFacts(db, row.personId, today) : null;
 }
 
 /** Cancels a line (reason required): never deleted, ignored by the states. */
