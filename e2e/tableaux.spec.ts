@@ -48,9 +48,9 @@ test("la matrice se parcourt au clavier", async ({ page }, testInfo) => {
   await expect.poll(() => matrix.evaluate((el) => el.scrollLeft)).toBeGreaterThan(before);
   // Every cell carries a complete label (on the cell, or on its button when editable).
   const cell = matrix.locator("td").first();
-  const label =
-    (await cell.getAttribute("aria-label")) ?? (await cell.getByRole("button").innerText());
-  expect(label).toMatch(/^[A-Z_]+ : /);
+  const label = await cell.getAttribute("aria-label");
+  if (label === null) await expect(cell.getByRole("button")).toHaveAccessibleName(/^[A-Z_]+ : /);
+  else expect(label).toMatch(/^[A-Z_]+ : /);
   await page.getByRole("link", { name: "Tronc commun" }).click();
   await expect(page).toHaveURL(/categorie=TRONC_COMMUN/);
 });
