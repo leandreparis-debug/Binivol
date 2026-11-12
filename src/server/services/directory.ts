@@ -8,7 +8,12 @@ import type { DbOrTx } from "../db";
 import { can, personPageAccess } from "../policy/can";
 import { loadPersonFactsMany } from "../policy/facts";
 import type { Actor } from "../policy/types";
-import { directoryVisibilitySql, perimeterSql, type VisibilityContext } from "../policy/visibility";
+import {
+  directoryVisibilitySql,
+  perimeterSql,
+  visibleSql,
+  type VisibilityContext,
+} from "../policy/visibility";
 import { escapeLike, searchTerms } from "../repositories/personRepository";
 import { minorSql } from "../sensitive";
 import { numericSettings } from "../settings";
@@ -51,6 +56,14 @@ const flag = z
   .optional()
   .transform((v) => v === "1" || v === "oui");
 
+const trainingCode = z
+  .string()
+  .optional()
+  .transform((v) => {
+    const code = (v ?? "").trim().toUpperCase();
+    return /^[A-Z0-9_]{1,40}$/.test(code) ? code : null;
+  });
+
 /** URL parameters of `/benevoles` (French names), validated. Invalid values are ignored. */
 export const directoryQuerySchema = z.object({
   q: z
@@ -59,13 +72,10 @@ export const directoryQuerySchema = z.object({
     .transform((v) => (v ?? "").slice(0, 100).trim()),
   statut: csv(STATUSES),
   perimetre: csv(PERIMETERS),
-  qualification: z
-    .string()
-    .optional()
-    .transform((v) => {
-      const code = (v ?? "").trim().toUpperCase();
-      return /^[A-Z0-9_]{1,40}$/.test(code) ? code : null;
-    }),
+  /** Holds a valid pass of this training. */
+  qualification: trainingCode,
+  /** Holds **no** valid pass of this training (combinable with `qualification`). */
+  sans: trainingCode,
   echeance: z
     .enum(["proche", "expiree"])
     .optional()
@@ -107,6 +117,7 @@ export function hasFilters(query: DirectoryQuery): boolean {
     query.statut.length > 0 ||
     query.perimetre.length > 0 ||
     query.qualification !== null ||
+    query.sans !== null ||
     query.echeance !== null ||
     query.indicateur !== null ||
     query.mineur ||
@@ -163,7 +174,8 @@ export function deadlineSql(kind: "proche" | "expiree", day: Date, alertDays: nu
   )`;
 }
 
-function qualificationSql(code: string, day: Date): Prisma.Sql {
+/** The person holds a valid pass of `code` on `day` (mirror of the « valid » states). */
+export function qualificationSql(code: string, day: Date): Prisma.Sql {
   return Prisma.sql`EXISTS (
     SELECT 1 FROM training_records tr
     JOIN reference_items ri ON ri.id = tr.reference_id
@@ -218,7 +230,13 @@ export function directoryConditions(
       )})`,
     );
   }
+  if (query.qualification || query.sans) {
+    // A filter on trainings only applies to people whose trainings the actor
+    // may read: « has » or « has not » must reveal nothing about the others.
+    conditions.push(visibleSql(actor, "training.read", ctx));
+  }
   if (query.qualification) conditions.push(qualificationSql(query.qualification, ctx.day));
+  if (query.sans) conditions.push(Prisma.sql`NOT ${qualificationSql(query.sans, ctx.day)}`);
   if (query.echeance) conditions.push(deadlineSql(query.echeance, ctx.day, ctx.alertDays));
   if (query.indicateur) {
     const def = ctx.indicators?.find((i) => i.key === query.indicateur);

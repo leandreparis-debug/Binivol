@@ -19,7 +19,8 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 /**
- * « Trouver » (legacy tool): up to 3 valid competences (AND) and a name;
+ * « Trouver » (legacy tool): up to 3 valid competences (AND), one competence
+ * the people must **not** hold, and a name;
  * present people only, never suspended; the directory visibility applies in
  * SQL. Phone and e-mail are directory fields (not `PersonSensitive`).
  */
@@ -31,9 +32,10 @@ export default async function FindPage({ searchParams }: { searchParams: SearchP
   const codes = ["c1", "c2", "c3"]
     .map((k) => first(raw[k]))
     .filter((c) => options.some((o) => o.code === c));
+  const without = options.find((o) => o.code === first(raw.sans))?.code ?? null;
   const q = first(raw.q).slice(0, 80);
-  const searched = codes.length > 0 || q.trim() !== "";
-  const result = searched ? await findTeam(db, actor, { codes, q }) : null;
+  const searched = codes.length > 0 || without !== null || q.trim() !== "";
+  const result = searched ? await findTeam(db, actor, { codes, q, without }) : null;
   return (
     <>
       <Card>
@@ -61,6 +63,16 @@ export default async function FindPage({ searchParams }: { searchParams: SearchP
                 </Select>
               </Field>
             ))}
+            <Field label="Sans la compétence" htmlFor="find-sans" className="min-w-48">
+              <Select id="find-sans" name="sans" defaultValue={without ?? ""}>
+                <option value="">—</option>
+                {options.map((o) => (
+                  <option key={o.id} value={o.code}>
+                    {o.code} — {o.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Nom" htmlFor="find-q" className="min-w-48">
               <Input id="find-q" name="q" type="search" defaultValue={q} />
             </Field>
@@ -76,6 +88,7 @@ export default async function FindPage({ searchParams }: { searchParams: SearchP
               {result.total > 1 ? "s" : ""}
               {codes.length > 0 &&
                 ` avec ${codes.join(" + ")} valide${codes.length > 1 ? "s" : ""}`}
+              {without && ` sans ${without} valide`}
             </p>
             <CopyEmails emails={result.people.flatMap((p) => (p.email ? [p.email] : []))} />
           </div>

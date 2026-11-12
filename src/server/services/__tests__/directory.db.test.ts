@@ -227,6 +227,44 @@ describe("directory: search and filters", () => {
     expect(soon.length + expired.length).toBeGreaterThan(0);
   });
 
+  it("filters people WITHOUT a valid qualification: the exact complement, combinable", async () => {
+    const all = ids(await allRows(topaze(), query()));
+    const withPse = ids(await allRows(topaze(), query({ qualification: "PSE" })));
+    const withoutPse = ids(await allRows(topaze(), query({ sans: "pse" })));
+    expect(withPse.length).toBeGreaterThan(0);
+    expect(withoutPse.length).toBeGreaterThan(0);
+    expect(withoutPse.filter((id) => withPse.includes(id))).toEqual([]);
+    expect([...withPse, ...withoutPse].sort()).toEqual(all);
+    // « PSC but not PSE » (people to train), counted in SQL like the list.
+    const psc = ids(await allRows(topaze(), query({ qualification: "PSC" })));
+    const both = query({ qualification: "PSC", sans: "PSE" });
+    const pscNotPse = await allRows(topaze(), both);
+    expect(ids(pscNotPse)).toEqual(psc.filter((id) => !withPse.includes(id)));
+    expect((await listDirectory(db, topaze(), both, { day })).total).toBe(pscNotPse.length);
+  });
+
+  it.each(["topaze", "action", "laser", "format", "format-gp", "diamant"])(
+    "%s: « with » / « without » only return people whose trainings it may read (can())",
+    async (key) => {
+      const actor = who(key);
+      const withPse = ids(await allRows(topaze(), query({ qualification: "PSE" })));
+      const visible = await expectedVisible(actor);
+      const facts = await loadPersonFactsMany(db, visible, day);
+      const readable = visible.filter((id) => {
+        const person = facts.get(id);
+        return person !== undefined && can(actor, "training.read", { person }).allowed;
+      });
+      for (const [params, expected] of [
+        [{ sans: "PSE" }, readable.filter((id) => !withPse.includes(id))],
+        [{ qualification: "PSE" }, readable.filter((id) => withPse.includes(id))],
+      ] as const) {
+        const rows = await allRows(actor, query(params));
+        expect(ids(rows)).toEqual(expected);
+        expect((await listDirectory(db, actor, query(params), { day })).total).toBe(rows.length);
+      }
+    },
+  );
+
   it("filters minors and trainers", async () => {
     const minors = await allRows(topaze(), query({ mineur: "1", statut: "ACTIVE,CANDIDATE" }));
     const sensitive = await db.personSensitive.findMany({
@@ -255,8 +293,16 @@ describe("directory: search and filters", () => {
         echeance: "demain",
         apres: "../x",
         qualification: "x y",
+        sans: "PSE;--",
       }),
-    ).toMatchObject({ statut: ["ACTIVE"], echeance: null, apres: null, qualification: null });
+    ).toMatchObject({
+      statut: ["ACTIVE"],
+      echeance: null,
+      apres: null,
+      qualification: null,
+      sans: null,
+    });
+    expect(parseDirectoryQuery({ sans: " pse " }).sans).toBe("PSE");
   });
 });
 
