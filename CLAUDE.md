@@ -40,8 +40,9 @@ Six profils de responsables, cumulables :
 
 Les données de bénévoles sont des données personnelles classées C3 confidentiel. Dans le dépôt,
 les tests, les seeds, les captures et les exemples : **uniquement des données synthétiques**,
-marquées « Données fictives » à l'écran (`FakeDataBanner`). Jamais de vrai nom, NIVOL, mail,
-téléphone ni adresse.
+marquées « Données fictives » à l'écran (`FakeDataBanner`) **en mode démonstration seulement**
+(`AUTH_DEMO_LOGIN`, `DemoDataBanner`) : un serveur sans données de démonstration (VPS de test,
+production) n'affiche pas ce bandeau. Jamais de vrai nom, NIVOL, mail, téléphone ni adresse.
 
 ## Langue
 

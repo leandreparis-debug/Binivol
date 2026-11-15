@@ -1,5 +1,5 @@
 import { BellOff } from "lucide-react";
-import { FakeDataBanner } from "@/components/layout/FakeDataBanner";
+import { DemoDataBanner } from "@/components/layout/DemoDataBanner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
@@ -48,7 +48,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
         title={`Bonjour ${firstName}`}
         eyebrow={formatDayWithWeekday(new Date())}
         subtitle="Voici l'état de l'unité locale aujourd'hui."
-        actions={<FakeDataBanner />}
+        actions={<DemoDataBanner />}
       />
 
       {dlus && <DlusDashboard data={dlus} />}

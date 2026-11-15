@@ -75,6 +75,16 @@ export const sessionSchema = z
 
 export const cancelSchema = z.object({ id, reason });
 
+/** One line edited from the matrix: its result and, optionally, its date. */
+export const recordUpdateSchema = z.object({
+  id,
+  result: z.enum(ENTRY_RESULTS, { error: "Choisissez un résultat." }),
+  date: optionalDay,
+});
+
+/** The cell of the matrix clicked (person × training). */
+export const matrixCellSchema = z.object({ personId: id, referenceId: id });
+
 export const resultsSchema = z.object({
   recordIds: z.array(id).min(1, "Cochez au moins une ligne.").max(200),
   result: z.enum(Object.values(TrainingResult) as [TrainingResult, ...TrainingResult[]]),

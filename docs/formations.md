@@ -61,7 +61,8 @@ Sous-navigation en pilules, chaque page vérifie son action :
 | Session          | idem                                      | inscrits, résultats un par un ou en lot, inscription de personnes, attente de la formation     |
 | Saisie de groupe | idem                                      | une formation, une date, un résultat, puis des cases sur les personnes (recherche)             |
 | Listes d'attente | idem                                      | souhaits par formation, priorité puis ancienneté ; « Inscrire » sur une session à venir        |
-| Trouver          | `training.read`                           | jusqu'à 3 compétences valides (ET) et un nom                                                   |
+| Trouver          | `training.read`                           | jusqu'à 3 compétences valides (ET), une compétence absente (« Sans ») et un nom                |
+| Matrice          | `training.read`                           | personnes × formations ; une case s'édite avec `training.write` (voir « Matrice »)             |
 | Référentiel      | `reference.manage` (TOPAZE, FORMAT)       | libellé, catégorie, validité, 31/12, interdit aux mineurs, prérequis, `managedBy`, actif       |
 
 - **Résultats** : `REGISTERED` → `PASSED`, `FAILED`, `ABSENT`, `TO_CONFIRM` ; `expiresAt`
@@ -75,12 +76,28 @@ Sous-navigation en pilules, chaque page vérifie son action :
 
 - Seulement les présents (`ACTIVE`, `PAUSED`), **jamais les suspendus**, non archivés.
 - Filtré **en SQL avant de compter** par la visibilité de l'annuaire (`visibleSql`,
-  `person.directory.read`).
+  `person.directory.read`). Dès qu'une compétence est demandée (avec ou sans), la liste se
+  limite en plus aux personnes dont le compte peut lire les formations (`training.read`,
+  ADR-071).
+- « Sans la compétence » : la personne n'en a pas d'état valide (négation exacte de « avec »),
+  combinable avec les compétences demandées (« PSC mais pas PSE »).
 - Une compétence est détenue quand son état est valide : réussite non expirée (datée ou non)
   ou nomination en cours.
 - Cartes : nom, compétences demandées avec leur état, téléphone (`tel:`) et e-mail (`mailto:`)
   cliquables, « Copier les e-mails » (séparés par `;`). Téléphone et e-mail sont des champs de
   l'annuaire (`persons`), pas des données de `PersonSensitive`.
+
+## Matrice
+
+- Lignes : présents du périmètre (`training.read`) ; colonnes : formations actives.
+- Avec `training.write` sur la personne (TOPAZE ; FORMAT hors candidats), chaque case est un
+  bouton : il ouvre les lignes non annulées de cette formation pour elle, chargées à la
+  demande (`matrixCellAction`). On peut **ajouter** une formation suivie (résultat, date,
+  lieu ; avertissements puis « Enregistrer quand même »), **modifier** une ligne (résultat,
+  date ; échéance recalculée) ou la **supprimer** : annulation avec motif, la ligne reste dans
+  l'historique (jamais de suppression physique). Tout passe par `withAudit`.
+- Sans `training.write`, la case reste en lecture seule. Sur téléphone, les cartes ne
+  s'éditent pas : le nom ouvre l'onglet Formations de la fiche.
 
 ## Fiche
 

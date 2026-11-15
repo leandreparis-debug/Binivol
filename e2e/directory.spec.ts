@@ -77,6 +77,35 @@ test.describe("Annuaire et fiche (bureau)", () => {
     });
   }
 
+  test("TOPAZE cherche les personnes avec, puis sans une qualification", async ({ page }) => {
+    await loginAs(page, "topaze");
+    const count = async () => {
+      const text = await page
+        .getByRole("status")
+        .filter({ hasText: /personnes?$/ })
+        .innerText();
+      return Number(/^(\d+)/.exec(text)?.[1] ?? "NaN");
+    };
+    await page.goto("/benevoles");
+    const all = await count();
+    await page.getByLabel("Avec la qualification").selectOption("PSE");
+    await expect(page).toHaveURL(/qualification=PSE/);
+    await expect.poll(count).toBeLessThan(all);
+    const withPse = await count();
+    await page.getByLabel("Avec la qualification").selectOption("");
+    await expect(page).not.toHaveURL(/qualification=/);
+    await page.getByLabel("Sans la qualification").selectOption("PSE");
+    await expect(page).toHaveURL(/sans=PSE/);
+    await expect.poll(count).toBe(all - withPse);
+    expect(withPse).toBeGreaterThan(0);
+    expect(all - withPse).toBeGreaterThan(0);
+    // Combined: PSC holders who do not hold PSE (people to train).
+    await page.getByLabel("Avec la qualification").selectOption("PSC");
+    await expect(page).toHaveURL(/qualification=PSC&sans=PSE|sans=PSE&qualification=PSC/);
+    await expect.poll(count).toBeLessThanOrEqual(all - withPse);
+    await expectNoSeriousViolation(page);
+  });
+
   test("FORMAT ouvre une fiche réduite à l'onglet Formations", async ({ page }) => {
     await loginAs(page, "format");
     const [first] = await directoryLinks(page, "statut=ACTIVE");

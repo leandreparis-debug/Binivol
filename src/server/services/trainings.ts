@@ -12,7 +12,12 @@ import type { Db, DbOrTx } from "../db";
 import { DomainError } from "../errors";
 import { notifyUrgence, type UrgenceOutcome } from "./urgence";
 import { authorize, can, canSome } from "../policy/can";
-import { loadFunctionFacts, loadPersonFactsMany, newVolunteerMonths } from "../policy/facts";
+import {
+  loadFunctionFacts,
+  loadPersonFacts,
+  loadPersonFactsMany,
+  newVolunteerMonths,
+} from "../policy/facts";
 import type { Actor, PersonFacts } from "../policy/types";
 import { visibleSql } from "../policy/visibility";
 import {
@@ -617,6 +622,22 @@ export async function setTrainingResults(
   return count;
 }
 
+/**
+ * Facts of the person a training line belongs to (resource of the actions
+ * that edit one line), or null when the line does not exist.
+ */
+export async function trainingRecordPersonFacts(
+  db: DbOrTx,
+  recordId: string,
+  today: Date = toParisDay(),
+): Promise<PersonFacts | null> {
+  const row = await db.trainingRecord.findUnique({
+    where: { id: recordId },
+    select: { personId: true },
+  });
+  return row ? loadPersonFacts(db, row.personId, today) : null;
+}
+
 /** Cancels a line (reason required): never deleted, ignored by the states. */
 export async function cancelTrainingRecord(
   db: Db,
@@ -814,8 +835,23 @@ export interface FoundPerson {
 }
 
 /**
+ * The person holds the competence `code` on `day` (valid state): a pass not
+ * expired (dated or not), or an active appointment for a function.
+ */
+function heldSql(code: string, day: Date): Prisma.Sql {
+  return Prisma.sql`(
+      EXISTS (SELECT 1 FROM training_records t JOIN reference_items r ON r.id = t.reference_id
+              WHERE t.person_id = p.id AND r.code = ${code} AND t.result = 'PASSED'::"TrainingResult"
+                AND t.cancelled_at IS NULL AND (t.expires_at IS NULL OR t.expires_at >= ${day}::date))
+      OR EXISTS (SELECT 1 FROM appointments a JOIN reference_items r ON r.id = a.reference_id
+              WHERE a.person_id = p.id AND r.code = ${code} AND a.cancelled_at IS NULL
+                AND (a.start_date IS NULL OR a.start_date <= ${day}::date)
+                AND (a.end_date IS NULL OR a.end_date >= ${day}::date)))`;
+}
+
+/**
  * Present people (ACTIVE, PAUSED: never SUSPENDED) holding every requested
- * competence, filtered by the directory visibility **in SQL** before
+ * competence, and not the `without` one, filtered by the directory visibility **in SQL** before
  * counting. A competence is held when its state is valid (see
  * `qualification.ts`): a pass not expired (dated or not), or an active
  * appointment for a function. The pure state is then computed for display.
@@ -823,7 +859,7 @@ export interface FoundPerson {
 export async function findTeam(
   db: DbOrTx,
   actor: Actor,
-  input: { codes: string[]; q: string },
+  input: { codes: string[]; q: string; without?: string | null },
   day: Date = toParisDay(),
 ): Promise<{ total: number; people: FoundPerson[] }> {
   // The list is filtered by the directory visibility (SQL); the page requires `training.read`.
@@ -835,16 +871,15 @@ export async function findTeam(
     Prisma.sql`p.status IN ('ACTIVE'::"PersonStatus", 'PAUSED'::"PersonStatus")`,
     Prisma.sql`p.archived_at IS NULL`,
   ];
-  for (const code of codes) {
-    conditions.push(Prisma.sql`(
-      EXISTS (SELECT 1 FROM training_records t JOIN reference_items r ON r.id = t.reference_id
-              WHERE t.person_id = p.id AND r.code = ${code} AND t.result = 'PASSED'::"TrainingResult"
-                AND t.cancelled_at IS NULL AND (t.expires_at IS NULL OR t.expires_at >= ${day}::date))
-      OR EXISTS (SELECT 1 FROM appointments a JOIN reference_items r ON r.id = a.reference_id
-              WHERE a.person_id = p.id AND r.code = ${code} AND a.cancelled_at IS NULL
-                AND (a.start_date IS NULL OR a.start_date <= ${day}::date)
-                AND (a.end_date IS NULL OR a.end_date >= ${day}::date)))`);
+  const trimmed = input.without?.trim() ?? "";
+  const without = trimmed === "" ? null : trimmed;
+  if (codes.length > 0 || without) {
+    // Filtering on competences reveals them: only people whose trainings
+    // the actor may read (`training.read`), « with » as well as « without ».
+    conditions.push(visibleSql(actor, "training.read", ctx));
   }
+  for (const code of codes) conditions.push(heldSql(code, day));
+  if (without) conditions.push(Prisma.sql`NOT ${heldSql(without, day)}`);
   for (const term of directoryTerms(input.q)) conditions.push(termSql(term));
   const where = Prisma.join(conditions, " AND ");
   const [count] = await db.$queryRaw<

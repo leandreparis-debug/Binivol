@@ -6,7 +6,7 @@ test.describe("Accueil", () => {
     await loginAs(page, "topaze");
   });
 
-  test("affiche le prénom du compte connecté et la mention « Données fictives »", async ({
+  test("affiche le prénom du compte connecté, et « Données fictives » en mode démonstration", async ({
     page,
   }) => {
     await expect(page.getByRole("heading", { level: 1, name: "Bonjour Alex" })).toBeVisible();
