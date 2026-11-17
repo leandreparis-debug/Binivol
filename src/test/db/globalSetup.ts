@@ -11,6 +11,8 @@ export default async function setup(): Promise<void> {
   const url = resolveTestDatabaseUrl();
   const db = createDb(url);
   try {
+    // binivol_share holds views and a function over public: dropped too (docs/binivol-share.md).
+    await db.$executeRawUnsafe("DROP SCHEMA IF EXISTS binivol_share CASCADE");
     await db.$executeRawUnsafe("DROP SCHEMA IF EXISTS public CASCADE");
     await db.$executeRawUnsafe("CREATE SCHEMA public");
   } finally {
